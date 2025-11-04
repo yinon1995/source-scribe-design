@@ -12,7 +12,7 @@ const Navigation = () => {
   const navLinks = NAV_CATEGORIES.filter((c) => !HIDDEN_CATEGORY_LABELS.includes(c.label));
 
   return (
-    <nav className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+    <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4">
         <div className="flex h-20 items-center justify-between">
           {/* Logo */}

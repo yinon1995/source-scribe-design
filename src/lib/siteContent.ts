@@ -23,7 +23,7 @@ export const site = {
   },
   footer: {
     social: {
-      linkedin: "https://www.linkedin.com/in/nolwennrobet?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=ios_app",
+      linkedin: "https://www.linkedin.com/in/nolwennrobet",
       tiktok: "https://www.tiktok.com/@nollaframboise?_r=1&_t=ZN-917nFjtOgH0",
     },
     legal: {

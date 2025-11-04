@@ -17,7 +17,7 @@ const Footer = () => {
               {site.name}
             </h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Des articles à la brestoise : Événements, lieux et beauté
+              {site.tagline}
             </p>
           </div>
 

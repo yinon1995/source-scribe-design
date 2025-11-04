@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Navigation from "@/components/Navigation";
 import Index from "./pages/Index";
 import Articles from "./pages/Articles";
 import ArticleDetail from "./pages/ArticleDetail";
@@ -24,21 +25,24 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/articles" element={<Articles />} />
-          <Route path="/articles/:slug" element={<ArticleDetail />} />
-          <Route path="/admin/new" element={<AdminNew />} />
-          <Route path="/thematiques" element={<Thematiques />} />
-          <Route path="/a-propos" element={<About />} />
-          <Route path="/services" element={<Services />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/mentions-legales" element={<LegalMentions />} />
-          <Route path="/politique-de-confidentialite" element={<Privacy />} />
-          <Route path="/conditions-dutilisation" element={<Terms />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <Navigation />
+        <main className="pt-20">
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/articles" element={<Articles />} />
+            <Route path="/articles/:slug" element={<ArticleDetail />} />
+            <Route path="/admin/new" element={<AdminNew />} />
+            <Route path="/thematiques" element={<Thematiques />} />
+            <Route path="/a-propos" element={<About />} />
+            <Route path="/services" element={<Services />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/mentions-legales" element={<LegalMentions />} />
+            <Route path="/politique-de-confidentialite" element={<Privacy />} />
+            <Route path="/conditions-dutilisation" element={<Terms />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </main>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
