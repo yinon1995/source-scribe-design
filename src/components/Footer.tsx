@@ -73,6 +73,9 @@ const Footer = () => {
             <a href={site.footer.social.tiktok} target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               TikTok
             </a>
+            <a href={site.footer.social.whatsapp} target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              WhatsApp +33 6 58 29 72 20
+            </a>
           </div>
         </div>
       </div>

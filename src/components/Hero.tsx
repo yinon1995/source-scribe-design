@@ -14,9 +14,6 @@ const Hero = () => {
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold text-foreground leading-tight tracking-tight">
                 {site.hero.title}
               </h1>
-              <p className="text-xl text-muted-foreground leading-relaxed">
-                {site.tagline}
-              </p>
             </div>
             
             <p className="text-lg text-muted-foreground max-w-lg leading-relaxed">

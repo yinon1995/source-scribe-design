@@ -2,7 +2,7 @@ export const site = {
   name: "À la Brestoise",
   tagline: "Des articles à la brestoise : Événements, lieux et beauté",
   hero: {
-    title: "Articles élégants, fiables et faciles à lire.",
+    title: "Des articles à la brestoise : Événements, lieux et beauté",
     subtitle:
       "Explorez des contenus clairs, vivants — rédigés et sourcés.",
     ctaLabel: "Lire les articles",
@@ -24,6 +24,7 @@ export const site = {
   footer: {
     social: {
       linkedin: "https://www.linkedin.com/in/nolwennrobet",
+      whatsapp: "https://wa.me/33658297220",
       tiktok: "https://www.tiktok.com/@nollaframboise?_r=1&_t=ZN-917nFjtOgH0",
     },
     legal: {
