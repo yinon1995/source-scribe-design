@@ -4,7 +4,7 @@ export const site = {
   hero: {
     title: "Des articles à la Brestoise : Événements, Lieux et Bien-être",
     subtitle:
-      "Explorez des contenus clairs, vivants — rédigés et sourcés.",
+      "Explorez des contenus clairs, vivants, rédigés et sourcés.",
     ctaLabel: "Lire les articles",
     ctaHref: "/articles",
   },

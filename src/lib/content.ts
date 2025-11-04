@@ -108,12 +108,53 @@ const posts: Post[] = rawPosts.map((rp) => {
   return { ...fm, body: content };
 });
 
-export const postsIndex: PostFrontmatter[] = [...posts]
-  .sort((a, b) => (a.date < b.date ? 1 : -1))
-  .map(({ body, ...fm }) => fm);
+// New JSON-based articles (published via /api/publish)
+export type JsonArticle = {
+  title: string;
+  slug: string;
+  category: "Commerces & lieux" | "Expérience" | "Beauté";
+  tags: string[];
+  cover: string;
+  excerpt: string;
+  body: string; // markdown
+  author: string;
+  date: string; // ISO
+};
+
+// Load any JSON articles if present. When none exist, the globs will be empty.
+const jsonArticleModules = import.meta.glob("/content/articles/*.json", { eager: true }) as Record<string, any>;
+
+const jsonArticles: JsonArticle[] = Object.values(jsonArticleModules)
+  .map((mod: any) => (mod && typeof mod === "object" && "default" in mod ? (mod as any).default : mod))
+  .filter(Boolean) as JsonArticle[];
+
+const jsonArticlesIndex: PostFrontmatter[] = jsonArticles.map((a) => ({
+  title: a.title,
+  slug: a.slug,
+  date: a.date?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+  summary: a.excerpt,
+  tags: a.tags,
+  heroImage: a.cover || undefined,
+}));
+
+export const postsIndex: PostFrontmatter[] = [...posts.map(({ body, ...fm }) => fm), ...jsonArticlesIndex]
+  .sort((a, b) => (a.date < b.date ? 1 : -1));
 
 export function getPostBySlug(slug: string): Post | undefined {
-  return posts.find((p) => p.slug === slug);
+  const md = posts.find((p) => p.slug === slug);
+  if (md) return md;
+  const ja = jsonArticles.find((a) => a.slug === slug);
+  if (!ja) return undefined;
+  const mapped: Post = {
+    title: ja.title,
+    slug: ja.slug,
+    date: ja.date?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+    summary: ja.excerpt,
+    tags: ja.tags,
+    heroImage: ja.cover || undefined,
+    body: ja.body,
+  };
+  return mapped;
 }
 
 

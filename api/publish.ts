@@ -1,50 +1,57 @@
-// Vercel Node 18 serverless function to publish a Markdown post to GitHub
+// Vercel function to publish JSON articles to GitHub (contents API)
 
-type ImagePayload = { base64: string; filename: string };
-
-type PublishBody = {
+type Article = {
   title: string;
-  summary: string;
-  tags?: string[];
-  bodyMarkdown: string;
-  date?: string;
-  image?: ImagePayload;
+  slug: string;
+  category: "Commerces & lieux" | "Expérience" | "Beauté";
+  tags: string[];
+  cover: string;
+  excerpt: string;
+  body: string; // markdown
+  author: string;
+  date: string; // ISO
 };
 
 function toBase64(content: string | Uint8Array) {
   return Buffer.from(content).toString("base64");
 }
 
-function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)+/g, "");
+const REPO = process.env.GITHUB_REPO; // e.g. "nolwennrobet-lab/source-scribe-design"
+const TOKEN = process.env.GITHUB_TOKEN;
+const BRANCH = process.env.GITHUB_BRANCH || "main";
+
+async function githubGet(path: string) {
+  if (!REPO || !TOKEN) return undefined;
+  const url = `https://api.github.com/repos/${REPO}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(BRANCH)}`;
+  const res = await fetch(url, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `token ${TOKEN}`,
+    },
+  });
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error(`GitHub GET ${res.status}`);
+  return res.json();
 }
 
-async function githubPutContent(path: string, content: string | Uint8Array, message: string) {
-  const owner = process.env.GITHUB_OWNER as string;
-  const repo = process.env.GITHUB_REPO as string;
-  const branch = process.env.GITHUB_BRANCH || "main";
-  const token = process.env.GITHUB_TOKEN as string;
-  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
+async function githubPut(path: string, content: string, message: string) {
+  if (!REPO || !TOKEN) throw new Error("Missing GitHub credentials");
+  let sha: string | undefined;
+  const existing = await githubGet(path);
+  if (existing && typeof existing.sha === "string") sha = existing.sha;
+  const url = `https://api.github.com/repos/${REPO}/contents/${encodeURIComponent(path)}`;
   const res = await fetch(url, {
     method: "PUT",
     headers: {
-      Authorization: `token ${token}`,
       Accept: "application/vnd.github+json",
+      Authorization: `token ${TOKEN}`,
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      message,
-      content: toBase64(content),
-      branch,
-    }),
+    body: JSON.stringify({ message, content: toBase64(content), branch: BRANCH, sha }),
   });
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(`GitHub error ${res.status}: ${txt}`);
+    throw new Error(`GitHub PUT ${res.status}: ${txt}`);
   }
   return res.json();
 }
@@ -55,68 +62,67 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  const adminPassword = req.headers["x-admin-password"] || req.headers["X-Admin-Password"] || req.headers["x-ADMIN-password"];
-  if (!adminPassword || adminPassword !== process.env.ADMIN_PASSWORD) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
-  let body: PublishBody | undefined;
+  let article: Article | undefined;
   try {
-    body = req.body && typeof req.body === "object" ? req.body : JSON.parse(req.body || "{}");
+    article = req.body && typeof req.body === "object" ? req.body : JSON.parse(req.body || "{}");
   } catch {
     res.status(400).json({ error: "Invalid JSON" });
     return;
   }
 
-  if (!body || !body.title || !body.summary || !body.bodyMarkdown) {
-    res.status(400).json({ error: "Missing required fields: title, summary, bodyMarkdown" });
+  if (!article || !article.title || !article.slug || !article.body) {
+    res.status(400).json({ error: "Missing required fields: title, slug, body" });
     return;
   }
 
-  const dateStr = body.date || new Date().toISOString().slice(0, 10);
-  const slug = slugify(body.title);
-  const y = dateStr.slice(0, 4);
-  const m = dateStr.slice(5, 7);
-
-  let heroImagePath: string | undefined;
-  if (body.image?.base64 && body.image?.filename) {
-    const cleanName = body.image.filename.replace(/[^A-Za-z0-9_.-]/g, "-");
-    heroImagePath = `public/images/${y}/${m}/${slug}-${cleanName}`;
-    const imagePublicUrl = `/images/${y}/${m}/${slug}-${cleanName}`;
-    const commaIdx = body.image.base64.indexOf(",");
-    const base64Data = commaIdx >= 0 ? body.image.base64.slice(commaIdx + 1) : body.image.base64;
-    await githubPutContent(heroImagePath, Buffer.from(base64Data, "base64"), `chore(cms): add hero image for ${slug}`);
-    heroImagePath = imagePublicUrl;
+  // If missing credentials, gracefully report ok:false and keep draft
+  if (!REPO || !TOKEN) {
+    res.status(200).json({ ok: false, error: "Missing GitHub credentials (GITHUB_REPO/GITHUB_TOKEN). Draft kept locally." });
+    return;
   }
 
-  const frontmatter = [
-    "---",
-    `title: "${body.title.replace(/"/g, '\\"')}` + "",
-    `slug: "${slug}` + "",
-    `date: "${dateStr}` + "",
-    `summary: "${body.summary.replace(/"/g, '\\"')}` + "",
-    body.tags && body.tags.length ? `tags: [${body.tags.map((t) => `"${t.replace(/"/g, '\\"')}"`).join(", ")}]` : undefined,
-    heroImagePath ? `heroImage: "${heroImagePath}` + "" : undefined,
-    "---\n",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const slug = article.slug;
 
-  const markdown = `${frontmatter}${body.bodyMarkdown}\n`;
-  const postPath = `content/posts/${slug}.md`;
-  await githubPutContent(postPath, markdown, `chore(cms): publish post ${slug}`);
+  // Write full article JSON
+  const articlePath = `content/articles/${slug}.json`;
+  await githubPut(articlePath, JSON.stringify(article, null, 2), `chore(cms): publish article ${slug}`);
+
+  // Update index.json
+  type Meta = Pick<Article, "title" | "slug" | "category" | "tags" | "cover" | "excerpt" | "date">;
+  const meta: Meta = {
+    title: article.title,
+    slug: article.slug,
+    category: article.category,
+    tags: article.tags || [],
+    cover: article.cover,
+    excerpt: article.excerpt,
+    date: article.date,
+  };
+
+  const indexPath = `content/articles/index.json`;
+  let list: Meta[] = [];
+  try {
+    const existing = await githubGet(indexPath);
+    if (existing && existing.content) {
+      const decoded = Buffer.from(String(existing.content), "base64").toString("utf8");
+      const parsed = JSON.parse(decoded);
+      if (Array.isArray(parsed)) list = parsed as Meta[];
+    }
+  } catch {
+    // start fresh if anything goes wrong reading
+  }
+
+  const bySlug = new Map<string, Meta>(list.map((m) => [m.slug, m]));
+  bySlug.set(meta.slug, meta);
+  const nextList = Array.from(bySlug.values()).sort((a, b) => (a.date < b.date ? 1 : -1));
+  await githubPut(indexPath, JSON.stringify(nextList, null, 2), `chore(cms): update articles index (${slug})`);
 
   const deployHook = process.env.VERCEL_DEPLOY_HOOK_URL;
   if (deployHook) {
-    try {
-      await fetch(deployHook, { method: "POST" });
-    } catch {
-      // ignore
-    }
+    try { await fetch(deployHook, { method: "POST" }); } catch {}
   }
 
-  res.status(200).json({ ok: true, slug, urls: { article: `/articles/${slug}` } });
+  res.status(200).json({ ok: true, url: `/articles/${slug}` });
 }
 
 
