@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import ArticleContent from "@/components/ArticleContent";
+import MarkdownPreview from "@/components/MarkdownPreview";
 import { toast } from "sonner";
 
 type Article = {
@@ -54,6 +54,8 @@ const AdminNew = () => {
   const [debugOpen, setDebugOpen] = useState(false);
   const [lastRequest, setLastRequest] = useState<any>(null);
   const [lastResponse, setLastResponse] = useState<any>(null);
+  const previewRef = useRef<HTMLDivElement | null>(null);
+  const [coverFileUrl, setCoverFileUrl] = useState<string | null>(null);
 
   // field refs for scrolling & auto-grow
   const titleRef = useRef<HTMLInputElement | null>(null);
@@ -66,6 +68,12 @@ const AdminNew = () => {
     bodyRef.current.style.height = "auto";
     bodyRef.current.style.height = bodyRef.current.scrollHeight + "px";
   }, [body]);
+
+  useEffect(() => {
+    return () => {
+      if (coverFileUrl) URL.revokeObjectURL(coverFileUrl);
+    };
+  }, [coverFileUrl]);
 
   // load draft
   useEffect(() => {
@@ -187,6 +195,16 @@ const AdminNew = () => {
     }
   }
 
+  function handleBodyScroll() {
+    const ta = bodyRef.current;
+    const pv = previewRef.current;
+    if (!ta || !pv) return;
+    const taMax = Math.max(1, ta.scrollHeight - ta.clientHeight);
+    const ratio = ta.scrollTop / taMax;
+    const pvMax = Math.max(0, pv.scrollHeight - pv.clientHeight);
+    pv.scrollTop = ratio * pvMax;
+  }
+
   function handleSaveDraft() {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(article));
     toast.success("Brouillon enregistré localement");
@@ -256,6 +274,18 @@ const AdminNew = () => {
                         <img src={cover} alt="Aperçu" className="w-full h-40 object-cover" />
                       </div>
                     )}
+                    <div className="pt-2">
+                      <Label htmlFor="coverFile">ou Fichier local (aperçu uniquement)</Label>
+                      <Input id="coverFile" type="file" accept="image/*" onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) { setCoverFileUrl(null); return; }
+                        const url = URL.createObjectURL(f);
+                        setCoverFileUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return url; });
+                      }} />
+                      {coverFileUrl && !cover && (
+                        <p className="text-sm text-red-600 mt-1">Fournissez une URL d’image accessible pour la publication.</p>
+                      )}
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -265,7 +295,18 @@ const AdminNew = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="body">Corps (Markdown)</Label>
-                    <Textarea id="body" ref={bodyRef} value={body} onChange={(e) => setBody(e.target.value)} placeholder="# Titre\n\nVotre article en Markdown" rows={12} className="resize-none" />
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <Button type="button" variant="secondary" size="sm" onClick={() => { const ta = bodyRef.current; if (!ta) return; ta.focus(); const evt = new Event('input', { bubbles: true }); ta.dispatchEvent(evt); setBody((b) => b); }}>↺</Button>
+                      <Button type="button" variant="secondary" size="sm" onClick={() => { const ta = bodyRef.current; if (!ta) return; const start = ta.selectionStart ?? 0; const end = ta.selectionEnd ?? 0; const lines = (body.slice(start, end) || body).split(/\n/).map(l => l.replace(/^#{1,6}\s+/, "# ")); const sel = lines.join("\n"); const next = body.slice(0, start) + sel + body.slice(end); setBody(next); }}>H1</Button>
+                      <Button type="button" variant="secondary" size="sm" onClick={() => { const ta = bodyRef.current; if (!ta) return; const start = ta.selectionStart ?? 0; const end = ta.selectionEnd ?? 0; const lines = (body.slice(start, end) || body).split(/\n/).map(l => l.replace(/^#{1,6}\s+/, "## ")); const sel = lines.join("\n"); const next = body.slice(0, start) + sel + body.slice(end); setBody(next); }}>H2</Button>
+                      <Button type="button" variant="secondary" size="sm" onClick={() => { const ta = bodyRef.current; if (!ta) return; const start = ta.selectionStart ?? 0; const end = ta.selectionEnd ?? 0; const lines = (body.slice(start, end) || body).split(/\n/).map(l => l.replace(/^#{1,6}\s+/, "### ")); const sel = lines.join("\n"); const next = body.slice(0, start) + sel + body.slice(end); setBody(next); }}>H3</Button>
+                      <Button type="button" variant="secondary" size="sm" onClick={() => { const ta = bodyRef.current; if (!ta) return; const start = ta.selectionStart ?? 0; const end = ta.selectionEnd ?? 0; const selected = body.slice(start, end) || "texte"; const next = body.slice(0, start) + `**${selected}**` + body.slice(end); setBody(next); }}>B</Button>
+                      <Button type="button" variant="secondary" size="sm" onClick={() => { const ta = bodyRef.current; if (!ta) return; const start = ta.selectionStart ?? 0; const end = ta.selectionEnd ?? 0; const selected = body.slice(start, end) || "texte"; const next = body.slice(0, start) + `*${selected}*` + body.slice(end); setBody(next); }}><span className="italic">I</span></Button>
+                      <Button type="button" variant="secondary" size="sm" onClick={() => { const ta = bodyRef.current; if (!ta) return; const start = ta.selectionStart ?? 0; const end = ta.selectionEnd ?? 0; const sel = body.slice(start, end); const nextSel = sel.toUpperCase(); const next = body.slice(0, start) + nextSel + body.slice(end); setBody(next); }}>Aa↑</Button>
+                      <Button type="button" variant="secondary" size="sm" onClick={() => { const ta = bodyRef.current; if (!ta) return; const start = ta.selectionStart ?? 0; const end = ta.selectionEnd ?? 0; const sel = body.slice(start, end); const nextSel = sel.toLowerCase(); const next = body.slice(0, start) + nextSel + body.slice(end); setBody(next); }}>Aa↓</Button>
+                      <Button type="button" variant="secondary" size="sm" onClick={() => { const ta = bodyRef.current; if (!ta) return; const start = ta.selectionStart ?? 0; const end = ta.selectionEnd ?? 0; const sel = body.slice(start, end); const nextSel = sel.replace(/\w\S*/g, (t) => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase()); const next = body.slice(0, start) + nextSel + body.slice(end); setBody(next); }}>Aa Title</Button>
+                    </div>
+                    <Textarea id="body" ref={bodyRef} value={body} onChange={(e) => setBody(e.target.value)} onScroll={handleBodyScroll} placeholder="# Titre\n\nVotre article en Markdown" rows={12} className="resize-none" />
                     <p className="text-xs text-muted-foreground text-right">{body.length} caractères</p>
                     {errors.body && <p className="text-sm text-red-600 mt-1">{errors.body}</p>}
                   </div>
@@ -340,8 +381,16 @@ const AdminNew = () => {
                 </form>
 
                 {/* Right: Live Preview */}
-                <div className="border rounded-lg overflow-hidden bg-background">
-                  <ArticleContent article={{ title: article.title || "Aperçu de l'article", date: article.date, cover: article.cover || undefined, body: article.body || "" }} />
+                <div className="border rounded-lg bg-background max-h-[70vh] overflow-auto" ref={previewRef}>
+                  {(coverFileUrl || cover) && (
+                    <div className="aspect-[16/9] rounded-b-none overflow-hidden bg-muted">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={coverFileUrl || cover} alt="Couverture" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <div className="p-4">
+                    <MarkdownPreview markdown={body || ""} />
+                  </div>
                 </div>
               </div>
             </CardContent>

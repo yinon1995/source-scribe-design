@@ -18,11 +18,16 @@ function toBase64(content: string | Uint8Array) {
 
 const REPO = process.env.GITHUB_REPO; // e.g. "nolwennrobet-lab/source-scribe-design"
 const TOKEN = process.env.GITHUB_TOKEN;
-const BRANCH = process.env.GITHUB_BRANCH || "main";
+const BRANCH = process.env.PUBLISH_BRANCH || "main";
+
+function encodeGitHubPath(path: string) {
+  // Encode each path segment, not slashes. Using full encodeURIComponent would break the URL
+  return path.split("/").map(encodeURIComponent).join("/");
+}
 
 async function githubGet(path: string) {
   if (!REPO || !TOKEN) return undefined;
-  const url = `https://api.github.com/repos/${REPO}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(BRANCH)}`;
+  const url = `https://api.github.com/repos/${REPO}/contents/${encodeGitHubPath(path)}?ref=${encodeURIComponent(BRANCH)}`;
   const res = await fetch(url, {
     headers: {
       Accept: "application/vnd.github+json",
@@ -39,7 +44,7 @@ async function githubPut(path: string, content: string, message: string) {
   let sha: string | undefined;
   const existing = await githubGet(path);
   if (existing && typeof existing.sha === "string") sha = existing.sha;
-  const url = `https://api.github.com/repos/${REPO}/contents/${encodeURIComponent(path)}`;
+  const url = `https://api.github.com/repos/${REPO}/contents/${encodeGitHubPath(path)}`;
   const res = await fetch(url, {
     method: "PUT",
     headers: {
@@ -47,13 +52,32 @@ async function githubPut(path: string, content: string, message: string) {
       Authorization: `token ${TOKEN}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ message, content: toBase64(content), branch: BRANCH, sha }),
+    body: JSON.stringify({
+      message,
+      content: toBase64(content),
+      branch: BRANCH,
+      sha,
+      committer: { name: "A la Brestoise bot", email: "bot@alabrestoise.local" },
+    }),
   });
   if (!res.ok) {
     const txt = await res.text();
     throw new Error(`GitHub PUT ${res.status}: ${txt}`);
   }
   return res.json();
+}
+
+async function githubRepoPreflight(): Promise<{ ok: true } | { ok: false; status: number }> {
+  if (!REPO || !TOKEN) return { ok: false, status: 0 };
+  const url = `https://api.github.com/repos/${REPO}`;
+  const res = await fetch(url, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `token ${TOKEN}`,
+    },
+  });
+  if (res.status === 200) return { ok: true };
+  return { ok: false, status: res.status };
 }
 
 export default async function handler(req: any, res: any) {
@@ -114,12 +138,23 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
+  // Repo preflight check (detect 404 or 403 early with clear message)
+  try {
+    const check = await githubRepoPreflight();
+    if (!check.ok && (check.status === 404 || check.status === 403)) {
+      res.status(200).json({ ok: false, error: "Référentiel introuvable ou accès refusé. Vérifiez GITHUB_REPO, GITHUB_TOKEN (scope repo) et PUBLISH_BRANCH.", details: { status: check.status } });
+      return;
+    }
+  } catch {
+    // ignore; proceed to attempt writes which will surface detailed errors
+  }
+
   const slug = article.slug;
 
   try {
     // Write full article JSON
     const articlePath = `content/articles/${slug}.json`;
-    await githubPut(articlePath, JSON.stringify(article, null, 2), `chore(cms): publish article ${slug}`);
+    await githubPut(articlePath, JSON.stringify(article, null, 2), `feat(article): publish ${slug} from admin`);
 
     // Update index.json
     type Meta = Pick<Article, "title" | "slug" | "category" | "tags" | "cover" | "excerpt" | "date">;
