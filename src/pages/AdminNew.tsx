@@ -49,13 +49,19 @@ const AdminNew = () => {
   const [date, setDate] = useState<string>(new Date().toISOString());
   const [submitting, setSubmitting] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
-  const [errors, setErrors] = useState<{ title?: string; category?: string; slug?: string; body?: string; date?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ title?: string; category?: string; slug?: string; body?: string; date?: string; cover?: string; password?: string }>({});
   const [serverError, setServerError] = useState<{ message?: string; details?: string; missingEnv?: string[] }>({});
   const [debugOpen, setDebugOpen] = useState(false);
   const [lastRequest, setLastRequest] = useState<any>(null);
   const [lastResponse, setLastResponse] = useState<any>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const [coverFileUrl, setCoverFileUrl] = useState<string | null>(null);
+
+  // Undo history for body textarea
+  type BodySnapshot = { body: string; selStart: number; selEnd: number; scrollTop: number };
+  const historyRef = useRef<BodySnapshot[]>([]);
+  const historyIndexRef = useRef<number>(-1);
+  const debounceTimerRef = useRef<number | null>(null);
 
   // field refs for scrolling & auto-grow
   const titleRef = useRef<HTMLInputElement | null>(null);
@@ -101,6 +107,46 @@ const AdminNew = () => {
     if (!slugTouched) setSlug(slugify(title));
   }, [title, slugTouched]);
 
+  // Helpers: history push & undo restore
+  function pushBodySnapshot() {
+    const ta = bodyRef.current;
+    if (!ta) return;
+    const snap: BodySnapshot = {
+      body,
+      selStart: ta.selectionStart ?? body.length,
+      selEnd: ta.selectionEnd ?? body.length,
+      scrollTop: ta.scrollTop,
+    };
+    // If we undid some steps and then type, discard forward history
+    if (historyIndexRef.current < historyRef.current.length - 1) {
+      historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
+    }
+    historyRef.current.push(snap);
+    if (historyRef.current.length > 50) historyRef.current.shift();
+    historyIndexRef.current = historyRef.current.length - 1;
+  }
+
+  function scheduleDebouncedSnapshot() {
+    if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = window.setTimeout(() => {
+      pushBodySnapshot();
+    }, 1000);
+  }
+
+  function restoreUndo() {
+    if (historyIndexRef.current <= 0) return;
+    historyIndexRef.current -= 1;
+    const snap = historyRef.current[historyIndexRef.current];
+    setBody(snap.body);
+    requestAnimationFrame(() => {
+      const ta = bodyRef.current;
+      if (!ta) return;
+      ta.focus();
+      ta.scrollTop = snap.scrollTop;
+      ta.setSelectionRange(snap.selStart, snap.selEnd);
+    });
+  }
+
   const tags = useMemo(() =>
     tagsInput
       .split(",")
@@ -123,12 +169,13 @@ const AdminNew = () => {
   async function handlePublish(e: React.FormEvent) {
     e.preventDefault();
     setServerError({});
-    const nextErrors: { title?: string; category?: string; slug?: string; body?: string; date?: string; password?: string } = {};
+    const nextErrors: { title?: string; category?: string; slug?: string; body?: string; date?: string; cover?: string; password?: string } = {};
     if (!article.title.trim()) nextErrors.title = "Le titre est obligatoire.";
     const allowed = new Set(["Commerces & lieux", "Expérience", "Beauté"]);
     if (!article.category || !allowed.has(article.category)) nextErrors.category = "La thématique est obligatoire.";
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(article.slug)) nextErrors.slug = "Le slug ne peut contenir que des lettres, chiffres et tirets.";
     if (!article.body || article.body.trim().length < 50) nextErrors.body = "Le contenu est trop court.";
+    if (!article.cover || !article.cover.trim()) nextErrors.cover = "Fournissez une URL d’image accessible pour la publication.";
     if (article.date) {
       const d = new Date(article.date);
       if (isNaN(d.getTime())) nextErrors.date = "La date n’est pas valide.";
@@ -159,7 +206,6 @@ const AdminNew = () => {
       const json = await res.json().catch(() => ({}));
       setLastResponse({ status: res.status, body: json });
       if (res.status === 401) {
-        setErrors((prev) => ({ ...prev, password: "Accès refusé — mot de passe administrateur invalide." }));
         setServerError({ message: "Accès refusé — mot de passe administrateur invalide." });
         localStorage.setItem(DRAFT_KEY, JSON.stringify(article));
         if (import.meta.env.DEV) console.error(json);
@@ -203,6 +249,124 @@ const AdminNew = () => {
     const ratio = ta.scrollTop / taMax;
     const pvMax = Math.max(0, pv.scrollHeight - pv.clientHeight);
     pv.scrollTop = ratio * pvMax;
+  }
+
+  // Toolbar transforms
+  function transformSelection(mutator: (text: string, start: number, end: number, ta: HTMLTextAreaElement) => { next: string; selStart: number; selEnd: number }) {
+    const ta = bodyRef.current;
+    if (!ta) return;
+    pushBodySnapshot();
+    const start = ta.selectionStart ?? 0;
+    const end = ta.selectionEnd ?? 0;
+    const { next, selStart, selEnd } = mutator(body, start, end, ta);
+    setBody(next);
+    requestAnimationFrame(() => {
+      if (!bodyRef.current) return;
+      bodyRef.current.focus();
+      bodyRef.current.setSelectionRange(selStart, selEnd);
+    });
+  }
+
+  function toggleHeading(level: 1 | 2 | 3) {
+    transformSelection((text, selStart, selEnd, ta) => {
+      const prefix = "#".repeat(level) + " ";
+      const textBefore = text.slice(0, selStart);
+      const textSel = text.slice(selStart, selEnd);
+      const textAfter = text.slice(selEnd);
+      // Determine line range
+      const lineStart = textBefore.lastIndexOf("\n") + 1;
+      const lineEnd = selEnd + textAfter.indexOf("\n");
+      const targetStart = lineStart;
+      const targetEnd = selEnd === selStart && textSel.length === 0 ? (text.indexOf("\n", selStart) === -1 ? text.length : text.indexOf("\n", selStart)) : selEnd;
+      const block = text.slice(targetStart, targetEnd);
+      const lines = block.split("\n");
+      let delta = 0;
+      const nextLines = lines.map((l) => {
+        const hasSame = l.startsWith(prefix);
+        const withoutHashes = l.replace(/^\s*#{1,6}\s+/, "").trimStart();
+        const nextLine = hasSame ? withoutHashes : prefix + withoutHashes;
+        delta += nextLine.length - l.length;
+        return nextLine;
+      });
+      const nextBlock = nextLines.join("\n");
+      const nextText = text.slice(0, targetStart) + nextBlock + text.slice(targetEnd);
+      const newSelStart = selStart + (selStart === targetStart ? 0 : 0);
+      const newSelEnd = selEnd + delta;
+      return { next: nextText, selStart: newSelStart, selEnd: newSelEnd };
+    });
+  }
+
+  function toggleWrap(wrapper: string, emptyInsertMiddle = false) {
+    transformSelection((text, selStart, selEnd) => {
+      let a = selStart, b = selEnd;
+      if (a === b && emptyInsertMiddle) {
+        const inserted = wrapper + wrapper;
+        const next = text.slice(0, a) + inserted + text.slice(b);
+        const mid = a + wrapper.length;
+        return { next, selStart: mid, selEnd: mid };
+      }
+      const selected = text.slice(a, b);
+      const startsWith = text.slice(a - wrapper.length, a) === wrapper;
+      const endsWith = text.slice(b, b + wrapper.length) === wrapper;
+      if (startsWith && endsWith) {
+        // unwrap
+        const next = text.slice(0, a - wrapper.length) + selected + text.slice(b + wrapper.length);
+        return { next, selStart: a - wrapper.length, selEnd: b - wrapper.length };
+      }
+      const next = text.slice(0, a) + wrapper + selected + wrapper + text.slice(b);
+      return { next, selStart: a + wrapper.length, selEnd: b + wrapper.length };
+    });
+  }
+
+  function toUppercase() {
+    transformSelection((text, a, b, ta) => {
+      if (a === b) {
+        // current word
+        const left = text.lastIndexOf(" ", a - 1) + 1;
+        const right = (() => { const idx = text.indexOf(" ", a); return idx === -1 ? text.length : idx; })();
+        const next = text.slice(0, left) + text.slice(left, right).toUpperCase() + text.slice(right);
+        return { next, selStart: a, selEnd: b };
+      }
+      const next = text.slice(0, a) + text.slice(a, b).toUpperCase() + text.slice(b);
+      return { next, selStart: a, selEnd: b };
+    });
+  }
+
+  function toLowercase() {
+    transformSelection((text, a, b) => {
+      if (a === b) return { next: text, selStart: a, selEnd: b };
+      const next = text.slice(0, a) + text.slice(a, b).toLowerCase() + text.slice(b);
+      return { next, selStart: a, selEnd: b };
+    });
+  }
+
+  function toTitleCase() {
+    const stops = new Set(["de", "du", "la", "le", "les", "des", "et", "à", "aux", "au", "pour", "par", "sur", "sous", "dans"]);
+    transformSelection((text, a, b) => {
+      if (a === b) {
+        // current line
+        const lineStart = text.lastIndexOf("\n", a - 1) + 1;
+        const lineEnd = (() => { const idx = text.indexOf("\n", a); return idx === -1 ? text.length : idx; })();
+        const segment = text.slice(lineStart, lineEnd);
+        const tc = segment.replace(/\w[\w’']*/g, (w, idx) => {
+          const lw = w.toLowerCase();
+          if (idx !== 0 && stops.has(lw)) return lw;
+          return lw.charAt(0).toUpperCase() + lw.slice(1);
+        });
+        const next = text.slice(0, lineStart) + tc + text.slice(lineEnd);
+        return { next, selStart: a, selEnd: b };
+      }
+      const segment = text.slice(a, b);
+      const tc = segment.replace(/\w[\w’']*/g, (w, pos) => {
+        const lw = w.toLowerCase();
+        // Treat each substring's first word as beginning
+        const isFirst = pos === 0 || /\s/.test(segment[pos - 1]);
+        if (!isFirst && stops.has(lw)) return lw;
+        return lw.charAt(0).toUpperCase() + lw.slice(1);
+      });
+      const next = text.slice(0, a) + tc + text.slice(b);
+      return { next, selStart: a, selEnd: b };
+    });
   }
 
   function handleSaveDraft() {
@@ -268,6 +432,7 @@ const AdminNew = () => {
                   <div className="space-y-2">
                     <Label htmlFor="cover">Image de couverture (URL)</Label>
                     <Input id="cover" value={cover} onChange={(e) => setCover(e.target.value)} placeholder="https://…" />
+                    {errors.cover && <p className="text-sm text-red-600 mt-1">{errors.cover}</p>}
                     {cover && (
                       <div className="mt-2 rounded-lg overflow-hidden border bg-muted/30">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -282,9 +447,7 @@ const AdminNew = () => {
                         const url = URL.createObjectURL(f);
                         setCoverFileUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return url; });
                       }} />
-                      {coverFileUrl && !cover && (
-                        <p className="text-sm text-red-600 mt-1">Fournissez une URL d’image accessible pour la publication.</p>
-                      )}
+                      <p className="text-sm text-muted-foreground mt-1">Aperçu local uniquement. Pour publier, fournissez une URL d’image accessible.</p>
                     </div>
                   </div>
 
@@ -296,17 +459,36 @@ const AdminNew = () => {
                   <div className="space-y-2">
                     <Label htmlFor="body">Corps (Markdown)</Label>
                     <div className="flex flex-wrap gap-2 text-xs">
-                      <Button type="button" variant="secondary" size="sm" onClick={() => { const ta = bodyRef.current; if (!ta) return; ta.focus(); const evt = new Event('input', { bubbles: true }); ta.dispatchEvent(evt); setBody((b) => b); }}>↺</Button>
-                      <Button type="button" variant="secondary" size="sm" onClick={() => { const ta = bodyRef.current; if (!ta) return; const start = ta.selectionStart ?? 0; const end = ta.selectionEnd ?? 0; const lines = (body.slice(start, end) || body).split(/\n/).map(l => l.replace(/^#{1,6}\s+/, "# ")); const sel = lines.join("\n"); const next = body.slice(0, start) + sel + body.slice(end); setBody(next); }}>H1</Button>
-                      <Button type="button" variant="secondary" size="sm" onClick={() => { const ta = bodyRef.current; if (!ta) return; const start = ta.selectionStart ?? 0; const end = ta.selectionEnd ?? 0; const lines = (body.slice(start, end) || body).split(/\n/).map(l => l.replace(/^#{1,6}\s+/, "## ")); const sel = lines.join("\n"); const next = body.slice(0, start) + sel + body.slice(end); setBody(next); }}>H2</Button>
-                      <Button type="button" variant="secondary" size="sm" onClick={() => { const ta = bodyRef.current; if (!ta) return; const start = ta.selectionStart ?? 0; const end = ta.selectionEnd ?? 0; const lines = (body.slice(start, end) || body).split(/\n/).map(l => l.replace(/^#{1,6}\s+/, "### ")); const sel = lines.join("\n"); const next = body.slice(0, start) + sel + body.slice(end); setBody(next); }}>H3</Button>
-                      <Button type="button" variant="secondary" size="sm" onClick={() => { const ta = bodyRef.current; if (!ta) return; const start = ta.selectionStart ?? 0; const end = ta.selectionEnd ?? 0; const selected = body.slice(start, end) || "texte"; const next = body.slice(0, start) + `**${selected}**` + body.slice(end); setBody(next); }}>B</Button>
-                      <Button type="button" variant="secondary" size="sm" onClick={() => { const ta = bodyRef.current; if (!ta) return; const start = ta.selectionStart ?? 0; const end = ta.selectionEnd ?? 0; const selected = body.slice(start, end) || "texte"; const next = body.slice(0, start) + `*${selected}*` + body.slice(end); setBody(next); }}><span className="italic">I</span></Button>
-                      <Button type="button" variant="secondary" size="sm" onClick={() => { const ta = bodyRef.current; if (!ta) return; const start = ta.selectionStart ?? 0; const end = ta.selectionEnd ?? 0; const sel = body.slice(start, end); const nextSel = sel.toUpperCase(); const next = body.slice(0, start) + nextSel + body.slice(end); setBody(next); }}>Aa↑</Button>
-                      <Button type="button" variant="secondary" size="sm" onClick={() => { const ta = bodyRef.current; if (!ta) return; const start = ta.selectionStart ?? 0; const end = ta.selectionEnd ?? 0; const sel = body.slice(start, end); const nextSel = sel.toLowerCase(); const next = body.slice(0, start) + nextSel + body.slice(end); setBody(next); }}>Aa↓</Button>
-                      <Button type="button" variant="secondary" size="sm" onClick={() => { const ta = bodyRef.current; if (!ta) return; const start = ta.selectionStart ?? 0; const end = ta.selectionEnd ?? 0; const sel = body.slice(start, end); const nextSel = sel.replace(/\w\S*/g, (t) => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase()); const next = body.slice(0, start) + nextSel + body.slice(end); setBody(next); }}>Aa Title</Button>
+                      <Button type="button" variant="secondary" size="sm" aria-label="Annuler" title="Annuler (Ctrl+Z)" onClick={() => restoreUndo()}>↺</Button>
+                      <Button type="button" variant="secondary" size="sm" aria-label="Titre H1" title="Titre H1 (Alt+1)" onClick={() => toggleHeading(1)}>H1</Button>
+                      <Button type="button" variant="secondary" size="sm" aria-label="Titre H2" title="Titre H2 (Alt+2)" onClick={() => toggleHeading(2)}>H2</Button>
+                      <Button type="button" variant="secondary" size="sm" aria-label="Titre H3" title="Titre H3 (Alt+3)" onClick={() => toggleHeading(3)}>H3</Button>
+                      <Button type="button" variant="secondary" size="sm" aria-label="Gras" title="Gras (Ctrl+B)" onClick={() => toggleWrap("**", true)}>B</Button>
+                      <Button type="button" variant="secondary" size="sm" aria-label="Italique" title="Italique (Ctrl+I)" onClick={() => toggleWrap("*", true)}><span className="italic">I</span></Button>
+                      <Button type="button" variant="secondary" size="sm" aria-label="Majuscules" title="Majuscules" onClick={toUppercase}>Aa↑</Button>
+                      <Button type="button" variant="secondary" size="sm" aria-label="Minuscules" title="Minuscules" onClick={toLowercase}>Aa↓</Button>
+                      <Button type="button" variant="secondary" size="sm" aria-label="Casse Titre" title="Casse Titre" onClick={toTitleCase}>Aa Title</Button>
                     </div>
-                    <Textarea id="body" ref={bodyRef} value={body} onChange={(e) => setBody(e.target.value)} onScroll={handleBodyScroll} placeholder="# Titre\n\nVotre article en Markdown" rows={12} className="resize-none" />
+                    <Textarea
+                      id="body"
+                      ref={bodyRef}
+                      value={body}
+                      onChange={(e) => { setBody(e.target.value); scheduleDebouncedSnapshot(); }}
+                      onBlur={() => pushBodySnapshot()}
+                      onScroll={handleBodyScroll}
+                      onKeyDown={(e) => {
+                        const isMeta = e.ctrlKey || e.metaKey;
+                        if (isMeta && (e.key === "z" || e.key === "Z")) { e.preventDefault(); restoreUndo(); }
+                        else if (isMeta && (e.key === "b" || e.key === "B")) { e.preventDefault(); toggleWrap("**", true); }
+                        else if (isMeta && (e.key === "i" || e.key === "I")) { e.preventDefault(); toggleWrap("*", true); }
+                        else if (e.altKey && e.key === "1") { e.preventDefault(); toggleHeading(1); }
+                        else if (e.altKey && e.key === "2") { e.preventDefault(); toggleHeading(2); }
+                        else if (e.altKey && e.key === "3") { e.preventDefault(); toggleHeading(3); }
+                      }}
+                      placeholder="# Titre\n\nVotre article en Markdown"
+                      rows={12}
+                      className="resize-none"
+                    />
                     <p className="text-xs text-muted-foreground text-right">{body.length} caractères</p>
                     {errors.body && <p className="text-sm text-red-600 mt-1">{errors.body}</p>}
                   </div>
@@ -335,7 +517,6 @@ const AdminNew = () => {
                   <div className="space-y-2">
                     <Label htmlFor="adminPassword">Mot de passe administrateur</Label>
                     <Input id="adminPassword" type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="••••••••" />
-                    {errors.password && <p className="text-sm text-red-600 mt-1">{errors.password}</p>}
                   </div>
 
                   <div className="flex gap-3 pt-2">
@@ -382,13 +563,16 @@ const AdminNew = () => {
 
                 {/* Right: Live Preview */}
                 <div className="border rounded-lg bg-background max-h-[70vh] overflow-auto" ref={previewRef}>
-                  {(coverFileUrl || cover) && (
-                    <div className="aspect-[16/9] rounded-b-none overflow-hidden bg-muted">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={coverFileUrl || cover} alt="Couverture" className="w-full h-full object-cover" />
-                    </div>
-                  )}
                   <div className="p-4">
+                    <h1 className="text-4xl md:text-5xl font-display font-bold text-foreground leading-tight mb-4">{title || "(Sans titre)"}</h1>
+                    {date && <p className="text-muted-foreground mb-4">{new Date(date).toLocaleDateString("fr-FR")}</p>}
+                    {excerpt && <p className="mb-4 text-foreground">{excerpt}</p>}
+                    {(coverFileUrl || cover) && (
+                      <div className="aspect-[16/9] rounded-2xl overflow-hidden bg-muted mb-6">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={coverFileUrl || cover} alt="Couverture" className="w-full h-full object-cover" />
+                      </div>
+                    )}
                     <MarkdownPreview markdown={body || ""} />
                   </div>
                 </div>
