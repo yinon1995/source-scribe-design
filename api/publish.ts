@@ -62,6 +62,23 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
+  // Admin gate via Authorization: Bearer <token>
+  try {
+    const configuredToken = process.env.PUBLISH_TOKEN;
+    if (configuredToken) {
+      const authHeader = req.headers?.authorization || req.headers?.Authorization;
+      const provided = typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+        ? authHeader.slice(7).trim()
+        : "";
+      if (provided !== configuredToken) {
+        res.status(401).json({ ok: false, error: "Accès refusé — mot de passe administrateur invalide." });
+        return;
+      }
+    }
+  } catch {
+    // ignore, fallback to continue
+  }
+
   let article: Article | undefined;
   try {
     article = req.body && typeof req.body === "object" ? req.body : JSON.parse(req.body || "{}");
@@ -77,45 +94,54 @@ export default async function handler(req: any, res: any) {
 
   // If missing credentials, gracefully report ok:false and keep draft
   if (!REPO || !TOKEN) {
-    res.status(200).json({ ok: false, error: "Missing GitHub credentials (GITHUB_REPO/GITHUB_TOKEN). Draft kept locally." });
+    res.status(200).json({ ok: false, error: "Publication en attente — configuration GitHub manquante (GITHUB_REPO/GITHUB_TOKEN). Le brouillon a été conservé localement." });
     return;
   }
 
   const slug = article.slug;
 
-  // Write full article JSON
-  const articlePath = `content/articles/${slug}.json`;
-  await githubPut(articlePath, JSON.stringify(article, null, 2), `chore(cms): publish article ${slug}`);
-
-  // Update index.json
-  type Meta = Pick<Article, "title" | "slug" | "category" | "tags" | "cover" | "excerpt" | "date">;
-  const meta: Meta = {
-    title: article.title,
-    slug: article.slug,
-    category: article.category,
-    tags: article.tags || [],
-    cover: article.cover,
-    excerpt: article.excerpt,
-    date: article.date,
-  };
-
-  const indexPath = `content/articles/index.json`;
-  let list: Meta[] = [];
   try {
-    const existing = await githubGet(indexPath);
-    if (existing && existing.content) {
-      const decoded = Buffer.from(String(existing.content), "base64").toString("utf8");
-      const parsed = JSON.parse(decoded);
-      if (Array.isArray(parsed)) list = parsed as Meta[];
-    }
-  } catch {
-    // start fresh if anything goes wrong reading
-  }
+    // Write full article JSON
+    const articlePath = `content/articles/${slug}.json`;
+    await githubPut(articlePath, JSON.stringify(article, null, 2), `chore(cms): publish article ${slug}`);
 
-  const bySlug = new Map<string, Meta>(list.map((m) => [m.slug, m]));
-  bySlug.set(meta.slug, meta);
-  const nextList = Array.from(bySlug.values()).sort((a, b) => (a.date < b.date ? 1 : -1));
-  await githubPut(indexPath, JSON.stringify(nextList, null, 2), `chore(cms): update articles index (${slug})`);
+    // Update index.json
+    type Meta = Pick<Article, "title" | "slug" | "category" | "tags" | "cover" | "excerpt" | "date">;
+    const meta: Meta = {
+      title: article.title,
+      slug: article.slug,
+      category: article.category,
+      tags: article.tags || [],
+      cover: article.cover,
+      excerpt: article.excerpt,
+      date: article.date,
+    };
+
+    const indexPath = `content/articles/index.json`;
+    let list: Meta[] = [];
+    try {
+      const existing = await githubGet(indexPath);
+      if (existing && existing.content) {
+        const decoded = Buffer.from(String(existing.content), "base64").toString("utf8");
+        const parsed = JSON.parse(decoded);
+        if (Array.isArray(parsed)) list = parsed as Meta[];
+      }
+    } catch {
+      // start fresh if anything goes wrong reading
+    }
+
+    const bySlug = new Map<string, Meta>(list.map((m) => [m.slug, m]));
+    bySlug.set(meta.slug, meta);
+    const nextList = Array.from(bySlug.values()).sort((a, b) => (a.date < b.date ? 1 : -1));
+    await githubPut(indexPath, JSON.stringify(nextList, null, 2), `chore(cms): update articles index (${slug})`);
+  } catch (e: any) {
+    const message = e?.message ? String(e.message) : String(e);
+    // Try to extract status code if present in the message like "GitHub PUT 422: ..."
+    const m = /GitHub\s+[A-Z]+\s+(\d{3})/.exec(message);
+    const status = m ? Number(m[1]) : undefined;
+    res.status(500).json({ ok: false, error: "Échec de la publication GitHub.", details: { status, message } });
+    return;
+  }
 
   const deployHook = process.env.VERCEL_DEPLOY_HOOK_URL;
   if (deployHook) {

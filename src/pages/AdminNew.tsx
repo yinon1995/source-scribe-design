@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import ArticleContent from "@/components/ArticleContent";
 import { toast } from "sonner";
 
@@ -47,6 +48,9 @@ const AdminNew = () => {
   const [author, setAuthor] = useState("À la Brestoise");
   const [date, setDate] = useState<string>(new Date().toISOString());
   const [submitting, setSubmitting] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [errors, setErrors] = useState<{ title?: string; category?: string; slug?: string; body?: string }>({});
+  const [serverError, setServerError] = useState<{ message?: string; details?: string }>({});
 
   // auto-grow body textarea
   const bodyRef = useRef<HTMLTextAreaElement | null>(null);
@@ -103,29 +107,45 @@ const AdminNew = () => {
 
   async function handlePublish(e: React.FormEvent) {
     e.preventDefault();
-    if (!article.title || !article.slug || !article.body) {
-      toast.error("Renseignez au minimum Titre, Slug et Corps de l'article.");
-      return;
-    }
+    setServerError({});
+    const nextErrors: { title?: string; category?: string; slug?: string; body?: string } = {};
+    if (!article.title.trim()) nextErrors.title = "Le titre est obligatoire.";
+    if (!article.category) nextErrors.category = "La thématique est obligatoire.";
+    if (!/^[a-z0-9-]+$/.test(article.slug)) nextErrors.slug = "Le slug ne peut contenir que des lettres, chiffres et tirets.";
+    if (!article.body || article.body.trim().length <= 20) nextErrors.body = "Le contenu est trop court.";
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
     setSubmitting(true);
     try {
       const res = await fetch("/api/publish", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminPassword}` },
         body: JSON.stringify(article),
       });
-      const json = await res.json();
-      if (json?.ok) {
+      const json = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        setServerError({ message: "Accès refusé — mot de passe administrateur invalide." });
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(article));
+        if (import.meta.env.DEV) console.error(json);
+      } else if (res.status >= 500) {
+        const detailsMsg = json?.details?.message ? String(json.details.message) : undefined;
+        setServerError({ message: "Erreur serveur — veuillez réessayer.", details: detailsMsg });
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(article));
+        if (import.meta.env.DEV) console.error(json);
+      } else if (json?.ok) {
         localStorage.removeItem(DRAFT_KEY);
         navigate(json.url || `/articles/${article.slug}`);
         return;
+      } else {
+        // Graceful failure path (e.g., missing env)
+        setServerError({ message: json?.error || "Publication impossible. Brouillon conservé localement." });
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(article));
+        if (import.meta.env.DEV) console.error(json);
       }
-      // Graceful failure path (missing env)
-      toast.error(json?.error || "Publication impossible. Brouillon conservé localement.");
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(article));
     } catch (err: any) {
-      toast.error(err?.message || "Erreur pendant la publication. Brouillon conservé.");
+      setServerError({ message: "Erreur réseau — réessayez." });
       localStorage.setItem(DRAFT_KEY, JSON.stringify(article));
+      if (import.meta.env.DEV) console.error(err);
     } finally {
       setSubmitting(false);
     }
@@ -152,6 +172,7 @@ const AdminNew = () => {
                   <div className="space-y-2">
                     <Label htmlFor="title">Titre</Label>
                     <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Titre de l'article" />
+                    {errors.title && <p className="text-destructive text-sm">{errors.title}</p>}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -163,6 +184,7 @@ const AdminNew = () => {
                         onChange={(e) => { setSlug(e.target.value); setSlugTouched(true); }}
                         placeholder="mon-super-article"
                       />
+                      {errors.slug && <p className="text-destructive text-sm">{errors.slug}</p>}
                     </div>
                     <div className="space-y-2">
                       <Label>Catégorie</Label>
@@ -176,6 +198,7 @@ const AdminNew = () => {
                           <SelectItem value="Beauté">Beauté</SelectItem>
                         </SelectContent>
                       </Select>
+                      {errors.category && <p className="text-destructive text-sm">{errors.category}</p>}
                     </div>
                   </div>
 
@@ -207,6 +230,7 @@ const AdminNew = () => {
                     <Label htmlFor="body">Corps (Markdown)</Label>
                     <Textarea id="body" ref={bodyRef} value={body} onChange={(e) => setBody(e.target.value)} placeholder="# Titre\n\nVotre article en Markdown" rows={12} className="resize-none" />
                     <p className="text-xs text-muted-foreground text-right">{body.length} caractères</p>
+                    {errors.body && <p className="text-destructive text-sm">{errors.body}</p>}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -228,10 +252,30 @@ const AdminNew = () => {
                     </div>
                   </div>
 
+                  <div className="space-y-2">
+                    <Label htmlFor="adminPassword">Mot de passe administrateur</Label>
+                    <Input id="adminPassword" type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="••••••••" />
+                  </div>
+
                   <div className="flex gap-3 pt-2">
                     <Button type="button" variant="secondary" onClick={handleSaveDraft}>Enregistrer le brouillon</Button>
-                    <Button type="submit" disabled={submitting}>{submitting ? "Publication…" : "Publier"}</Button>
+                    <Button type="submit" disabled={submitting} aria-busy={submitting}>
+                      {submitting && (
+                        <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent align-[-2px]" />
+                      )}
+                      {submitting ? "Publication…" : "Publier"}
+                    </Button>
                   </div>
+
+                  {serverError.message && (
+                    <Alert variant="destructive" className="mt-4">
+                      <AlertTitle>Erreur</AlertTitle>
+                      <AlertDescription>
+                        <p>{serverError.message}</p>
+                        {serverError.details && <p className="text-muted-foreground text-xs mt-1">{serverError.details}</p>}
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </form>
 
                 {/* Right: Live Preview */}
