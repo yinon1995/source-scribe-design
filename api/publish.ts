@@ -87,14 +87,30 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  if (!article || !article.title || !article.slug || !article.body) {
-    res.status(400).json({ error: "Missing required fields: title, slug, body" });
+  // Payload validation → 422 with structured field errors
+  const fieldErrors: { title?: string; slug?: string; category?: string; body?: string; date?: string } = {};
+  const allowedCategories = new Set(["Commerces & lieux", "Expérience", "Beauté"]);
+  if (!article || typeof article !== "object") {
+    res.status(422).json({ ok: false, error: "Champs invalides.", errors: { title: "Le titre est obligatoire.", slug: "Le slug ne peut contenir que des lettres, chiffres et tirets.", body: "Le contenu est trop court." } });
+    return;
+  }
+  if (!article.title || !String(article.title).trim()) fieldErrors.title = "Le titre est obligatoire.";
+  if (!article.category || !allowedCategories.has(article.category)) fieldErrors.category = "La thématique est obligatoire.";
+  if (!article.slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(article.slug))) fieldErrors.slug = "Le slug ne peut contenir que des lettres, chiffres et tirets.";
+  if (!article.body || String(article.body).trim().length < 50) fieldErrors.body = "Le contenu est trop court.";
+  if (article.date) {
+    const d = new Date(article.date);
+    if (isNaN(d.getTime())) fieldErrors.date = "La date n’est pas valide.";
+  }
+  if (Object.keys(fieldErrors).length > 0) {
+    res.status(422).json({ ok: false, error: "Champs invalides.", errors: fieldErrors });
     return;
   }
 
   // If missing credentials, gracefully report ok:false and keep draft
   if (!REPO || !TOKEN) {
-    res.status(200).json({ ok: false, error: "Publication en attente — configuration GitHub manquante (GITHUB_REPO/GITHUB_TOKEN). Le brouillon a été conservé localement." });
+    const missingEnv = [!REPO ? "GITHUB_REPO" : null, !TOKEN ? "GITHUB_TOKEN" : null].filter(Boolean);
+    res.status(200).json({ ok: false, error: "Publication en attente — configuration GitHub manquante (GITHUB_REPO/GITHUB_TOKEN). Le brouillon a été conservé localement.", missingEnv });
     return;
   }
 

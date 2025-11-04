@@ -49,10 +49,17 @@ const AdminNew = () => {
   const [date, setDate] = useState<string>(new Date().toISOString());
   const [submitting, setSubmitting] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
-  const [errors, setErrors] = useState<{ title?: string; category?: string; slug?: string; body?: string }>({});
-  const [serverError, setServerError] = useState<{ message?: string; details?: string }>({});
+  const [errors, setErrors] = useState<{ title?: string; category?: string; slug?: string; body?: string; date?: string; password?: string }>({});
+  const [serverError, setServerError] = useState<{ message?: string; details?: string; missingEnv?: string[] }>({});
+  const [debugOpen, setDebugOpen] = useState(false);
+  const [lastRequest, setLastRequest] = useState<any>(null);
+  const [lastResponse, setLastResponse] = useState<any>(null);
 
-  // auto-grow body textarea
+  // field refs for scrolling & auto-grow
+  const titleRef = useRef<HTMLInputElement | null>(null);
+  const slugRef = useRef<HTMLInputElement | null>(null);
+  const categoryRef = useRef<HTMLDivElement | null>(null);
+  const dateRef = useRef<HTMLInputElement | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => {
     if (!bodyRef.current) return;
@@ -108,23 +115,50 @@ const AdminNew = () => {
   async function handlePublish(e: React.FormEvent) {
     e.preventDefault();
     setServerError({});
-    const nextErrors: { title?: string; category?: string; slug?: string; body?: string } = {};
+    const nextErrors: { title?: string; category?: string; slug?: string; body?: string; date?: string; password?: string } = {};
     if (!article.title.trim()) nextErrors.title = "Le titre est obligatoire.";
-    if (!article.category) nextErrors.category = "La thématique est obligatoire.";
-    if (!/^[a-z0-9-]+$/.test(article.slug)) nextErrors.slug = "Le slug ne peut contenir que des lettres, chiffres et tirets.";
-    if (!article.body || article.body.trim().length <= 20) nextErrors.body = "Le contenu est trop court.";
+    const allowed = new Set(["Commerces & lieux", "Expérience", "Beauté"]);
+    if (!article.category || !allowed.has(article.category)) nextErrors.category = "La thématique est obligatoire.";
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(article.slug)) nextErrors.slug = "Le slug ne peut contenir que des lettres, chiffres et tirets.";
+    if (!article.body || article.body.trim().length < 50) nextErrors.body = "Le contenu est trop court.";
+    if (article.date) {
+      const d = new Date(article.date);
+      if (isNaN(d.getTime())) nextErrors.date = "La date n’est pas valide.";
+    }
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
+    if (Object.keys(nextErrors).length > 0) {
+      const order: (keyof typeof nextErrors)[] = ["title", "category", "slug", "body", "date", "password"];
+      const first = order.find((k) => nextErrors[k]);
+      // scroll to first invalid field
+      requestAnimationFrame(() => {
+        if (first === "title" && titleRef.current) titleRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        else if (first === "category" && categoryRef.current) categoryRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        else if (first === "slug" && slugRef.current) slugRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        else if (first === "body" && bodyRef.current) bodyRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        else if (first === "date" && dateRef.current) dateRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+      return;
+    }
     setSubmitting(true);
     try {
+      const reqPayload = { ...article };
+      setLastRequest(reqPayload);
       const res = await fetch("/api/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminPassword}` },
         body: JSON.stringify(article),
       });
       const json = await res.json().catch(() => ({}));
+      setLastResponse({ status: res.status, body: json });
       if (res.status === 401) {
+        setErrors((prev) => ({ ...prev, password: "Accès refusé — mot de passe administrateur invalide." }));
         setServerError({ message: "Accès refusé — mot de passe administrateur invalide." });
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(article));
+        if (import.meta.env.DEV) console.error(json);
+      } else if (res.status === 422) {
+        const fieldErrors = json?.errors || {};
+        setErrors((prev) => ({ ...prev, ...fieldErrors }));
+        setServerError({ message: json?.error || "Champs invalides." });
         localStorage.setItem(DRAFT_KEY, JSON.stringify(article));
         if (import.meta.env.DEV) console.error(json);
       } else if (res.status >= 500) {
@@ -134,11 +168,13 @@ const AdminNew = () => {
         if (import.meta.env.DEV) console.error(json);
       } else if (json?.ok) {
         localStorage.removeItem(DRAFT_KEY);
+        toast.success("Article publié — redirection…");
         navigate(json.url || `/articles/${article.slug}`);
         return;
       } else {
         // Graceful failure path (e.g., missing env)
-        setServerError({ message: json?.error || "Publication impossible. Brouillon conservé localement." });
+        const missingEnv = Array.isArray(json?.missingEnv) ? json.missingEnv : undefined;
+        setServerError({ message: json?.error || "Publication impossible. Brouillon conservé localement.", missingEnv });
         localStorage.setItem(DRAFT_KEY, JSON.stringify(article));
         if (import.meta.env.DEV) console.error(json);
       }
@@ -171,8 +207,8 @@ const AdminNew = () => {
                 <form onSubmit={handlePublish} className="space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="title">Titre</Label>
-                    <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Titre de l'article" />
-                    {errors.title && <p className="text-destructive text-sm">{errors.title}</p>}
+                    <Input id="title" ref={titleRef} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Titre de l'article" />
+                    {errors.title && <p className="text-sm text-red-600 mt-1">{errors.title}</p>}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -180,13 +216,14 @@ const AdminNew = () => {
                       <Label htmlFor="slug">Slug</Label>
                       <Input
                         id="slug"
+                        ref={slugRef}
                         value={slug}
                         onChange={(e) => { setSlug(e.target.value); setSlugTouched(true); }}
                         placeholder="mon-super-article"
                       />
-                      {errors.slug && <p className="text-destructive text-sm">{errors.slug}</p>}
+                      {errors.slug && <p className="text-sm text-red-600 mt-1">{errors.slug}</p>}
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2" ref={categoryRef}>
                       <Label>Catégorie</Label>
                       <Select value={category} onValueChange={(v) => setCategory(v as Article["category"]) }>
                         <SelectTrigger>
@@ -198,7 +235,7 @@ const AdminNew = () => {
                           <SelectItem value="Beauté">Beauté</SelectItem>
                         </SelectContent>
                       </Select>
-                      {errors.category && <p className="text-destructive text-sm">{errors.category}</p>}
+                      {errors.category && <p className="text-sm text-red-600 mt-1">{errors.category}</p>}
                     </div>
                   </div>
 
@@ -230,7 +267,7 @@ const AdminNew = () => {
                     <Label htmlFor="body">Corps (Markdown)</Label>
                     <Textarea id="body" ref={bodyRef} value={body} onChange={(e) => setBody(e.target.value)} placeholder="# Titre\n\nVotre article en Markdown" rows={12} className="resize-none" />
                     <p className="text-xs text-muted-foreground text-right">{body.length} caractères</p>
-                    {errors.body && <p className="text-destructive text-sm">{errors.body}</p>}
+                    {errors.body && <p className="text-sm text-red-600 mt-1">{errors.body}</p>}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -243,18 +280,21 @@ const AdminNew = () => {
                       <Input
                         id="date"
                         type="date"
+                        ref={dateRef}
                         value={new Date(date).toISOString().slice(0, 10)}
                         onChange={(e) => {
                           const d = e.target.value ? new Date(e.target.value + "T00:00:00Z") : new Date();
                           setDate(d.toISOString());
                         }}
                       />
+                      {errors.date && <p className="text-sm text-red-600 mt-1">{errors.date}</p>}
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="adminPassword">Mot de passe administrateur</Label>
                     <Input id="adminPassword" type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="••••••••" />
+                    {errors.password && <p className="text-sm text-red-600 mt-1">{errors.password}</p>}
                   </div>
 
                   <div className="flex gap-3 pt-2">
@@ -268,13 +308,34 @@ const AdminNew = () => {
                   </div>
 
                   {serverError.message && (
-                    <Alert variant="destructive" className="mt-4">
+                    <Alert variant="destructive" className="mt-4" aria-live="polite">
                       <AlertTitle>Erreur</AlertTitle>
                       <AlertDescription>
                         <p>{serverError.message}</p>
+                        {serverError.missingEnv && serverError.missingEnv.length > 0 && (
+                          <ul className="text-muted-foreground text-xs mt-2 list-disc pl-5">
+                            <li>Variables manquantes : {serverError.missingEnv.join(", ")}</li>
+                          </ul>
+                        )}
                         {serverError.details && <p className="text-muted-foreground text-xs mt-1">{serverError.details}</p>}
                       </AlertDescription>
                     </Alert>
+                  )}
+
+                  {import.meta.env.DEV && (
+                    <div className="mt-4">
+                      <button type="button" className="text-xs underline text-muted-foreground" onClick={() => setDebugOpen((v) => !v)}>
+                        {debugOpen ? "Masquer les détails techniques" : "Afficher les détails techniques"}
+                      </button>
+                      {debugOpen && (
+                        <div className="mt-2 rounded-md border bg-muted/30 p-3">
+                          <p className="text-xs font-medium mb-1">Dernière requête</p>
+                          <pre className="text-xs overflow-auto whitespace-pre-wrap">{JSON.stringify(lastRequest, null, 2)}</pre>
+                          <p className="text-xs font-medium mt-3 mb-1">Dernière réponse</p>
+                          <pre className="text-xs overflow-auto whitespace-pre-wrap">{JSON.stringify(lastResponse, null, 2)}</pre>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </form>
 
