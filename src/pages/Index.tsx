@@ -11,6 +11,8 @@ import beautyHero from "@/assets/beauty-hero.jpg";
 import cafeInterior from "@/assets/cafe-interior.jpg";
 import skincareDetail from "@/assets/skincare-detail.jpg";
 import boutiqueExterior from "@/assets/boutique-exterior.jpg";
+import { subscribe } from "@/lib/subscribe";
+import { openMailto } from "@/lib/subscribe";
 
 const Index = () => {
   const categories = [
@@ -85,25 +87,14 @@ const Index = () => {
       toast({ title: "Email invalide" });
       return;
     }
-    try {
-      const res = await fetch("/api/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      if (res.ok) {
-        toast({ title: "Merci !" });
-        setEmail("");
-      } else {
-        const j = await res.json().catch(() => ({} as any));
-        toast({ title: j.error || "Erreur serveur" });
-        const href = `mailto:nolwennalabrestoise@gmail.com?subject=${encodeURIComponent("Abonnement newsletter")}&body=${encodeURIComponent(`Bonjour,\n\nJe souhaite m'abonner à la newsletter.\n\nEmail: ${email}\n`)}`;
-        window.location.href = href;
-      }
-    } catch (err) {
-      toast({ title: "Erreur réseau" });
-      const href = `mailto:nolwennalabrestoise@gmail.com?subject=${encodeURIComponent("Abonnement newsletter")}&body=${encodeURIComponent(`Bonjour,\n\nJe souhaite m'abonner à la newsletter.\n\nEmail: ${email}\n`)}`;
-      window.location.href = href;
+    const result = await subscribe(email, "home-cta");
+    if (result === "ok") {
+      toast({ title: "Merci !" });
+      setEmail("");
+    } else {
+      const href = `mailto:nolwennalabrestoise@gmail.com?subject=${encodeURIComponent("Abonnement newsletter")}&body=${encodeURIComponent(`${email}\n\n(source: home-cta | path: ${window.location.pathname})`)}`;
+      openMailto(href);
+      toast({ title: "Erreur serveur — envoi par e-mail proposé." });
     }
   }
 
@@ -147,12 +138,15 @@ const Index = () => {
               inscrivez-vous à la newsletter pour ne rien manquer des prochaines publications
             </p>
             <form onSubmit={onSubscribe} className="w-full md:w-auto flex gap-2 justify-center">
+              <label htmlFor="home-subscribe-email" className="sr-only">Email</label>
               <Input
+                id="home-subscribe-email"
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Votre e-mail"
+                aria-invalid={!emailValid}
                 className="rounded-full max-w-xs"
               />
               <Button type="submit" className="rounded-full transition duration-200 hover:opacity-90">

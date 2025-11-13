@@ -21,7 +21,7 @@ type RawPost = {
   source: string;
 };
 
-const rawModules = import.meta.glob("/content/posts/*.md", { as: "raw", eager: true }) as Record<string, string>;
+const rawModules = import.meta.glob("/content/posts/*.md", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
 
 const rawPosts: RawPost[] = Object.entries(rawModules).map(([path, source]) => ({ path, source }));
 

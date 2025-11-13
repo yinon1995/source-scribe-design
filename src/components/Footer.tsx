@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { site } from "@/lib/siteContent";
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
+import { subscribe, openMailto } from "@/lib/subscribe";
 
 const Footer = () => {
   return (
@@ -97,24 +98,16 @@ function FooterNewsletter() {
       return;
     }
     setLoading(true);
-    try {
-      const res = await fetch("/api/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      if (res.ok) {
-        toast({ title: "Merci !" });
-        setEmail("");
-      } else {
-        const j = await res.json().catch(() => ({}));
-        toast({ title: j.error || "Erreur serveur" });
-      }
-    } catch (err) {
-      toast({ title: "Erreur réseau" });
-    } finally {
-      setLoading(false);
+    const result = await subscribe(email, "footer");
+    if (result === "ok") {
+      toast({ title: "Merci !" });
+      setEmail("");
+    } else {
+      const href = `mailto:nolwennalabrestoise@gmail.com?subject=${encodeURIComponent("Abonnement newsletter")}&body=${encodeURIComponent(`${email}\n\n(source: footer | path: ${window.location.pathname})`)}`;
+      openMailto(href);
+      toast({ title: "Erreur serveur — envoi par e-mail proposé." });
     }
+    setLoading(false);
   }
 
   return (
@@ -124,12 +117,15 @@ function FooterNewsletter() {
         Recevez les nouveaux articles
       </p>
       <form onSubmit={onSubscribe} className="flex gap-2">
+        <label htmlFor="footer-subscribe-email" className="sr-only">Email</label>
         <Input
+          id="footer-subscribe-email"
           type="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Votre e-mail"
+          aria-invalid={!emailValid}
           className="rounded-full"
         />
         <Button type="submit" disabled={loading} className="rounded-full bg-primary hover:bg-primary/90">
