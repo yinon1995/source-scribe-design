@@ -9,9 +9,33 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 
 const Contact = () => {
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    toast.success("Message envoyé avec succès !");
+    const fullName = (document.getElementById("name") as HTMLInputElement)?.value?.trim();
+    const email = (document.getElementById("email") as HTMLInputElement)?.value?.trim();
+    const company = (document.getElementById("company") as HTMLInputElement)?.value?.trim();
+    const city = (document.getElementById("city") as HTMLInputElement)?.value?.trim();
+    const budget = (document.getElementById("budget") as HTMLInputElement)?.value?.trim();
+    const deadline = (document.getElementById("deadline") as HTMLInputElement)?.value?.trim();
+    const message = (document.getElementById("message") as HTMLTextAreaElement)?.value?.trim();
+    const consent = (document.getElementById("consent") as HTMLInputElement)?.checked ?? false;
+
+    const payload = { fullName, email, company, city, budget, deadline, message, consent };
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.status === 200) {
+        toast.success("Merci !");
+        (e.currentTarget as HTMLFormElement).reset();
+      } else {
+        toast.error("Erreur serveur — envoi par e-mail proposé.");
+      }
+    } catch {
+      toast.error("Erreur serveur — envoi par e-mail proposé.");
+    }
   };
 
   return (

@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { json, githubGet, githubPut } from "./_github";
+import { json, githubGet, githubPut } from "./_lib/github";
+import { sendEmail } from "./_lib/email";
 
 function setCors(res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -13,17 +14,14 @@ function redactEmail(email: string): string {
   return `***@${email.slice(at + 1)}`;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+	export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res);
   if (req.method === "OPTIONS") {
     res.status(204).end();
     return;
   }
-  const isLocal = !process.env.VERCEL || process.env.VERCEL_ENV === "development" || process.env.NODE_ENV !== "production";
-  if (isLocal) {
-    return json(res, 200, { ok: true, dev: true });
-  }
   if (req.method !== "POST") {
+		res.setHeader("X-Debug", "subscribe:method_not_allowed");
     return json(res, 405, { error: "Method not allowed" });
   }
 
@@ -42,10 +40,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || (req.socket as any)?.remoteAddress || undefined;
 
   if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+		res.setHeader("X-Debug", "subscribe:invalid_email");
     return json(res, 400, { error: "Email invalide" });
   }
 
-  // 1) Webhook forwarding (Formspree or generic)
+	const debugSteps: string[] = [];
+	let okWebhook = false;
+	let okCsv = false;
+	let okEmails = false;
+
+	// 1) Webhook forwarding (Formspree or generic)
   const webhook = process.env.FORMSPREE_ENDPOINT || process.env.SUBSCRIBE_WEBHOOK_URL;
   if (webhook) {
     try {
@@ -56,22 +60,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
       // eslint-disable-next-line no-console
       console.log("[api/subscribe] webhook", { status: f.status, email: redactEmail(email), source });
-      // Pass through status — 2xx considered OK
-      const status = f.status;
-      if (status >= 200 && status < 300) {
-        return json(res, 200, { ok: true });
-      } else {
-        return json(res, status, { ok: false, error: "webhook_error" });
-      }
+			if (f.status >= 200 && f.status < 300) {
+				okWebhook = true;
+				debugSteps.push(`webhook:${f.status}`);
+			} else {
+				debugSteps.push(`webhook_non2xx:${f.status}`);
+			}
     } catch (e: any) {
       // eslint-disable-next-line no-console
       console.error("[api/subscribe] webhook error", { error: e?.message, email: redactEmail(email) });
-      // Fallthrough to next strategy
+			debugSteps.push("webhook_error");
     }
   }
 
   // 2) GitHub append to CSV (if token configured)
-  if (process.env.GITHUB_TOKEN) {
+	if (process.env.GITHUB_TOKEN) {
     try {
       const filePath = process.env.GITHUB_FILE_PATH || "data/subscribers.csv";
       const existing = await githubGet(filePath);
@@ -86,15 +89,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await githubPut(filePath, next, "chore(subscribers): append new email");
       // eslint-disable-next-line no-console
       console.log("[api/subscribe] github csv append", { email: redactEmail(email), source });
-      return json(res, 200, { ok: true });
+			okCsv = true;
+			debugSteps.push("csv_ok");
     } catch (e: any) {
       // eslint-disable-next-line no-console
       console.error("[api/subscribe] github error", { error: e?.message, email: redactEmail(email) });
-      // Fallthrough to 202 fallback
+			debugSteps.push("csv_error");
     }
   }
 
-  // 3) No envs — graceful 202 fallback
-  return json(res, 202, { ok: false, fallback: "mailto" });
+	// 3) Emails via Resend (fire-and-forget). Considered success if envs present (attempted).
+	if (process.env.RESEND_API_KEY && process.env.RESEND_FROM) {
+		okEmails = true;
+		debugSteps.push("emails_attempt");
+		void sendEmail({
+			to: email,
+			subject: "Bienvenue à la newsletter ✨",
+			html: "<p>Merci ! Vous recevrez les prochains articles.</p>",
+		});
+		const owner = process.env.OWNER_EMAIL;
+		if (owner) {
+			void sendEmail({
+				to: owner,
+				subject: "Nouveau abonné",
+				html: `<p>Email: ${email}</p><p>Source: ${source || ""}</p><p>Path: ${path || ""}</p>`,
+			});
+		}
+	}
+
+	const okAny = okWebhook || okCsv || okEmails;
+	res.setHeader("X-Debug", `subscribe:${debugSteps.join(",") || "none"}`);
+	if (okAny) {
+		return json(res, 200, { ok: true });
+	}
+	return json(res, 202, { ok: false, fallback: "mailto" });
 }
 
