@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { createIssue, json } from "./_github";
+import { createIssue, json } from "./_github.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {

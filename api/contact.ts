@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { json } from "./_lib/github";
-import { sendEmail } from "./_lib/email";
+import { json } from "./_lib/github.js";
+import { sendEmail } from "./_lib/email.js";
 
 function setCors(res: VercelResponse) {
 	res.setHeader("Access-Control-Allow-Origin", "*");
