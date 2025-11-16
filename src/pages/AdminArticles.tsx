@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Footer from "@/components/Footer";
-import { getAllArticlesForAdmin, AdminArticleListItem } from "@/lib/articlesIndex";
+import { getAllArticlesForAdmin, type AdminArticleListItem } from "@/lib/articlesIndex";
 import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -21,14 +21,10 @@ import {
 const AdminArticles = () => {
 	const navigate = useNavigate();
 
-	const [rows, setRows] = useState<AdminArticleListItem[]>(() =>
-		getAllArticlesForAdmin()
-			.slice()
-			.sort((a, b) => new Date(b.date as any).getTime() - new Date(a.date as any).getTime())
-	);
+	const [rows, setRows] = useState<AdminArticleListItem[]>(() => getAllArticlesForAdmin());
 
 	function handleEdit(slug: string) {
-		navigate(`/admin/nouvel-article?slug=${slug}`);
+		navigate(`/admin/nouvel-article?slug=${encodeURIComponent(slug)}`);
 	}
 
 	async function handleDelete(slug: string) {
