@@ -8,6 +8,8 @@ import { toast } from "@/hooks/use-toast";
 import heroImage from "@/assets/hero-portrait.jpeg";
 import { site } from "@/lib/siteContent";
 import { Link } from "react-router-dom";
+import { CONTACT_EMAIL, CONTACT_MODE } from "@/config/contactFallback";
+import { useContactFallback } from "@/context/ContactFallbackContext";
 
 const Hero = () => {
   const [email, setEmail] = useState("");
@@ -17,9 +19,15 @@ const Hero = () => {
   const emailValid = /\S+@\S+\.\S+/.test(email);
   const subjectValid = subject.trim().length > 0;
   const messageValid = message.trim().length > 0;
+  const { openFallback } = useContactFallback();
+  const isPlaceholder = CONTACT_MODE === "placeholder";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isPlaceholder) {
+      openFallback();
+      return;
+    }
     setSubmitted(true);
     if (!emailValid || !subjectValid || !messageValid) {
       toast({ title: "Veuillez remplir les champs requis" });
@@ -37,12 +45,19 @@ const Hero = () => {
         setSubject("");
         setMessage("");
       } else {
-        const href = `mailto:nolwennalabrestoise@gmail.com?subject=${encodeURIComponent("Proposition de sujet")}&body=${encodeURIComponent(`Email: ${email}\nSujet: ${subject}\n\nMessage:\n${message}`)}`;
+        const href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Proposition de sujet")}&body=${encodeURIComponent(`Email: ${email}\nSujet: ${subject}\n\nMessage:\n${message}`)}`;
         window.location.href = href;
       }
     } catch {
-      const href = `mailto:nolwennalabrestoise@gmail.com?subject=${encodeURIComponent("Proposition de sujet")}&body=${encodeURIComponent(`Email: ${email}\nSujet: ${subject}\n\nMessage:\n${message}`)}`;
+      const href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Proposition de sujet")}&body=${encodeURIComponent(`Email: ${email}\nSujet: ${subject}\n\nMessage:\n${message}`)}`;
       window.location.href = href;
+    }
+  }
+
+  function handleMailLinkClick(e: React.MouseEvent<HTMLAnchorElement>) {
+    if (isPlaceholder) {
+      e.preventDefault();
+      openFallback();
     }
   }
 
@@ -137,9 +152,10 @@ const Hero = () => {
                     ou envoyer un email directement à{" "}
                     <a
                       className="underline"
-                      href={`mailto:nolwennalabrestoise@gmail.com?subject=${encodeURIComponent("Proposition de sujet")}`}
+                      href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Proposition de sujet")}`}
+                      onClick={handleMailLinkClick}
                     >
-                      nolwennalabrestoise@gmail.com
+                      {CONTACT_EMAIL}
                     </a>
                   </p>
                 </DialogContent>

@@ -7,8 +7,20 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { site } from "@/lib/siteContent";
+import { useContactFallback } from "@/context/ContactFallbackContext";
+import { CONTACT_MODE } from "@/config/contactFallback";
 
 const Navigation = () => {
+  const { openFallback } = useContactFallback();
+  const isPlaceholder = CONTACT_MODE === "placeholder";
+
+  function handleContactClick(e: React.MouseEvent<HTMLAnchorElement>) {
+    if (isPlaceholder) {
+      e.preventDefault();
+      openFallback();
+    }
+  }
+
   return (
     <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4">
@@ -34,7 +46,11 @@ const Navigation = () => {
             <Link to="/services" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               {site.nav.services}
             </Link>
-            <Link to="/contact" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <Link
+              to="/contact"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              onClick={handleContactClick}
+            >
               {site.nav.contact}
             </Link>
             <Button variant="ghost" size="icon" className="hover:bg-accent">
@@ -63,7 +79,11 @@ const Navigation = () => {
                 <Link to="/services" className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2">
                   {site.nav.services}
                 </Link>
-                <Link to="/contact" className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2">
+                <Link
+                  to="/contact"
+                  className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2"
+                  onClick={handleContactClick}
+                >
                   {site.nav.contact}
                 </Link>
               </nav>

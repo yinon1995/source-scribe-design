@@ -9,6 +9,8 @@ import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { CONTACT_EMAIL, CONTACT_MODE } from "@/config/contactFallback";
+import { useContactFallback } from "@/context/ContactFallbackContext";
 
 const Services = () => {
   const services = [
@@ -67,6 +69,15 @@ const Services = () => {
   ];
 
   const [testimonials, setTestimonials] = useState<{ message: string; nom: string; fonction_entreprise?: string }[]>([]);
+  const { openFallback } = useContactFallback();
+  const isPlaceholder = CONTACT_MODE === "placeholder";
+
+  function handleMailCtaClick(e: React.MouseEvent<HTMLAnchorElement>) {
+    if (isPlaceholder) {
+      e.preventDefault();
+      openFallback();
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -120,7 +131,8 @@ const Services = () => {
             </p>
             <div className="flex justify-center">
               <a
-                href={`mailto:nolwennalabrestoise@gmail.com?subject=${encodeURIComponent("Demande de devis")}`}
+                href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Demande de devis")}`}
+                onClick={handleMailCtaClick}
               >
                 <Button className="rounded-full transition duration-200 hover:opacity-90">Envoyer un email</Button>
               </a>
@@ -166,10 +178,16 @@ function ServiceInterestDialog({ service }: { service: string }) {
   const emailValid = /\S+@\S+\.\S+/.test(email);
   const messageValid = message.trim().length > 0;
   const idBase = service.toLowerCase().replace(/\s+/g, "-");
+  const { openFallback } = useContactFallback();
+  const isPlaceholder = CONTACT_MODE === "placeholder";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitted(true);
+    if (isPlaceholder) {
+      openFallback();
+      return;
+    }
     if (!emailValid || !messageValid) {
       toast({ title: "Veuillez remplir les champs requis" });
       return;
@@ -185,11 +203,11 @@ function ServiceInterestDialog({ service }: { service: string }) {
         setEmail("");
         setMessage("");
       } else {
-        const href = `mailto:nolwennalabrestoise@gmail.com?subject=${encodeURIComponent(`Intéressé(e) par ${service}`)}&body=${encodeURIComponent(`Email: ${email}\nService: ${service}\n\nMessage:\n${message}`)}`;
+        const href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`Intéressé(e) par ${service}`)}&body=${encodeURIComponent(`Email: ${email}\nService: ${service}\n\nMessage:\n${message}`)}`;
         window.location.href = href;
       }
     } catch {
-      const href = `mailto:nolwennalabrestoise@gmail.com?subject=${encodeURIComponent(`Intéressé(e) par ${service}`)}&body=${encodeURIComponent(`Email: ${email}\nService: ${service}\n\nMessage:\n${message}`)}`;
+      const href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`Intéressé(e) par ${service}`)}&body=${encodeURIComponent(`Email: ${email}\nService: ${service}\n\nMessage:\n${message}`)}`;
       window.location.href = href;
     }
   }
@@ -251,10 +269,16 @@ function TestimonialDialog() {
   const [message, setMessage] = useState("");
   const [consent, setConsent] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const { openFallback } = useContactFallback();
+  const isPlaceholder = CONTACT_MODE === "placeholder";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitted(true);
+    if (isPlaceholder) {
+      openFallback();
+      return;
+    }
     if (!name.trim() || !message.trim()) {
       toast({ title: "Champs requis manquants" });
       return;
@@ -279,11 +303,11 @@ function TestimonialDialog() {
         setMessage("");
         setConsent(false);
       } else {
-        const href = `mailto:nolwennalabrestoise@gmail.com?subject=${encodeURIComponent("Témoignage")} &body=${encodeURIComponent(`Nom: ${name}\nOrganisation: ${organisation}\nLogo URL: ${logoUrl}\n\nMessage:\n${message}\n\nConsentement: ${consent ? "oui" : "non"}`)}`;
+        const href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Témoignage")} &body=${encodeURIComponent(`Nom: ${name}\nOrganisation: ${organisation}\nLogo URL: ${logoUrl}\n\nMessage:\n${message}\n\nConsentement: ${consent ? "oui" : "non"}`)}`;
         window.location.href = href;
       }
     } catch {
-      const href = `mailto:nolwennalabrestoise@gmail.com?subject=${encodeURIComponent("Témoignage")}&body=${encodeURIComponent(`Nom: ${name}\nOrganisation: ${organisation}\nLogo URL: ${logoUrl}\n\nMessage:\n${message}\n\nConsentement: ${consent ? "oui" : "non"}`)}`;
+      const href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Témoignage")}&body=${encodeURIComponent(`Nom: ${name}\nOrganisation: ${organisation}\nLogo URL: ${logoUrl}\n\nMessage:\n${message}\n\nConsentement: ${consent ? "oui" : "non"}`)}`;
       window.location.href = href;
     }
   }

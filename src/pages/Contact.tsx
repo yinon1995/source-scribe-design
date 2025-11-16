@@ -7,13 +7,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useState } from "react";
+import { CONTACT_EMAIL, CONTACT_MODE, CONTACT_WHATSAPP_URL } from "@/config/contactFallback";
+import { useContactFallback } from "@/context/ContactFallbackContext";
+import { useNavigate } from "react-router-dom";
 
 const Contact = () => {
   const [loading, setLoading] = useState(false);
   const [projectType, setProjectType] = useState<string | undefined>(undefined);
+  const { openFallback } = useContactFallback();
+  const navigate = useNavigate();
+  const isPlaceholder = CONTACT_MODE === "placeholder";
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isPlaceholder) {
+      openFallback();
+      return;
+    }
     if (!projectType) {
       toast.error("Veuillez sélectionner un type de projet.");
       return;
@@ -49,6 +59,45 @@ const Contact = () => {
     }
   };
 
+  const handleMailLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (isPlaceholder) {
+      e.preventDefault();
+      openFallback();
+    }
+  };
+
+  if (isPlaceholder) {
+    return (
+      <div className="min-h-screen bg-background">
+        <section className="py-20">
+          <div className="container mx-auto px-4 max-w-2xl space-y-8 text-center">
+            <h1 className="text-4xl md:text-5xl font-display font-bold text-foreground">Contact</h1>
+            <p className="text-lg text-muted-foreground">
+              Le formulaire de contact sera bientôt disponible. En attendant, utilisez les raccourcis ci-dessous
+              pour nous écrire ou revenir à l’accueil.
+            </p>
+            <div className="flex flex-col sm:flex-row justify-center gap-3">
+              <Button className="flex-1 rounded-full" onClick={() => (window.location.href = `mailto:${CONTACT_EMAIL}`)}>
+                Ouvrir l’e-mail
+              </Button>
+              <Button
+                className="flex-1 rounded-full"
+                variant="secondary"
+                onClick={() => window.open(CONTACT_WHATSAPP_URL, "_blank", "noopener,noreferrer")}
+              >
+                Ouvrir WhatsApp
+              </Button>
+              <Button className="flex-1 rounded-full" variant="ghost" onClick={() => navigate("/")}>
+                Retour à l’accueil
+              </Button>
+            </div>
+          </div>
+        </section>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <section className="py-20">
@@ -62,8 +111,8 @@ const Contact = () => {
               Un projet de collaboration ? Remplissez ce formulaire et je reviendrai vers vous rapidement.
             </p>
             <p className="text-sm">
-              <a href={"mailto:nolwennalabrestoise@gmail.com"} className="underline">
-                nolwennalabrestoise@gmail.com
+              <a href={`mailto:${CONTACT_EMAIL}`} className="underline" onClick={handleMailLinkClick}>
+                {CONTACT_EMAIL}
               </a>
             </p>
           </div>
@@ -125,9 +174,9 @@ const Contact = () => {
 
             <div className="space-y-2">
               <Label htmlFor="message">Message *</Label>
-              <Textarea 
-                id="message" 
-                required 
+              <Textarea
+                id="message"
+                required
                 rows={6}
                 placeholder="Décrivez votre projet, vos besoins et vos attentes..."
                 className="rounded-lg resize-none"
@@ -137,7 +186,7 @@ const Contact = () => {
             <div className="flex items-start gap-3">
               <Checkbox id="consent" required className="mt-1" />
               <Label htmlFor="consent" className="text-sm text-muted-foreground leading-relaxed cursor-pointer">
-                J'accepte que mes données soient collectées et traitées dans le cadre de ma demande. 
+                J'accepte que mes données soient collectées et traitées dans le cadre de ma demande.
                 Conformément au RGPD, vous pouvez exercer vos droits en me contactant.
               </Label>
             </div>
