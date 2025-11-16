@@ -4,14 +4,34 @@ type Article = {
   title: string;
   slug: string;
   category: "Commerces & lieux" | "Expérience" | "Beauté";
-  tags: string[];
-  cover: string;
-  excerpt: string;
+  tags?: string[];
+  cover?: string;
+  excerpt?: string;
   body: string; // markdown
-  author: string;
-  date: string; // ISO
+  author?: string;
+  date?: string; // ISO
   readingMinutes?: number;
   sources?: string[];
+  heroLayout?: "default" | "image-full" | "compact";
+  showTitleInHero?: boolean;
+  footerType?: "default" | "practical-info" | "cta";
+  footerNote?: string;
+  authorSlug?: string;
+  authorAvatarUrl?: string;
+  authorRole?: string;
+  primaryPlaceName?: string;
+  practicalInfo?: {
+    address?: string;
+    phone?: string;
+    websiteUrl?: string;
+    googleMapsUrl?: string;
+    openingHours?: string;
+  };
+  seoTitle?: string;
+  seoDescription?: string;
+  searchAliases?: string[];
+  canonicalUrl?: string;
+  schemaType?: "Article" | "LocalBusiness" | "Restaurant";
 };
 
 function slugify(input: string): string {
@@ -309,9 +329,9 @@ export default async function handler(req: any, res: any) {
         slug: articleForWrite.slug,
         category: articleForWrite.category,
         tags: articleForWrite.tags || [],
-        cover: articleForWrite.cover,
-        excerpt: articleForWrite.excerpt,
-        date: articleForWrite.date,
+        cover: articleForWrite.cover || "",
+        excerpt: articleForWrite.excerpt || "",
+        date: articleForWrite.date || new Date().toISOString(),
         readingMinutes,
       };
 

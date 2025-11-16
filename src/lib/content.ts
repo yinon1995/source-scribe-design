@@ -2,14 +2,34 @@ export type JsonArticle = {
   title: string;
   slug: string;
   category: "Commerces & lieux" | "Expérience" | "Beauté";
-  tags: string[];
-  cover: string;
-  excerpt: string;
+  tags?: string[];
+  cover?: string;
+  excerpt?: string;
   body: string;
-  author: string;
-  date: string;
+  author?: string;
+  date?: string;
   readingMinutes?: number;
   sources?: string[];
+  heroLayout?: "default" | "image-full" | "compact";
+  showTitleInHero?: boolean;
+  footerType?: "default" | "practical-info" | "cta";
+  footerNote?: string;
+  authorSlug?: string;
+  authorAvatarUrl?: string;
+  authorRole?: string;
+  primaryPlaceName?: string;
+  practicalInfo?: {
+    address?: string;
+    phone?: string;
+    websiteUrl?: string;
+    googleMapsUrl?: string;
+    openingHours?: string;
+  };
+  seoTitle?: string;
+  seoDescription?: string;
+  searchAliases?: string[];
+  canonicalUrl?: string;
+  schemaType?: "Article" | "LocalBusiness" | "Restaurant";
 };
 
 export type PostFrontmatter = {
@@ -17,11 +37,32 @@ export type PostFrontmatter = {
   slug: string;
   date: string;
   category: string;
-  summary: string;
-  tags: string[];
+  summary?: string;
+  tags?: string[];
   heroImage?: string;
   readingMinutes?: number;
   sources?: string[];
+  heroLayout?: "default" | "image-full" | "compact";
+  showTitleInHero?: boolean;
+  footerType?: "default" | "practical-info" | "cta";
+  footerNote?: string;
+  author?: string;
+  authorSlug?: string;
+  authorAvatarUrl?: string;
+  authorRole?: string;
+  primaryPlaceName?: string;
+  practicalInfo?: {
+    address?: string;
+    phone?: string;
+    websiteUrl?: string;
+    googleMapsUrl?: string;
+    openingHours?: string;
+  };
+  seoTitle?: string;
+  seoDescription?: string;
+  searchAliases?: string[];
+  canonicalUrl?: string;
+  schemaType?: "Article" | "LocalBusiness" | "Restaurant";
   isJson?: boolean;
 };
 
@@ -67,11 +108,11 @@ function parseFrontmatter(source: string): FrontmatterParseResult {
       continue;
     }
 
-  if (arrayBuffer && currentKey && !arrayMatch) {
-    data[currentKey] = [...arrayBuffer];
-    arrayBuffer = null;
-    currentKey = null;
-  }
+    if (arrayBuffer && currentKey && !arrayMatch) {
+      data[currentKey] = [...arrayBuffer];
+      arrayBuffer = null;
+      currentKey = null;
+    }
 
     const kv = line.match(/^([A-Za-z0-9_]+):\s*(.*)$/);
     if (!kv) continue;
@@ -154,7 +195,7 @@ const markdownPosts: Post[] = Object.entries(markdownModules).map(([path, source
   const { data, content } = parseFrontmatter(source ?? "");
   const fallbackSlug = path.split("/").pop()?.replace(/\.md$/, "") ?? "article";
   const fm = coerceFrontmatter(data, fallbackSlug);
-  const readingMinutes = fm.readingMinutes ?? estimateMinutes(`${fm.summary}\n\n${content}`);
+  const readingMinutes = fm.readingMinutes ?? estimateMinutes(`${fm.summary ?? ""}\n\n${content}`);
 
   return {
     ...fm,
@@ -168,23 +209,42 @@ const jsonArticles: JsonArticle[] = Object.values(jsonModules)
   .filter((value): value is JsonArticle => Boolean(value && typeof value === "object"));
 
 const jsonPosts: Post[] = jsonArticles.map((ja) => {
+  const date = ja.date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
   const readingMinutes =
     typeof ja.readingMinutes === "number" && ja.readingMinutes > 0
       ? ja.readingMinutes
-      : estimateMinutes(`${ja.excerpt}\n\n${ja.body}`);
+      : estimateMinutes(`${ja.excerpt ?? ""}\n\n${ja.body ?? ""}`);
+  const searchAliases = Array.isArray(ja.searchAliases)
+    ? ja.searchAliases.map((alias) => String(alias))
+    : undefined;
 
   return {
     title: ja.title,
     slug: ja.slug,
-    date: ja.date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+    date,
     category: ja.category,
     summary: ja.excerpt,
-    tags: Array.isArray(ja.tags) ? ja.tags.map(String) : [],
+    tags: Array.isArray(ja.tags) ? ja.tags.map(String) : undefined,
     heroImage: ja.cover || undefined,
     readingMinutes,
     sources: Array.isArray(ja.sources) ? ja.sources.map(String) : undefined,
     isJson: true,
     body: ja.body,
+    heroLayout: ja.heroLayout ?? "default",
+    showTitleInHero: typeof ja.showTitleInHero === "boolean" ? ja.showTitleInHero : true,
+    footerType: ja.footerType ?? "default",
+    footerNote: ja.footerNote,
+    author: ja.author,
+    authorSlug: ja.authorSlug,
+    authorAvatarUrl: ja.authorAvatarUrl,
+    authorRole: ja.authorRole,
+    primaryPlaceName: ja.primaryPlaceName,
+    practicalInfo: ja.practicalInfo,
+    seoTitle: ja.seoTitle,
+    seoDescription: ja.seoDescription,
+    searchAliases,
+    canonicalUrl: ja.canonicalUrl,
+    schemaType: ja.schemaType ?? "Article",
   };
 });
 

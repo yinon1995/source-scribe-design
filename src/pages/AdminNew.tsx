@@ -10,7 +10,8 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import ArticleContent from "@/components/ArticleContent";
-import { getPostBySlug } from "@/lib/content";
+import { Checkbox } from "@/components/ui/checkbox";
+import { getPostBySlug, type JsonArticle } from "@/lib/content";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Clock } from "lucide-react";
@@ -27,6 +28,20 @@ type Article = {
   author: string;
   date: string; // ISO
   readingMinutes: number;
+  heroLayout: "default" | "image-full" | "compact";
+  showTitleInHero: boolean;
+  footerType: "default" | "practical-info" | "cta";
+  footerNote?: string;
+  authorSlug?: string;
+  authorAvatarUrl?: string;
+  authorRole?: string;
+  primaryPlaceName?: string;
+  practicalInfo?: JsonArticle["practicalInfo"];
+  seoTitle?: string;
+  seoDescription?: string;
+  searchAliases?: string[];
+  canonicalUrl?: string;
+  schemaType: "Article" | "LocalBusiness" | "Restaurant";
 };
 
 function slugify(input: string): string {
@@ -83,6 +98,24 @@ const AdminNew = () => {
   const manualReadingOverrideRef = useRef(false);
   const [readingMinutes, setReadingMinutes] = useState<number>(() => estimateMinutes(`${excerpt}\n\n${body}`));
   const [sourcesText, setSourcesText] = useState("");
+  const [heroLayout, setHeroLayout] = useState<Article["heroLayout"]>("default");
+  const [showTitleInHero, setShowTitleInHero] = useState(true);
+  const [footerType, setFooterType] = useState<Article["footerType"]>("default");
+  const [footerNote, setFooterNote] = useState("");
+  const [authorSlug, setAuthorSlug] = useState("");
+  const [authorAvatarUrl, setAuthorAvatarUrl] = useState("");
+  const [authorRole, setAuthorRole] = useState("");
+  const [primaryPlaceName, setPrimaryPlaceName] = useState("");
+  const [address, setAddress] = useState("");
+  const [phone, setPhone] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [googleMapsUrl, setGoogleMapsUrl] = useState("");
+  const [openingHours, setOpeningHours] = useState("");
+  const [seoTitle, setSeoTitle] = useState("");
+  const [seoDescription, setSeoDescription] = useState("");
+  const [searchAliasesText, setSearchAliasesText] = useState("");
+  const [canonicalUrl, setCanonicalUrl] = useState("");
+  const [schemaType, setSchemaType] = useState<Article["schemaType"]>("Article");
   const refCounter = useRef(1);
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [imgAlt, setImgAlt] = useState("");
@@ -136,6 +169,26 @@ const AdminNew = () => {
           setAuthor(d.author || "À la Brestoise");
           setDate(d.date || new Date().toISOString());
           if (typeof d.readingMinutes === "number" && d.readingMinutes > 0) setReadingMinutes(d.readingMinutes);
+          setHeroLayout(d.heroLayout ?? "default");
+          setShowTitleInHero(d.showTitleInHero !== false);
+          setFooterType(d.footerType ?? "default");
+          setFooterNote(d.footerNote || "");
+          setAuthorSlug(d.authorSlug || "");
+          setAuthorAvatarUrl(d.authorAvatarUrl || "");
+          setAuthorRole(d.authorRole || "");
+          setPrimaryPlaceName(d.primaryPlaceName || "");
+          setSeoTitle(d.seoTitle || "");
+          setSeoDescription(d.seoDescription || "");
+          setCanonicalUrl(d.canonicalUrl || "");
+          setSchemaType(d.schemaType ?? "Article");
+          const pi = d.practicalInfo || {};
+          setAddress(pi?.address || "");
+          setPhone(pi?.phone || "");
+          setWebsiteUrl(pi?.websiteUrl || "");
+          setGoogleMapsUrl(pi?.googleMapsUrl || "");
+          setOpeningHours(pi?.openingHours || "");
+          const aliases = Array.isArray(d.searchAliases) ? d.searchAliases : [];
+          setSearchAliasesText(aliases.join("\n"));
         }
       }
     } catch {
@@ -155,7 +208,7 @@ const AdminNew = () => {
     setCover(existing.heroImage || "");
     setExcerpt(existing.summary || "");
     setBody(existing.body || "");
-    setAuthor("À la Brestoise");
+    setAuthor(existing.author || "À la Brestoise");
     try {
       const d = existing.date ? new Date(existing.date) : new Date();
       setDate(d.toISOString());
@@ -168,6 +221,26 @@ const AdminNew = () => {
     if (Array.isArray(existing.sources)) {
       setSourcesText(existing.sources.join("\n"));
     }
+    setHeroLayout((existing.heroLayout ?? "default") as Article["heroLayout"]);
+    setShowTitleInHero(existing.showTitleInHero !== false);
+    setFooterType((existing.footerType ?? "default") as Article["footerType"]);
+    setFooterNote(existing.footerNote || "");
+    setAuthorSlug(existing.authorSlug || "");
+    setAuthorAvatarUrl(existing.authorAvatarUrl || "");
+    setAuthorRole(existing.authorRole || "");
+    setPrimaryPlaceName(existing.primaryPlaceName || "");
+    setSeoTitle(existing.seoTitle || "");
+    setSeoDescription(existing.seoDescription || "");
+    setCanonicalUrl(existing.canonicalUrl || "");
+    setSchemaType((existing.schemaType ?? "Article") as Article["schemaType"]);
+    const pi = existing.practicalInfo || {};
+    setAddress(pi?.address || "");
+    setPhone(pi?.phone || "");
+    setWebsiteUrl(pi?.websiteUrl || "");
+    setGoogleMapsUrl(pi?.googleMapsUrl || "");
+    setOpeningHours(pi?.openingHours || "");
+    const aliases = Array.isArray(existing.searchAliases) ? existing.searchAliases : [];
+    setSearchAliasesText(aliases.join("\n"));
   }, [isEditing, editSlug]);
 
   // auto-generate slug from title only while creating a new article
@@ -230,20 +303,82 @@ const AdminNew = () => {
       .filter(Boolean),
   [tagsInput]);
 
-  const article: Article = useMemo(() => ({
-    title,
-    slug,
-    category,
-    tags,
-    cover,
-    excerpt,
-    body,
-    author,
-    date,
-    readingMinutes,
-  }), [title, slug, category, tags, cover, excerpt, body, author, date, readingMinutes]);
+  const searchAliases = useMemo(
+    () =>
+      searchAliasesText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean),
+    [searchAliasesText],
+  );
 
-  const sources = useMemo(() => sourcesText.split('\n').map((s) => s.trim()).filter(Boolean), [sourcesText]);
+  const article: Article = useMemo(
+    () => ({
+      title,
+      slug,
+      category,
+      tags,
+      cover,
+      excerpt,
+      body,
+      author,
+      date,
+      readingMinutes,
+      heroLayout,
+      showTitleInHero,
+      footerType,
+      footerNote,
+      authorSlug,
+      authorAvatarUrl,
+      authorRole,
+      primaryPlaceName,
+      practicalInfo: {
+        address,
+        phone,
+        websiteUrl,
+        googleMapsUrl,
+        openingHours,
+      },
+      seoTitle,
+      seoDescription,
+      searchAliases,
+      canonicalUrl,
+      schemaType,
+    }),
+    [
+      title,
+      slug,
+      category,
+      tags,
+      cover,
+      excerpt,
+      body,
+      author,
+      date,
+      readingMinutes,
+      heroLayout,
+      showTitleInHero,
+      footerType,
+      footerNote,
+      authorSlug,
+      authorAvatarUrl,
+      authorRole,
+      primaryPlaceName,
+      address,
+      phone,
+      websiteUrl,
+      googleMapsUrl,
+      openingHours,
+      seoTitle,
+      seoDescription,
+      searchAliases,
+      canonicalUrl,
+      schemaType,
+    ],
+  );
+
+  const sources = useMemo(() => sourcesText.split("\n").map((s) => s.trim()).filter(Boolean), [sourcesText]);
+  const showPracticalInfoSection = footerType === "practical-info" || category === "Commerces & lieux";
 
   async function handlePublish(e: React.FormEvent) {
     e.preventDefault();
@@ -276,7 +411,8 @@ const AdminNew = () => {
     setErrors(nextErrors);
     // Normalize slug in UI and request
     setSlug(sanitizedSlug);
-    const safeArticle = { ...article, slug: sanitizedSlug || article.slug };
+    const normalizedSlug = sanitizedSlug || article.slug;
+    const safeArticle = { ...article, slug: normalizedSlug };
     if (Object.keys(nextErrors).length > 0) {
       const order: (keyof typeof nextErrors)[] = ["title", "category", "slug", "body", "readingMinutes", "date", "password"];
       const first = order.find((k) => nextErrors[k]);
@@ -298,8 +434,68 @@ const AdminNew = () => {
     }
 
     setSubmitting(true);
+    const trimmedCover = cover?.trim() || "";
+    const trimmedExcerpt = excerpt?.trim() || "";
+    const trimmedAuthor = author?.trim() || "";
+    const trimmedFooterNote = footerNote?.trim() || "";
+    const trimmedAuthorSlug = authorSlug?.trim() || "";
+    const trimmedAuthorAvatar = authorAvatarUrl?.trim() || "";
+    const trimmedAuthorRole = authorRole?.trim() || "";
+    const trimmedPrimaryPlace = primaryPlaceName?.trim() || "";
+    const trimmedSeoTitle = seoTitle?.trim() || "";
+    const trimmedSeoDescription = seoDescription?.trim() || "";
+    const trimmedCanonicalUrl = canonicalUrl?.trim() || "";
+
+    const rawPracticalInfo = {
+      address: address?.trim() || "",
+      phone: phone?.trim() || "",
+      websiteUrl: websiteUrl?.trim() || "",
+      googleMapsUrl: googleMapsUrl?.trim() || "",
+      openingHours: openingHours?.trim() || "",
+    };
+    const hasPracticalInfo = Object.values(rawPracticalInfo).some(Boolean);
+    const practicalInfoPayload =
+      showPracticalInfoSection && hasPracticalInfo
+        ? {
+            address: rawPracticalInfo.address || undefined,
+            phone: rawPracticalInfo.phone || undefined,
+            websiteUrl: rawPracticalInfo.websiteUrl || undefined,
+            googleMapsUrl: rawPracticalInfo.googleMapsUrl || undefined,
+            openingHours: rawPracticalInfo.openingHours || undefined,
+          }
+        : undefined;
+
+    const searchAliasesPayload = searchAliases.length > 0 ? searchAliases : undefined;
+
     try {
-      const reqPayload = { ...safeArticle, sources };
+      const payload: JsonArticle = {
+        title: safeArticle.title,
+        slug: safeArticle.slug,
+        category: safeArticle.category,
+        tags: safeArticle.tags,
+        cover: trimmedCover || undefined,
+        excerpt: trimmedExcerpt || undefined,
+        body: safeArticle.body,
+        author: trimmedAuthor || undefined,
+        date: safeArticle.date,
+        readingMinutes: safeArticle.readingMinutes,
+        sources: sources.length > 0 ? sources : undefined,
+        heroLayout,
+        showTitleInHero,
+        footerType,
+        footerNote: trimmedFooterNote || undefined,
+        authorSlug: trimmedAuthorSlug || undefined,
+        authorAvatarUrl: trimmedAuthorAvatar || undefined,
+        authorRole: trimmedAuthorRole || undefined,
+        primaryPlaceName: trimmedPrimaryPlace || undefined,
+        practicalInfo: practicalInfoPayload,
+        seoTitle: trimmedSeoTitle || undefined,
+        seoDescription: trimmedSeoDescription || undefined,
+        searchAliases: searchAliasesPayload,
+        canonicalUrl: trimmedCanonicalUrl || undefined,
+        schemaType,
+      };
+      const reqPayload = payload;
       setLastRequest(reqPayload);
       const res = await fetch("/api/publish", {
         method: "POST",
@@ -600,7 +796,37 @@ const AdminNew = () => {
   useEffect(() => {
     scheduleDraftSave(article);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, slug, category, tagsInput, cover, excerpt, body, author, date, readingMinutes, sourcesText]);
+  }, [
+    title,
+    slug,
+    category,
+    tagsInput,
+    cover,
+    excerpt,
+    body,
+    author,
+    date,
+    readingMinutes,
+    sourcesText,
+    heroLayout,
+    showTitleInHero,
+    footerType,
+    footerNote,
+    authorSlug,
+    authorAvatarUrl,
+    authorRole,
+    primaryPlaceName,
+    address,
+    phone,
+    websiteUrl,
+    googleMapsUrl,
+    openingHours,
+    seoTitle,
+    seoDescription,
+    searchAliasesText,
+    canonicalUrl,
+    schemaType,
+  ]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -873,6 +1099,140 @@ const AdminNew = () => {
                     <Label htmlFor="sources">Sources (optionnel) — une par ligne</Label>
                     <Textarea id="sources" rows={4} value={sourcesText} onChange={(e) => setSourcesText(e.target.value)} placeholder="[1] Source…\n[2] …" />
                   </div>
+
+  <div className="border-t pt-6 mt-6 space-y-4">
+    <div>
+      <h2 className="text-lg font-semibold">Auteur & mise en page</h2>
+      <p className="text-sm text-muted-foreground">Contrôlez l’en-tête, le bloc auteur et le pied de page.</p>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-2">
+        <Label>Type d’en-tête</Label>
+        <Select value={heroLayout} onValueChange={(v) => setHeroLayout(v as Article["heroLayout"])}>
+          <SelectTrigger>
+            <SelectValue placeholder="Choisir…" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="default">Standard</SelectItem>
+            <SelectItem value="image-full">Grande image</SelectItem>
+            <SelectItem value="compact">Compact</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label>Type de pied de page</Label>
+        <Select value={footerType} onValueChange={(v) => setFooterType(v as Article["footerType"])}>
+          <SelectTrigger>
+            <SelectValue placeholder="Choisir…" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="default">Standard</SelectItem>
+            <SelectItem value="practical-info">Infos pratiques (lieu / commerce)</SelectItem>
+            <SelectItem value="cta">Appel à l’action</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+    <div className="flex items-center gap-2">
+      <Checkbox id="showTitleInHero" checked={showTitleInHero} onCheckedChange={(checked) => setShowTitleInHero(checked === true)} />
+      <Label htmlFor="showTitleInHero" className="text-sm text-muted-foreground cursor-pointer">
+        Afficher le titre dans l’en-tête
+      </Label>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="space-y-2">
+        <Label htmlFor="authorRole">Rôle de l’auteur</Label>
+        <Input id="authorRole" value={authorRole} onChange={(e) => setAuthorRole(e.target.value)} placeholder="Rédactrice, fondatrice…" />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="authorAvatarUrl">URL de l’avatar de l’auteur</Label>
+        <Input id="authorAvatarUrl" value={authorAvatarUrl} onChange={(e) => setAuthorAvatarUrl(e.target.value)} placeholder="https://…" />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="authorSlug">Identifiant auteur (optionnel)</Label>
+        <Input id="authorSlug" value={authorSlug} onChange={(e) => setAuthorSlug(e.target.value)} placeholder="nolwenn" />
+      </div>
+    </div>
+    <div className="space-y-2">
+      <Label htmlFor="footerNote">Note de bas de page</Label>
+      <Textarea id="footerNote" rows={3} value={footerNote} onChange={(e) => setFooterNote(e.target.value)} placeholder="Message court affiché sous l’article" />
+    </div>
+  </div>
+
+  {showPracticalInfoSection && (
+    <div className="border-t pt-6 mt-6 space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold">Infos pratiques (lieu / commerce)</h2>
+        <p className="text-sm text-muted-foreground">Idéal pour les restaurants, boutiques et adresses à visiter.</p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="primaryPlaceName">Nom du lieu</Label>
+        <Input id="primaryPlaceName" value={primaryPlaceName} onChange={(e) => setPrimaryPlaceName(e.target.value)} placeholder="Ex: Pura Vida Club" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="address">Adresse</Label>
+          <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="12 rue de Siam, Brest" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="phone">Téléphone</Label>
+          <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+33 2 98 …" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="websiteUrl">Site web</Label>
+          <Input id="websiteUrl" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://…" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="googleMapsUrl">Lien Google Maps</Label>
+          <Input id="googleMapsUrl" value={googleMapsUrl} onChange={(e) => setGoogleMapsUrl(e.target.value)} placeholder="https://maps.google.com/…" />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="openingHours">Horaires</Label>
+        <Textarea id="openingHours" rows={3} value={openingHours} onChange={(e) => setOpeningHours(e.target.value)} placeholder="Lun-Ven : 10h-19h…" />
+      </div>
+    </div>
+  )}
+
+  <div className="border-t pt-6 mt-6 space-y-4">
+    <div>
+      <h2 className="text-lg font-semibold">Référencement (SEO)</h2>
+      <p className="text-sm text-muted-foreground">Optimisez l’apparition de l’article sur Google.</p>
+    </div>
+    <div className="space-y-2">
+      <Label htmlFor="seoTitle">Titre SEO (facultatif)</Label>
+      <Input id="seoTitle" value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} placeholder="Titre affiché dans Google" />
+    </div>
+    <div className="space-y-2">
+      <Label htmlFor="seoDescription">Description SEO (facultatif)</Label>
+      <Textarea id="seoDescription" rows={3} value={seoDescription} onChange={(e) => setSeoDescription(e.target.value)} placeholder="Résumé pour Google (150-160 caractères)." />
+    </div>
+    <div className="space-y-2">
+      <Label htmlFor="searchAliases">Termes de recherche associés (un par ligne)</Label>
+      <Textarea id="searchAliases" rows={3} value={searchAliasesText} onChange={(e) => setSearchAliasesText(e.target.value)} placeholder="studio pilates\nbien-être bretagne\n…" />
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-2">
+        <Label htmlFor="canonicalUrl">URL canonique (facultatif)</Label>
+        <Input id="canonicalUrl" value={canonicalUrl} onChange={(e) => setCanonicalUrl(e.target.value)} placeholder="https://votresite.com/articles/…" />
+      </div>
+      <div className="space-y-2">
+        <Label>Type de contenu pour Google</Label>
+        <Select value={schemaType} onValueChange={(v) => setSchemaType(v as Article["schemaType"])}>
+          <SelectTrigger>
+            <SelectValue placeholder="Sélectionner" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Article">Article</SelectItem>
+            <SelectItem value="LocalBusiness">Commerce / Lieu</SelectItem>
+            <SelectItem value="Restaurant">Restaurant</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="adminPassword">Mot de passe administrateur</Label>
