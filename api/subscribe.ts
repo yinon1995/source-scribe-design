@@ -102,26 +102,39 @@ function redactEmail(email: string): string {
 	if (process.env.RESEND_API_KEY && process.env.RESEND_FROM) {
 		okEmails = true;
 		debugSteps.push("emails_attempt");
-		void sendEmail({
+		const subscriberResult = await sendEmail({
 			to: email,
-			subject: "Bienvenue à la newsletter ✨",
-			html: "<p>Merci ! Vous recevrez les prochains articles.</p>",
+			subject: "Confirmation d’abonnement à la newsletter",
+			html: `<div>
+				<p>Merci pour votre inscription à la newsletter <strong>À la Brestoise</strong>.</p>
+				<p>Vous recevrez un e‑mail lorsqu’un nouvel article sera publié.</p>
+			</div>`,
 		});
+		debugSteps.push(subscriberResult.ok ? "subscriber_email_ok" : "subscriber_email_failed");
 		const owner = process.env.OWNER_EMAIL;
 		if (owner) {
-			void sendEmail({
+			const ownerResult = await sendEmail({
 				to: owner,
-				subject: "Nouveau abonné",
-				html: `<p>Email: ${email}</p><p>Source: ${source || ""}</p><p>Path: ${path || ""}</p>`,
+				subject: "Nouvelle inscription à la newsletter",
+				html: `<div>
+					<p>Un nouvel abonné s’est inscrit.</p>
+					<ul>
+						<li>Email: <strong>${email}</strong></li>
+						<li>Source: ${source || "-"}</li>
+						<li>Path: ${path || "-"}</li>
+						<li>UA: ${(ua || "").replace(/</g, "&lt;")}</li>
+						<li>IP: ${ip || "-"}</li>
+						<li>Origin: ${origin || "-"}</li>
+						<li>Date: ${new Date().toISOString()}</li>
+					</ul>
+				</div>`,
 			});
+			debugSteps.push(ownerResult.ok ? "owner_email_ok" : "owner_email_failed");
 		}
 	}
 
-	const okAny = okWebhook || okCsv || okEmails;
 	res.setHeader("X-Debug", `subscribe:${debugSteps.join(",") || "none"}`);
-	if (okAny) {
-		return json(res, 200, { ok: true });
-	}
-	return json(res, 202, { ok: false, fallback: "mailto" });
+	// Always report success on valid input, even if external calls failed/missing
+	return json(res, 200, { ok: true });
 }
 

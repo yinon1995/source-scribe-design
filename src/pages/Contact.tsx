@@ -7,10 +7,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { useState } from "react";
 
 const Contact = () => {
+  const [loading, setLoading] = useState(false);
+  const [projectType, setProjectType] = useState<string | undefined>(undefined);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!projectType) {
+      toast.error("Veuillez sélectionner un type de projet.");
+      return;
+    }
     const fullName = (document.getElementById("name") as HTMLInputElement)?.value?.trim();
     const email = (document.getElementById("email") as HTMLInputElement)?.value?.trim();
     const company = (document.getElementById("company") as HTMLInputElement)?.value?.trim();
@@ -20,8 +28,9 @@ const Contact = () => {
     const message = (document.getElementById("message") as HTMLTextAreaElement)?.value?.trim();
     const consent = (document.getElementById("consent") as HTMLInputElement)?.checked ?? false;
 
-    const payload = { fullName, email, company, city, budget, deadline, message, consent };
+    const payload = { fullName, email, company, city, projectType, budget, deadline, message, consent };
     try {
+      setLoading(true);
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -30,11 +39,14 @@ const Contact = () => {
       if (res.status === 200) {
         toast.success("Merci !");
         (e.currentTarget as HTMLFormElement).reset();
+        setProjectType(undefined);
       } else {
         toast.error("Erreur serveur — envoi par e-mail proposé.");
       }
     } catch {
       toast.error("Erreur serveur — envoi par e-mail proposé.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -87,8 +99,8 @@ const Contact = () => {
 
             <div className="space-y-2">
               <Label htmlFor="project-type">Type de projet *</Label>
-              <Select required>
-                <SelectTrigger className="rounded-lg">
+              <Select value={projectType} onValueChange={setProjectType}>
+                <SelectTrigger id="project-type" className="rounded-lg">
                   <SelectValue placeholder="Sélectionnez un type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -133,8 +145,8 @@ const Contact = () => {
               </Label>
             </div>
 
-            <Button type="submit" size="lg" className="w-full rounded-full bg-primary hover:bg-primary/90">
-              Envoyer ma demande
+            <Button type="submit" size="lg" disabled={loading} className="w-full rounded-full bg-primary hover:bg-primary/90">
+              {loading ? "Envoi..." : "Envoyer ma demande"}
             </Button>
           </form>
 

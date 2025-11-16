@@ -46,6 +46,9 @@ export async function subscribe(email: string, source: string): Promise<Subscrib
       ua: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
     };
     const url = `${API}/api/subscribe`;
+    // Temporary debug logs (prod-safe)
+    // eslint-disable-next-line no-console
+    console.log("[subscribe] sending", { email, source, env: (import.meta as any)?.env?.MODE, url });
     const res = await timeout(
       fetch(url, {
         method: "POST",
@@ -54,6 +57,8 @@ export async function subscribe(email: string, source: string): Promise<Subscrib
       }),
       7000
     );
+    // eslint-disable-next-line no-console
+    console.log("[subscribe] response", res.status);
     const result: SubscribeResult = res.status === 200 ? "ok" : "mailto";
     // Tiny logger
     // eslint-disable-next-line no-console

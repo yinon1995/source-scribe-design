@@ -1,6 +1,7 @@
 export const site = {
   name: "À la Brestoise",
   tagline: "Des articles à la Brestoise : Événements, Lieux et Bien-être",
+  url: "https://source-scribe-design.vercel.app",
   hero: {
     title: "Des articles à la Brestoise : Événements, Lieux et Bien-être",
     subtitle:

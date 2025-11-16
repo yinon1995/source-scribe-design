@@ -1,6 +1,9 @@
 import type { VercelResponse } from "@vercel/node";
 
-const REPO = process.env.GITHUB_REPO;
+const OWNER = process.env.GITHUB_OWNER;
+const REPO_NAME = process.env.GITHUB_REPO;
+// Support either combined "owner/repo" in GITHUB_REPO or split OWNER+REPO_NAME
+const REPO = OWNER && REPO_NAME ? `${OWNER}/${REPO_NAME}` : process.env.GITHUB_REPO;
 const TOKEN = process.env.GITHUB_TOKEN;
 
 function toBase64(content: string | Uint8Array) {

@@ -33,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 	const message: string | undefined = bodyObj?.message;
 	const consent: boolean = Boolean(bodyObj?.consent);
 
-	if (!fullName || !email || !message || !consent) {
+	if (!fullName || !email || !projectType || !message || !consent) {
 		return json(res, 400, { error: "Champs requis manquants" });
 	}
 
@@ -63,8 +63,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 					<hr />
 					<p style="color:#666;font-size:12px">Vous recevez cet e-mail car un visiteur a soumis le formulaire de contact.</p>
 				</div>`;
-			void sendEmail({ to: ownerTo, subject: "[Contact] Nouveau message", html: ownerHtml });
-			debugSteps.push("owner_email");
+			const ownerResult = await sendEmail({ to: ownerTo, subject: "[Contact] Nouveau message", html: ownerHtml });
+			if (!ownerResult.ok) {
+				res.setHeader("X-Debug", `contact:owner_email_failed`);
+				return json(res, 500, { error: "email_owner_failed" });
+			}
+			debugSteps.push("owner_email_ok");
 
 			// Auto-reply to sender
 			const replyHtml = `
@@ -75,8 +79,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 					<hr />
 					<p style="color:#666;font-size:12px">Vous recevez cet e-mail car vous avez soumis une demande de contact.</p>
 				</div>`;
-			void sendEmail({ to: email, subject: "Réception de votre demande", html: replyHtml });
-			debugSteps.push("sender_email");
+			const senderResult = await sendEmail({ to: email, subject: "Réception de votre demande", html: replyHtml });
+			if (senderResult.ok) {
+				debugSteps.push("sender_email_ok");
+			} else {
+				// eslint-disable-next-line no-console
+				console.error("[api/contact] sender email failed", { email });
+				debugSteps.push("sender_email_failed");
+			}
 
 			res.setHeader("X-Debug", `contact:${debugSteps.join(",")}`);
 			return json(res, 200, { ok: true });

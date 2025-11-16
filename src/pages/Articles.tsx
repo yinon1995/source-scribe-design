@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { postsIndex } from "@/lib/content";
 import { site } from "@/lib/siteContent";
+import { getAllArticlesForAdmin } from "@/lib/articlesIndex";
 
 const Articles = () => {
   function normalize(s: string): string {
@@ -65,19 +66,7 @@ const Articles = () => {
     window.history.replaceState(null, "", newUrl);
   }, [searchQuery]);
 
-  const allArticles = useMemo(
-    () =>
-      postsIndex.map((p) => ({
-        title: p.title,
-        excerpt: p.summary,
-        image: p.heroImage ?? "/placeholder.svg",
-        category: p.category || labelForTag(p.tags && p.tags.length > 0 ? p.tags[0] : undefined),
-        readTime: `${p.readingMinutes ?? 5} min`,
-        slug: p.slug,
-        tags: p.tags,
-      })),
-    []
-  );
+  const allArticles = useMemo(() => getAllArticlesForAdmin(), []);
 
   const filteredArticles = allArticles
     .filter(article => activeCategory === "Tous" || article.category === activeCategory)
