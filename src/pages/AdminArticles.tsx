@@ -31,10 +31,6 @@ const AdminArticles = () => {
 		navigate(`/admin/nouvel-article?slug=${slug}`);
 	}
 
-	function handleRepublish(slug: string) {
-		toast.info(`Fonctionnalité à venir : republier ${slug}`);
-	}
-
 	async function handleDelete(slug: string) {
 		const token = getAdminToken();
 		if (!token) {
@@ -109,8 +105,7 @@ const AdminArticles = () => {
 										rows.map((row) => (
 										<TableRow
 											key={row.slug}
-											className="hover:bg-muted cursor-pointer"
-											onClick={() => handleEdit(row.slug)}
+											className="hover:bg-muted"
 										>
 											<TableCell className="font-medium">
 													{row.title || "(Sans titre)"}
@@ -122,55 +117,47 @@ const AdminArticles = () => {
 													{new Date(row.date as any).toLocaleDateString("fr-FR")}
 											</TableCell>
 											<TableCell>Publié</TableCell>
-											<TableCell className="text-right space-x-2">
-												<Button
-													size="sm"
-													onClick={(e) => {
-														e.stopPropagation();
-														handleEdit(row.slug);
-													}}
-												>
-													Modifier
-												</Button>
-												<Button
-													size="sm"
-													variant="secondary"
-													onClick={(e) => {
-														e.stopPropagation();
-														handleRepublish(row.slug);
-													}}
-												>
-													Republier
-												</Button>
-												<AlertDialog>
-													<AlertDialogTrigger asChild>
-														<Button
-															size="sm"
-															variant="destructive"
-															onClick={(e) => {
-																e.stopPropagation();
-															}}
-														>
-															Supprimer
-														</Button>
-													</AlertDialogTrigger>
-													<AlertDialogContent>
-														<AlertDialogHeader>
-															<AlertDialogTitle>Supprimer cet article ?</AlertDialogTitle>
-															<AlertDialogDescription>
-																Cette action est irréversible. L’article sera retiré de la liste et du site après la prochaine mise à jour.
-															</AlertDialogDescription>
-														</AlertDialogHeader>
-														<AlertDialogFooter>
-															<AlertDialogCancel>Annuler</AlertDialogCancel>
-															<AlertDialogAction
-																onClick={() => handleDelete(row.slug)}
+											<TableCell className="text-right">
+												<div className="flex justify-end gap-2">
+													<Button
+														size="sm"
+														onClick={(e) => {
+															e.stopPropagation();
+															handleEdit(row.slug);
+														}}
+													>
+														Modifier
+													</Button>
+													<AlertDialog>
+														<AlertDialogTrigger asChild>
+															<Button
+																size="sm"
+																variant="destructive"
+																onClick={(e) => {
+																	e.stopPropagation();
+																}}
 															>
-																Oui, supprimer
-															</AlertDialogAction>
-														</AlertDialogFooter>
-													</AlertDialogContent>
-												</AlertDialog>
+																Supprimer
+															</Button>
+														</AlertDialogTrigger>
+														<AlertDialogContent>
+															<AlertDialogHeader>
+																<AlertDialogTitle>Supprimer cet article ?</AlertDialogTitle>
+																<AlertDialogDescription>
+																	Cette action est irréversible. L’article sera retiré de la liste et du site après la prochaine mise à jour.
+																</AlertDialogDescription>
+															</AlertDialogHeader>
+															<AlertDialogFooter>
+																<AlertDialogCancel>Annuler</AlertDialogCancel>
+																<AlertDialogAction
+																	onClick={() => handleDelete(row.slug)}
+																>
+																	Oui, supprimer
+																</AlertDialogAction>
+															</AlertDialogFooter>
+														</AlertDialogContent>
+													</AlertDialog>
+												</div>
 											</TableCell>
 										</TableRow>
 									))

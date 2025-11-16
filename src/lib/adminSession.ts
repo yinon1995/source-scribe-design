@@ -1,33 +1,32 @@
-// Simple session-based admin token storage using sessionStorage
-// Safe for SSR via typeof window checks and try/catch guards
+// Admin token persistence (localStorage), SSR-safe
+const ADMIN_TOKEN_KEY = "a-la-brestoise-admin-token";
 
-const KEY = "admin-publish-token";
-
-export function getAdminToken(): string | null {
+function getStorage(): Storage | null {
+	if (typeof window === "undefined") return null;
 	try {
-		if (typeof window === "undefined") return null;
-		return window.sessionStorage.getItem(KEY);
+		return window.localStorage;
 	} catch {
 		return null;
 	}
 }
 
-export function setAdminToken(value: string): void {
-	try {
-		if (typeof window === "undefined") return;
-		window.sessionStorage.setItem(KEY, value);
-	} catch {
-		// ignore
-	}
+export function getAdminToken(): string | null {
+	const storage = getStorage();
+	if (!storage) return null;
+	const v = storage.getItem(ADMIN_TOKEN_KEY);
+	return v && v.length > 0 ? v : null;
+}
+
+export function setAdminToken(token: string): void {
+	const storage = getStorage();
+	if (!storage) return;
+	storage.setItem(ADMIN_TOKEN_KEY, token);
 }
 
 export function clearAdminToken(): void {
-	try {
-		if (typeof window === "undefined") return;
-		window.sessionStorage.removeItem(KEY);
-	} catch {
-		// ignore
-	}
+	const storage = getStorage();
+	if (!storage) return;
+	storage.removeItem(ADMIN_TOKEN_KEY);
 }
 
 

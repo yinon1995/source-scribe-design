@@ -573,6 +573,13 @@ const AdminNew = () => {
     <div className="min-h-screen bg-background">
       <section className="py-10 md:py-16">
         <div className="container mx-auto px-4">
+          <button
+            type="button"
+            onClick={() => navigate("/admin")}
+            className="mb-4 text-sm text-muted-foreground hover:underline"
+          >
+            ← Retour au tableau de bord
+          </button>
           <h1 className="text-3xl md:text-4xl font-display font-bold mb-6">{isEditing ? "Modifier l’article" : "Nouvel article"}</h1>
           <Card>
             <CardHeader>
