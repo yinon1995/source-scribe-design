@@ -1,6 +1,5 @@
 import { useMemo, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { getPostBySlug } from "@/lib/content";
 import ArticleContent from "@/components/ArticleContent";
@@ -50,7 +49,6 @@ const ArticleDetail = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
       <ArticleContent article={post} />
       <Footer />
     </div>

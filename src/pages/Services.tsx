@@ -1,4 +1,3 @@
-import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -71,8 +70,6 @@ const Services = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
-
       <section className="py-20">
         <div className="container mx-auto px-4">
           {/* Header */}

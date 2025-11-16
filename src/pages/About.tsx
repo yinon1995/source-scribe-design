@@ -1,12 +1,9 @@
-import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import heroImage from "@/assets/hero-portrait.jpeg";
 
 const About = () => {
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
-
       <article className="py-20">
         <div className="container mx-auto px-4 max-w-4xl">
           {/* Header */}

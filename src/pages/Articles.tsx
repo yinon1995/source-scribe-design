@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import ArticleCard from "@/components/ArticleCard";
 import CategoryFilter from "@/components/CategoryFilter";
@@ -85,8 +84,6 @@ const Articles = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
-
       <section className="py-20">
         <div className="container mx-auto px-4">
           {/* Header */}

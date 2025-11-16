@@ -1,4 +1,3 @@
-import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,8 +51,6 @@ const Contact = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
-
       <section className="py-20">
         <div className="container mx-auto px-4 max-w-2xl">
           {/* Header */}
