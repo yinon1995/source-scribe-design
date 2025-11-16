@@ -46,16 +46,16 @@ const AdminArticles = () => {
 					Authorization: `Bearer ${token}`,
 				},
 			});
+			const data = await res.json().catch(() => ({}));
 
-			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
+			if (!res.ok || !data?.ok) {
 				console.error("Delete failed", data);
-				toast.error("Erreur lors de la suppression de l'article.");
+				toast.error(data?.error || "Erreur lors de la suppression de l'article.");
 				return;
 			}
 
 			setRows((current) => current.filter((row) => row.slug !== slug));
-			toast.success("Article supprimé (la mise à jour du site peut prendre quelques instants).");
+			toast.success("Article supprimé — la mise à jour du site public peut prendre 1 à 3 minutes.");
 		} catch (err) {
 			console.error(err);
 			toast.error("Erreur réseau lors de la suppression.");

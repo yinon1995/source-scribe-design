@@ -117,7 +117,8 @@ export default async function handler(req: any, res: any) {
       payload = {};
     }
     const slugFromQuery = typeof req.query?.slug === "string" ? String(req.query.slug) : "";
-    const slug = String((payload?.slug || slugFromQuery) || "").trim();
+    const rawSlug = String((payload?.slug || slugFromQuery) || "").trim();
+    const slug = slugify(rawSlug);
     if (!slug) {
       res.status(400).json({ error: "Slug is required" });
       return;
@@ -186,11 +187,12 @@ export default async function handler(req: any, res: any) {
       }
 
       // 3) Trigger Vercel deployment hook (fire-and-forget)
+      const deployTriggered = Boolean(DEPLOY_HOOK);
       if (DEPLOY_HOOK) {
         fetch(DEPLOY_HOOK, { method: "POST" }).catch(() => {});
       }
 
-      res.status(200).json({ ok: true, slug, deletedFromIndex, deletedFile });
+      res.status(200).json({ ok: true, slug, deletedFromIndex, deletedFile, deployTriggered });
       return;
     } catch (e: any) {
       const message = e?.message ? String(e.message) : String(e);
@@ -226,140 +228,162 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-  // Payload validation → 422 with structured field errors
-  const fieldErrors: { title?: string; slug?: string; category?: string; body?: string; date?: string } = {};
-  const allowedCategories = new Set(["Commerces & lieux", "Expérience", "Beauté"]);
-  if (!article || typeof article !== "object") {
-    res.status(422).json({ ok: false, error: "Champs invalides.", errors: { title: "Le titre est obligatoire.", slug: "Le slug ne peut contenir que des lettres, chiffres et tirets.", body: "Le contenu est trop court." } });
-    return;
-  }
-  if (!article.title || !String(article.title).trim()) fieldErrors.title = "Le titre est obligatoire.";
-  if (!article.category || !allowedCategories.has(article.category)) fieldErrors.category = "La thématique est obligatoire.";
-  const rawSlug = (article.slug || article.title) as string;
-  const normalizedSlug = slugify(rawSlug);
-  (article as Article).slug = normalizedSlug;
-  if (!normalizedSlug) fieldErrors.slug = "Le slug ne peut contenir que des lettres, chiffres et tirets.";
-  if (!article.body || String(article.body).trim().length < 50) fieldErrors.body = "Le contenu est trop court.";
-  if (article.date) {
-    const d = new Date(article.date);
-    if (isNaN(d.getTime())) fieldErrors.date = "La date n’est pas valide.";
-  }
-  if (Object.keys(fieldErrors).length > 0) {
-    res.status(422).json({ ok: false, error: "Champs invalides.", errors: fieldErrors });
-    return;
-  }
-
-  // If missing credentials, gracefully report ok:false and keep draft
-  if (!REPO || !TOKEN) {
-    const missingEnv = [!REPO ? "GITHUB_REPO" : null, !TOKEN ? "GITHUB_TOKEN" : null].filter(Boolean);
-    res.status(200).json({ ok: false, error: "Publication en attente — configuration GitHub manquante (GITHUB_REPO/GITHUB_TOKEN). Le brouillon a été conservé localement.", missingEnv });
-    return;
-  }
-
-  // Repo preflight check (detect 404 or 403 early with clear message)
-  try {
-    const check = await githubRepoPreflight();
-    if (!check.ok && (check.status === 404 || check.status === 403)) {
-      // Log diagnostic info on server without leaking secrets
-      console.error("publish: GitHub error", { status: check.status, repo: REPO, branch: BRANCH });
-      res.status(200).json({ ok: false, error: "Référentiel introuvable ou accès refusé.", details: { status: check.status } });
+    // Payload validation → 422 with structured field errors
+    const fieldErrors: { title?: string; slug?: string; category?: string; body?: string; date?: string } = {};
+    const allowedCategories = new Set(["Commerces & lieux", "Expérience", "Beauté"]);
+    if (!article || typeof article !== "object") {
+      res.status(422).json({ ok: false, error: "Champs invalides.", errors: { title: "Le titre est obligatoire.", slug: "Le slug ne peut contenir que des lettres, chiffres et tirets.", body: "Le contenu est trop court." } });
       return;
     }
-  } catch {
-    // ignore; proceed to attempt writes which will surface detailed errors
-  }
-
-  const slug = article.slug;
-
-  try {
-    // Ensure readingMinutes exists (compute as fallback)
-    function estimateMinutes(text: string, wpm = 200) {
-      const words = text
-        .replace(/[`*_#>!\[\]\(\)`~\-]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-        .split(" ")
-        .filter(Boolean).length;
-      return Math.max(1, Math.round(words / wpm));
+    if (!article.title || !String(article.title).trim()) fieldErrors.title = "Le titre est obligatoire.";
+    if (!article.category || !allowedCategories.has(article.category)) fieldErrors.category = "La thématique est obligatoire.";
+    if (!article.body || String(article.body).trim().length < 50) fieldErrors.body = "Le contenu est trop court.";
+    if (article.date) {
+      const d = new Date(article.date);
+      if (isNaN(d.getTime())) fieldErrors.date = "La date n’est pas valide.";
     }
-    const readingMinutes = Number(article.readingMinutes) > 0
-      ? Number(article.readingMinutes)
-      : estimateMinutes(`${article.excerpt || ""}\n\n${article.body || ""}`);
-    const articleForWrite = { ...article, readingMinutes, sources: Array.isArray(article.sources) ? article.sources : [] } as Article & { readingMinutes: number };
+    if (Object.keys(fieldErrors).length > 0) {
+      res.status(422).json({ ok: false, error: "Champs invalides.", errors: fieldErrors });
+      return;
+    }
 
-    // Write full article JSON
-    const articlePath = `content/articles/${slug}.json`;
-    const putArticleRes = await githubPut(articlePath, JSON.stringify(articleForWrite, null, 2), `feat(article): publish ${slug} from admin`);
+    const normalizedSlugInput = slugify(String(article.slug || article.title || ""));
+    if (!normalizedSlugInput) {
+      res.status(422).json({
+        ok: false,
+        error: "Champs invalides.",
+        errors: { slug: "Le slug ne peut contenir que des lettres, chiffres et tirets." },
+      });
+      return;
+    }
+    article.slug = normalizedSlugInput;
+    const slug = normalizedSlugInput;
 
-    // Update index.json
-    type Meta = Pick<Article, "title" | "slug" | "category" | "tags" | "cover" | "excerpt" | "date"> & { readingMinutes?: number };
-    const meta: Meta = {
-      title: articleForWrite.title,
-      slug: articleForWrite.slug,
-      category: articleForWrite.category,
-      tags: articleForWrite.tags || [],
-      cover: articleForWrite.cover,
-      excerpt: articleForWrite.excerpt,
-      date: articleForWrite.date,
-      readingMinutes,
-    };
+    // If missing credentials, gracefully report ok:false and keep draft
+    if (!REPO || !TOKEN) {
+      const missingEnv = [!REPO ? "GITHUB_REPO" : null, !TOKEN ? "GITHUB_TOKEN" : null].filter(Boolean);
+      res.status(200).json({ ok: false, error: "Publication en attente — configuration GitHub manquante (GITHUB_REPO/GITHUB_TOKEN). Le brouillon a été conservé localement.", missingEnv });
+      return;
+    }
 
-    const indexPath = `content/articles/index.json`;
-    let list: Meta[] = [];
+    // Repo preflight check (detect 404 or 403 early with clear message)
     try {
-      const existing = await githubGet(indexPath);
-      if (existing && existing.content) {
-        const decoded = Buffer.from(String(existing.content), "base64").toString("utf8");
-        const parsed = JSON.parse(decoded);
-        if (Array.isArray(parsed)) list = parsed as Meta[];
+      const check = await githubRepoPreflight();
+      if (!check.ok && (check.status === 404 || check.status === 403)) {
+        // Log diagnostic info on server without leaking secrets
+        console.error("publish: GitHub error", { status: check.status, repo: REPO, branch: BRANCH });
+        res.status(200).json({ ok: false, error: "Référentiel introuvable ou accès refusé.", details: { status: check.status } });
+        return;
       }
     } catch {
-      // start fresh if anything goes wrong reading
+      // ignore; proceed to attempt writes which will surface detailed errors
     }
 
-    const bySlug = new Map<string, Meta>(list.map((m) => [m.slug, m]));
-    bySlug.set(meta.slug, meta);
-    const nextList = Array.from(bySlug.values()).sort((a, b) => (a.date < b.date ? 1 : -1));
-    const putIndexRes = await githubPut(indexPath, JSON.stringify(nextList, null, 2), `chore(cms): update articles index (${slug})`);
-
-    // Build commit/links payload
-    const commitSha: string | undefined = putIndexRes?.commit?.sha || putArticleRes?.commit?.sha;
-    const commitUrl: string | undefined = putIndexRes?.commit?.html_url || putArticleRes?.commit?.html_url;
-    const articleFileUrl: string | undefined = putArticleRes?.content?.html_url;
-    const indexFileUrl: string | undefined = putIndexRes?.content?.html_url;
-
-    // Optionally trigger Vercel deployment
-    let deploy = { triggered: false as boolean, error: undefined as string | undefined };
-    const deployHook = process.env.VERCEL_DEPLOY_HOOK_URL;
-    if (deployHook) {
-      try {
-        const dh = await fetch(deployHook, { method: "POST" });
-        deploy.triggered = dh.ok;
-        if (!dh.ok) deploy.error = `Hook HTTP ${dh.status}`;
-      } catch (e: any) {
-        deploy.error = String(e?.message || e);
+    try {
+      // Ensure readingMinutes exists (compute as fallback)
+      function estimateMinutes(text: string, wpm = 200) {
+        const words = text
+          .replace(/[`*_#>!\[\]\(\)`~\-]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .split(" ")
+          .filter(Boolean).length;
+        return Math.max(1, Math.round(words / wpm));
       }
-    }
+      const readingMinutes = Number(article.readingMinutes) > 0
+        ? Number(article.readingMinutes)
+        : estimateMinutes(`${article.excerpt || ""}\n\n${article.body || ""}`);
+      const articleForWrite = { ...article, readingMinutes, sources: Array.isArray(article.sources) ? article.sources : [] } as Article & { readingMinutes: number };
 
-    res.status(200).json({
-      ok: true,
-      slug,
-      url: `/articles/${slug}`,
-      commit: commitSha ? { sha: commitSha, url: commitUrl } : undefined,
-      files: { article: articleFileUrl, index: indexFileUrl },
-      deployTriggered: Boolean(DEPLOY_HOOK) && Boolean(deploy?.triggered),
-      deploy,
-    });
-    return;
-  } catch (e: any) {
-    const message = e?.message ? String(e.message) : String(e);
-    // Try to extract status code if present in the message like "GitHub PUT 422: ..."
-    const m = /GitHub\s+[A-Z]+\s+(\d{3})/.exec(message);
-    const status = m ? Number(m[1]) : undefined;
-    console.error("[publish] GitHub error", { repo: REPO, branch: BRANCH, message });
-    res.status(500).json({ ok: false, error: "Échec de la publication GitHub. Vérifiez la configuration du dépôt.", details: { status, message } });
-    return;
-  }
+      type Meta = Pick<Article, "title" | "slug" | "category" | "tags" | "cover" | "excerpt" | "date"> & { readingMinutes?: number };
+      const meta: Meta = {
+        title: articleForWrite.title,
+        slug: articleForWrite.slug,
+        category: articleForWrite.category,
+        tags: articleForWrite.tags || [],
+        cover: articleForWrite.cover,
+        excerpt: articleForWrite.excerpt,
+        date: articleForWrite.date,
+        readingMinutes,
+      };
+
+      const indexPath = `content/articles/index.json`;
+      let list: Meta[] = [];
+      try {
+        const existing = await githubGet(indexPath);
+        if (existing && existing.content) {
+          const decoded = Buffer.from(String(existing.content), "base64").toString("utf8");
+          const parsed = JSON.parse(decoded);
+          if (Array.isArray(parsed)) list = parsed as Meta[];
+        }
+      } catch {
+        // start fresh if anything goes wrong reading
+      }
+
+      const existingIndex = list.findIndex((item) => item.slug === slug);
+      const existedBefore = existingIndex >= 0;
+      if (existedBefore) {
+        const prev = list[existingIndex];
+        list[existingIndex] = {
+          ...prev,
+          title: meta.title,
+          category: meta.category,
+          tags: meta.tags,
+          cover: meta.cover,
+          excerpt: meta.excerpt,
+          date: meta.date,
+          readingMinutes: meta.readingMinutes,
+        };
+      } else {
+        list.push(meta);
+      }
+      const nextList = [...list].sort((a, b) => (a.date < b.date ? 1 : -1));
+      const commitMessage = existedBefore
+        ? `chore(cms): update article ${slug}`
+        : `feat(article): publish ${slug} from admin`;
+
+      const articlePath = `content/articles/${slug}.json`;
+      const putArticleRes = await githubPut(articlePath, JSON.stringify(articleForWrite, null, 2), commitMessage);
+      const putIndexRes = await githubPut(indexPath, JSON.stringify(nextList, null, 2), commitMessage);
+
+      // Build commit/links payload
+      const commitSha: string | undefined = putIndexRes?.commit?.sha || putArticleRes?.commit?.sha;
+      const commitUrl: string | undefined = putIndexRes?.commit?.html_url || putArticleRes?.commit?.html_url;
+      const articleFileUrl: string | undefined = putArticleRes?.content?.html_url;
+      const indexFileUrl: string | undefined = putIndexRes?.content?.html_url;
+
+      // Optionally trigger Vercel deployment
+      let deploy: { triggered: boolean; error?: string } = { triggered: false };
+      if (DEPLOY_HOOK) {
+        try {
+          const dh = await fetch(DEPLOY_HOOK, { method: "POST" });
+          deploy.triggered = dh.ok;
+          if (!dh.ok) deploy.error = `Hook HTTP ${dh.status}`;
+        } catch (e: any) {
+          deploy.error = String(e?.message || e);
+        }
+      }
+      const deployTriggered = Boolean(DEPLOY_HOOK) && Boolean(deploy.triggered);
+
+      res.status(200).json({
+        ok: true,
+        slug,
+        url: `/articles/${slug}`,
+        commit: commitSha ? { sha: commitSha, url: commitUrl } : undefined,
+        files: { article: articleFileUrl, index: indexFileUrl },
+        deployTriggered,
+        deploy,
+      });
+      return;
+    } catch (e: any) {
+      const message = e?.message ? String(e.message) : String(e);
+      // Try to extract status code if present in the message like "GitHub PUT 422: ..."
+      const m = /GitHub\s+[A-Z]+\s+(\d{3})/.exec(message);
+      const status = m ? Number(m[1]) : undefined;
+      console.error("[publish] GitHub error", { repo: REPO, branch: BRANCH, message });
+      res.status(500).json({ ok: false, error: "Échec de la publication GitHub. Vérifiez la configuration du dépôt.", details: { status, message } });
+      return;
+    }
   }
 
   // Method routing
