@@ -76,6 +76,7 @@ const AdminNew = () => {
   const [lastResponse, setLastResponse] = useState<any>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const [coverFileUrl, setCoverFileUrl] = useState<string | null>(null);
+  const saveDraftTimerRef = useRef<number | null>(null);
   // Multiple local images for preview only
   const [localAssets, setLocalAssets] = useState<{ id: number; file: File; url: string; alt?: string }[]>([]);
   const nextLocalIdRef = useRef<number>(1);
@@ -120,17 +121,22 @@ const AdminNew = () => {
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
       if (raw) {
-        const d = JSON.parse(raw) as Article;
-        setTitle(d.title || "");
-        setSlug(d.slug || "");
-        setCategory((d.category as Article["category"]) || "Beauté");
-        setTagsInput((d.tags || []).join(", "));
-        setCover(d.cover || "");
-        setExcerpt(d.excerpt || "");
-        setBody(d.body || "");
-        setAuthor(d.author || "À la Brestoise");
-        setDate(d.date || new Date().toISOString());
-        if (typeof d.readingMinutes === "number" && d.readingMinutes > 0) setReadingMinutes(d.readingMinutes);
+        const parsed = JSON.parse(raw);
+        const isWrapped = parsed && typeof parsed === "object" && parsed.article;
+        const isExpired = parsed && typeof parsed.ts === "number" && (Date.now() - parsed.ts) > 7 * 24 * 60 * 60 * 1000;
+        const d: Article = isWrapped ? parsed.article as Article : parsed as Article;
+        if (!isExpired && d) {
+          setTitle(d.title || "");
+          setSlug(d.slug || "");
+          setCategory((d.category as Article["category"]) || "Beauté");
+          setTagsInput((d.tags || []).join(", "));
+          setCover(d.cover || "");
+          setExcerpt(d.excerpt || "");
+          setBody(d.body || "");
+          setAuthor(d.author || "À la Brestoise");
+          setDate(d.date || new Date().toISOString());
+          if (typeof d.readingMinutes === "number" && d.readingMinutes > 0) setReadingMinutes(d.readingMinutes);
+        }
       }
     } catch {
       // ignore
@@ -568,6 +574,25 @@ const AdminNew = () => {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(article));
     toast.success("Brouillon enregistré localement");
   }
+
+  function persistDraft(a: Article) {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ article: a, ts: Date.now() }));
+    } catch {
+      // ignore
+    }
+  }
+
+  function scheduleDraftSave(a: Article) {
+    if (saveDraftTimerRef.current) window.clearTimeout(saveDraftTimerRef.current);
+    saveDraftTimerRef.current = window.setTimeout(() => persistDraft(a), 800);
+  }
+
+  // Auto-save draft on field changes (debounced)
+  useEffect(() => {
+    scheduleDraftSave(article);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, slug, category, tagsInput, cover, excerpt, body, author, date, readingMinutes, sourcesText]);
 
   return (
     <div className="min-h-screen bg-background">

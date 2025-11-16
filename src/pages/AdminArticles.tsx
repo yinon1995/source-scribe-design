@@ -40,13 +40,11 @@ const AdminArticles = () => {
 		}
 
 		try {
-			const res = await fetch("/api/publish", {
+			const res = await fetch(`/api/publish?slug=${encodeURIComponent(slug)}`, {
 				method: "DELETE",
 				headers: {
-					"Content-Type": "application/json",
 					Authorization: `Bearer ${token}`,
 				},
-				body: JSON.stringify({ slug }),
 			});
 
 			if (!res.ok) {

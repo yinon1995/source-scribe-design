@@ -94,37 +94,30 @@ async function githubRepoPreflight(): Promise<{ ok: true } | { ok: false; status
 }
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== "POST" && req.method !== "DELETE") {
-    res.status(405).json({ error: "Method not allowed" });
-    return;
-  }
-
-  // Admin gate via Authorization: Bearer <token>
-  try {
-    if (PUBLISH_TOKEN) {
-      const authHeader = req.headers?.authorization || req.headers?.Authorization;
-      const provided = typeof authHeader === "string" && authHeader.startsWith("Bearer ")
-        ? authHeader.slice(7).trim()
-        : "";
-      if (provided !== PUBLISH_TOKEN) {
-        res.status(401).json({ ok: false, error: "Accès refusé — mot de passe administrateur invalide." });
-        return;
+  async function handleDelete() {
+    // Admin gate via Authorization: Bearer <token>
+    try {
+      if (PUBLISH_TOKEN) {
+        const authHeader = req.headers?.authorization || req.headers?.Authorization;
+        const provided = typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+          ? authHeader.slice(7).trim()
+          : "";
+        if (provided !== PUBLISH_TOKEN) {
+          res.status(401).json({ error: "Unauthorized" });
+          return;
+        }
       }
+    } catch {
+      // ignore, fallback
     }
-  } catch {
-    // ignore, fallback to continue
-  }
-
-  // DELETE branch: remove article JSON and update index
-  if (req.method === "DELETE") {
     let payload: any;
     try {
       payload = req.body && typeof req.body === "object" ? req.body : JSON.parse(req.body || "{}");
     } catch {
-      res.status(400).json({ error: "Invalid JSON" });
-      return;
+      payload = {};
     }
-    const slug = String(payload?.slug || "").trim();
+    const slugFromQuery = typeof req.query?.slug === "string" ? String(req.query.slug) : "";
+    const slug = String((payload?.slug || slugFromQuery) || "").trim();
     if (!slug) {
       res.status(400).json({ error: "Slug is required" });
       return;
@@ -175,16 +168,18 @@ export default async function handler(req: any, res: any) {
       }
       const beforeLen = list.length;
       const nextList = list.filter((m) => m.slug !== slug);
+      let deletedFromIndex = false;
       if (nextList.length !== beforeLen) {
         await githubPut(indexPath, JSON.stringify(nextList, null, 2), `chore(cms): delete article ${slug} from index`);
+        deletedFromIndex = true;
       }
 
       // 2) Delete article file
       const articlePath = `content/articles/${slug}.json`;
-      let deleted = false;
+      let deletedFile = false;
       try {
         const delRes = await githubDelete(articlePath, `feat(article): delete ${slug} from admin`);
-        deleted = delRes.existed;
+        deletedFile = delRes.existed;
       } catch (e) {
         // If the file doesn't exist, githubGet earlier would have returned undefined; but if DELETE fails for another reason, surface error
         throw e;
@@ -195,7 +190,7 @@ export default async function handler(req: any, res: any) {
         fetch(DEPLOY_HOOK, { method: "POST" }).catch(() => {});
       }
 
-      res.status(200).json({ ok: true });
+      res.status(200).json({ ok: true, slug, deletedFromIndex, deletedFile });
       return;
     } catch (e: any) {
       const message = e?.message ? String(e.message) : String(e);
@@ -207,14 +202,29 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // POST branch (publish)
-  let article: Article | undefined;
-  try {
-    article = req.body && typeof req.body === "object" ? req.body : JSON.parse(req.body || "{}");
-  } catch {
-    res.status(400).json({ error: "Invalid JSON" });
-    return;
-  }
+  async function handlePublish() {
+    // Admin gate via Authorization: Bearer <token>
+    try {
+      if (PUBLISH_TOKEN) {
+        const authHeader = req.headers?.authorization || req.headers?.Authorization;
+        const provided = typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+          ? authHeader.slice(7).trim()
+          : "";
+        if (provided !== PUBLISH_TOKEN) {
+          res.status(401).json({ ok: false, error: "Accès refusé — mot de passe administrateur invalide." });
+          return;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    let article: Article | undefined;
+    try {
+      article = req.body && typeof req.body === "object" ? req.body : JSON.parse(req.body || "{}");
+    } catch {
+      res.status(400).json({ error: "Invalid JSON" });
+      return;
+    }
 
   // Payload validation → 422 with structured field errors
   const fieldErrors: { title?: string; slug?: string; category?: string; body?: string; date?: string } = {};
@@ -333,9 +343,11 @@ export default async function handler(req: any, res: any) {
 
     res.status(200).json({
       ok: true,
+      slug,
       url: `/articles/${slug}`,
       commit: commitSha ? { sha: commitSha, url: commitUrl } : undefined,
       files: { article: articleFileUrl, index: indexFileUrl },
+      deployTriggered: Boolean(DEPLOY_HOOK) && Boolean(deploy?.triggered),
       deploy,
     });
     return;
@@ -348,6 +360,22 @@ export default async function handler(req: any, res: any) {
     res.status(500).json({ ok: false, error: "Échec de la publication GitHub. Vérifiez la configuration du dépôt.", details: { status, message } });
     return;
   }
+  }
+
+  // Method routing
+  if (req.method === "OPTIONS") {
+    res.status(200).end();
+    return;
+  }
+  if (req.method === "DELETE") {
+    await handleDelete();
+    return;
+  }
+  if (req.method === "POST") {
+    await handlePublish();
+    return;
+  }
+  res.status(405).json({ error: "Method not allowed" });
 }
 
 

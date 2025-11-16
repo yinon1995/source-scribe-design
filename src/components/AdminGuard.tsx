@@ -2,13 +2,15 @@ import { PropsWithChildren, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getAdminToken, setAdminToken } from "@/lib/adminSession";
+import { getAdminToken, setAdminToken, clearAdminToken } from "@/lib/adminSession";
+import { useNavigate } from "react-router-dom";
 
 type AdminGuardProps = PropsWithChildren<{
 	title?: string;
 }>;
 
 const AdminGuard = ({ children }: AdminGuardProps) => {
+	const navigate = useNavigate();
 	const [password, setPassword] = useState("");
 	const [hasAccess, setHasAccess] = useState(false);
 	const [touched, setTouched] = useState(false);
@@ -30,7 +32,18 @@ const AdminGuard = ({ children }: AdminGuardProps) => {
 	}
 
 	if (hasAccess) {
-		return <>{children}</>;
+		return (
+			<>
+				<button
+					type="button"
+					onClick={() => { clearAdminToken(); navigate("/admin"); }}
+					className="fixed right-3 top-3 text-xs text-muted-foreground hover:underline"
+				>
+					Se déconnecter
+				</button>
+				{children}
+			</>
+		);
 	}
 
 	return (
