@@ -256,7 +256,9 @@ export default async function handler(req: any, res: any) {
   try {
     const check = await githubRepoPreflight();
     if (!check.ok && (check.status === 404 || check.status === 403)) {
-      res.status(200).json({ ok: false, error: "Référentiel introuvable ou accès refusé. Vérifiez GITHUB_REPO, GITHUB_TOKEN (scope repo) et PUBLISH_BRANCH.", details: { status: check.status } });
+      // Log diagnostic info on server without leaking secrets
+      console.error("publish: GitHub error", { status: check.status, repo: REPO, branch: BRANCH });
+      res.status(200).json({ ok: false, error: "Référentiel introuvable ou accès refusé.", details: { status: check.status } });
       return;
     }
   } catch {
