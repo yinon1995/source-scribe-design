@@ -4,7 +4,6 @@ export type ContactMode = "placeholder" | "live";
 
 export const CONTACT_MODE: ContactMode = "placeholder";
 
-// TODO: replace with the official domain email / WhatsApp once configured.
-export const CONTACT_EMAIL = "nolwennalabrestoise@gmail.com";
+export { CONTACT_EMAIL } from "@/config/contact";
 export const CONTACT_WHATSAPP_URL = "https://wa.me/33658297220";
 

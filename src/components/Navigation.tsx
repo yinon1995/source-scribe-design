@@ -7,20 +7,15 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { site } from "@/lib/siteContent";
-import { useContactFallback } from "@/context/ContactFallbackContext";
-import { CONTACT_MODE } from "@/config/contactFallback";
+import { openGmailCompose } from "@/config/contact";
 
 const Navigation = () => {
-  const { openFallback } = useContactFallback();
-  const isPlaceholder = CONTACT_MODE === "placeholder";
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   function handleContactClick(e: React.MouseEvent<HTMLAnchorElement>) {
-    if (isPlaceholder) {
-      e.preventDefault();
-      openFallback();
-    }
+    e.preventDefault();
+    openGmailCompose({ subject: "Contact À la Brestoise" });
   }
 
   function handleSearchClick() {

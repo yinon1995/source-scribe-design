@@ -9,8 +9,8 @@ import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CONTACT_EMAIL, CONTACT_MODE } from "@/config/contactFallback";
-import { useContactFallback } from "@/context/ContactFallbackContext";
+import { CONTACT_MODE } from "@/config/contactFallback";
+import { openGmailCompose } from "@/config/contact";
 
 const Services = () => {
   const services = [
@@ -69,15 +69,6 @@ const Services = () => {
   ];
 
   const [testimonials, setTestimonials] = useState<{ message: string; nom: string; fonction_entreprise?: string }[]>([]);
-  const { openFallback } = useContactFallback();
-  const isPlaceholder = CONTACT_MODE === "placeholder";
-
-  function handleMailCtaClick(e: React.MouseEvent<HTMLAnchorElement>) {
-    if (isPlaceholder) {
-      e.preventDefault();
-      openFallback();
-    }
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -130,12 +121,12 @@ const Services = () => {
               Discutons ensemble de vos besoins. Chaque prestation est personnalisable selon vos objectifs et votre budget.
             </p>
             <div className="flex justify-center">
-              <a
-                href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Demande de devis")}`}
-                onClick={handleMailCtaClick}
+              <Button
+                className="rounded-full transition duration-200 hover:opacity-90"
+                onClick={() => openGmailCompose({ subject: "À la Brestoise – Demande de devis" })}
               >
-                <Button className="rounded-full transition duration-200 hover:opacity-90">Envoyer un email</Button>
-              </a>
+                Envoyer un email
+              </Button>
             </div>
           </div>
 
@@ -172,22 +163,43 @@ const Services = () => {
 export default Services;
 
 function ServiceInterestDialog({ service }: { service: string }) {
+  const isPlaceholder = CONTACT_MODE === "placeholder";
+
+  if (isPlaceholder) {
+    return (
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button variant="outline" className="rounded-full transition duration-200 hover:opacity-90">
+            Intéressé(e)
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Intéressé(e) — {service}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Écrivez-nous directement depuis Gmail pour nous parler de votre projet.
+          </p>
+          <DialogFooter>
+            <Button onClick={() => openGmailCompose({ subject: `À la Brestoise – Intéressé(e) par ${service}` })}>
+              Écrire un e-mail
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const emailValid = /\S+@\S+\.\S+/.test(email);
   const messageValid = message.trim().length > 0;
   const idBase = service.toLowerCase().replace(/\s+/g, "-");
-  const { openFallback } = useContactFallback();
-  const isPlaceholder = CONTACT_MODE === "placeholder";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitted(true);
-    if (isPlaceholder) {
-      openFallback();
-      return;
-    }
     if (!emailValid || !messageValid) {
       toast({ title: "Veuillez remplir les champs requis" });
       return;
@@ -203,12 +215,16 @@ function ServiceInterestDialog({ service }: { service: string }) {
         setEmail("");
         setMessage("");
       } else {
-        const href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`Intéressé(e) par ${service}`)}&body=${encodeURIComponent(`Email: ${email}\nService: ${service}\n\nMessage:\n${message}`)}`;
-        window.location.href = href;
+        openGmailCompose({
+          subject: `À la Brestoise – Intéressé(e) par ${service}`,
+          body: `Email: ${email}\nService: ${service}\n\nMessage:\n${message}`,
+        });
       }
     } catch {
-      const href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`Intéressé(e) par ${service}`)}&body=${encodeURIComponent(`Email: ${email}\nService: ${service}\n\nMessage:\n${message}`)}`;
-      window.location.href = href;
+      openGmailCompose({
+        subject: `À la Brestoise – Intéressé(e) par ${service}`,
+        body: `Email: ${email}\nService: ${service}\n\nMessage:\n${message}`,
+      });
     }
   }
 
@@ -263,22 +279,43 @@ function ServiceInterestDialog({ service }: { service: string }) {
 }
 
 function TestimonialDialog() {
+  const isPlaceholder = CONTACT_MODE === "placeholder";
+
+  if (isPlaceholder) {
+    return (
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button variant="outline" className="rounded-full transition duration-200 hover:opacity-90">
+            Proposer un témoignage
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Proposer un témoignage</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Envoyez votre témoignage via Gmail. Ajoutez vos coordonnées et nous reviendrons vers vous rapidement.
+          </p>
+          <DialogFooter>
+            <Button onClick={() => openGmailCompose({ subject: "À la Brestoise – Témoignage" })}>
+              Écrire un e-mail
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   const [name, setName] = useState("");
   const [organisation, setOrganisation] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [message, setMessage] = useState("");
   const [consent, setConsent] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const { openFallback } = useContactFallback();
-  const isPlaceholder = CONTACT_MODE === "placeholder";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitted(true);
-    if (isPlaceholder) {
-      openFallback();
-      return;
-    }
     if (!name.trim() || !message.trim()) {
       toast({ title: "Champs requis manquants" });
       return;
@@ -303,19 +340,25 @@ function TestimonialDialog() {
         setMessage("");
         setConsent(false);
       } else {
-        const href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Témoignage")} &body=${encodeURIComponent(`Nom: ${name}\nOrganisation: ${organisation}\nLogo URL: ${logoUrl}\n\nMessage:\n${message}\n\nConsentement: ${consent ? "oui" : "non"}`)}`;
-        window.location.href = href;
+        openGmailCompose({
+          subject: "À la Brestoise – Témoignage",
+          body: `Nom: ${name}\nOrganisation: ${organisation}\nLogo URL: ${logoUrl}\n\nMessage:\n${message}\n\nConsentement: ${consent ? "oui" : "non"}`,
+        });
       }
     } catch {
-      const href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Témoignage")}&body=${encodeURIComponent(`Nom: ${name}\nOrganisation: ${organisation}\nLogo URL: ${logoUrl}\n\nMessage:\n${message}\n\nConsentement: ${consent ? "oui" : "non"}`)}`;
-      window.location.href = href;
+      openGmailCompose({
+        subject: "À la Brestoise – Témoignage",
+        body: `Nom: ${name}\nOrganisation: ${organisation}\nLogo URL: ${logoUrl}\n\nMessage:\n${message}\n\nConsentement: ${consent ? "oui" : "non"}`,
+      });
     }
   }
 
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" className="rounded-full transition duration-200 hover:opacity-90">Proposer un témoignage</Button>
+        <Button variant="outline" className="rounded-full transition duration-200 hover:opacity-90">
+          Proposer un témoignage
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

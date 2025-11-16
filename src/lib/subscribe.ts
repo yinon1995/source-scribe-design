@@ -1,4 +1,5 @@
 // Shared subscribe helper - additive and type-safe
+import { openGmailCompose } from "@/config/contact";
 export type SubscribeResult = "ok" | "mailto";
 
 function isValidEmail(email: string): boolean {
@@ -22,14 +23,19 @@ export const API: string = (import.meta as any)?.env?.VITE_API_BASE?.replace(/\/
 
 export function openMailto(href: string) {
   try {
-    const a = document.createElement("a");
-    a.href = href;
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => a.remove(), 0);
+    if (!href.startsWith("mailto:")) {
+      openGmailCompose();
+      return;
+    }
+    const mailtoPayload = href.slice("mailto:".length);
+    const [rawTo, query] = mailtoPayload.split("?");
+    const params = new URLSearchParams(query ?? "");
+    const subject = params.get("subject") ?? params.get("su") ?? undefined;
+    const body = params.get("body") ?? undefined;
+    const to = rawTo ? decodeURIComponent(rawTo) : undefined;
+    openGmailCompose({ to, subject: subject ?? undefined, body: body ?? undefined });
   } catch {
-    // ignore
+    openGmailCompose();
   }
 }
 

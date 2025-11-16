@@ -7,21 +7,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useState } from "react";
-import { CONTACT_EMAIL, CONTACT_MODE, CONTACT_WHATSAPP_URL } from "@/config/contactFallback";
-import { useContactFallback } from "@/context/ContactFallbackContext";
+import { CONTACT_MODE, CONTACT_WHATSAPP_URL } from "@/config/contactFallback";
 import { useNavigate } from "react-router-dom";
+import { openGmailCompose, getGmailComposeUrl } from "@/config/contact";
 
 const Contact = () => {
   const [loading, setLoading] = useState(false);
   const [projectType, setProjectType] = useState<string | undefined>(undefined);
-  const { openFallback } = useContactFallback();
   const navigate = useNavigate();
   const isPlaceholder = CONTACT_MODE === "placeholder";
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (isPlaceholder) {
-      openFallback();
+      openGmailCompose({ subject: "À la Brestoise – Demande de contact" });
       return;
     }
     if (!projectType) {
@@ -60,10 +59,8 @@ const Contact = () => {
   };
 
   const handleMailLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (isPlaceholder) {
-      e.preventDefault();
-      openFallback();
-    }
+    e.preventDefault();
+    openGmailCompose({ subject: "À la Brestoise – Demande de contact" });
   };
 
   if (isPlaceholder) {
@@ -77,7 +74,10 @@ const Contact = () => {
               pour nous écrire ou revenir à l’accueil.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-3">
-              <Button className="flex-1 rounded-full" onClick={() => (window.location.href = `mailto:${CONTACT_EMAIL}`)}>
+              <Button
+                className="flex-1 rounded-full"
+                onClick={() => openGmailCompose({ subject: "À la Brestoise – Demande de contact" })}
+              >
                 Ouvrir l’e-mail
               </Button>
               <Button
@@ -111,8 +111,14 @@ const Contact = () => {
               Un projet de collaboration ? Remplissez ce formulaire et je reviendrai vers vous rapidement.
             </p>
             <p className="text-sm">
-              <a href={`mailto:${CONTACT_EMAIL}`} className="underline" onClick={handleMailLinkClick}>
-                {CONTACT_EMAIL}
+              <a
+                href={getGmailComposeUrl({ subject: "À la Brestoise – Demande de contact" })}
+                className="underline"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={handleMailLinkClick}
+              >
+                Écrire un e-mail
               </a>
             </p>
           </div>

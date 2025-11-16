@@ -8,8 +8,8 @@ import { toast } from "@/hooks/use-toast";
 import heroImage from "@/assets/hero-portrait.jpeg";
 import { site } from "@/lib/siteContent";
 import { Link } from "react-router-dom";
-import { CONTACT_EMAIL, CONTACT_MODE } from "@/config/contactFallback";
-import { useContactFallback } from "@/context/ContactFallbackContext";
+import { CONTACT_MODE } from "@/config/contactFallback";
+import { openGmailCompose, getGmailComposeUrl } from "@/config/contact";
 
 const Hero = () => {
   const [email, setEmail] = useState("");
@@ -19,13 +19,15 @@ const Hero = () => {
   const emailValid = /\S+@\S+\.\S+/.test(email);
   const subjectValid = subject.trim().length > 0;
   const messageValid = message.trim().length > 0;
-  const { openFallback } = useContactFallback();
   const isPlaceholder = CONTACT_MODE === "placeholder";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (isPlaceholder) {
-      openFallback();
+      openGmailCompose({
+        subject: "À la Brestoise – Proposition de sujet",
+        body: `Email: ${email}\nSujet: ${subject}\n\nMessage:\n${message}`,
+      });
       return;
     }
     setSubmitted(true);
@@ -45,20 +47,22 @@ const Hero = () => {
         setSubject("");
         setMessage("");
       } else {
-        const href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Proposition de sujet")}&body=${encodeURIComponent(`Email: ${email}\nSujet: ${subject}\n\nMessage:\n${message}`)}`;
-        window.location.href = href;
+        openGmailCompose({
+          subject: "À la Brestoise – Proposition de sujet",
+          body: `Email: ${email}\nSujet: ${subject}\n\nMessage:\n${message}`,
+        });
       }
     } catch {
-      const href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Proposition de sujet")}&body=${encodeURIComponent(`Email: ${email}\nSujet: ${subject}\n\nMessage:\n${message}`)}`;
-      window.location.href = href;
+      openGmailCompose({
+        subject: "À la Brestoise – Proposition de sujet",
+        body: `Email: ${email}\nSujet: ${subject}\n\nMessage:\n${message}`,
+      });
     }
   }
 
   function handleMailLinkClick(e: React.MouseEvent<HTMLAnchorElement>) {
-    if (isPlaceholder) {
-      e.preventDefault();
-      openFallback();
-    }
+    e.preventDefault();
+    openGmailCompose({ subject: "À la Brestoise – Proposition de sujet" });
   }
 
   return (
@@ -152,10 +156,12 @@ const Hero = () => {
                     ou envoyer un email directement à{" "}
                     <a
                       className="underline"
-                      href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Proposition de sujet")}`}
+                      href={getGmailComposeUrl({ subject: "À la Brestoise – Proposition de sujet" })}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       onClick={handleMailLinkClick}
                     >
-                      {CONTACT_EMAIL}
+                      Ouvrir Gmail
                     </a>
                   </p>
                 </DialogContent>

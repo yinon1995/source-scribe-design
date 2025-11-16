@@ -6,20 +6,8 @@ import { site } from "@/lib/siteContent";
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { subscribe, openMailto } from "@/lib/subscribe";
-import { useContactFallback } from "@/context/ContactFallbackContext";
-import { CONTACT_MODE } from "@/config/contactFallback";
 
 const Footer = () => {
-  const { openFallback } = useContactFallback();
-  const isPlaceholder = CONTACT_MODE === "placeholder";
-
-  function handleWhatsAppClick(e: React.MouseEvent<HTMLAnchorElement>) {
-    if (isPlaceholder) {
-      e.preventDefault();
-      openFallback();
-    }
-  }
-
   return (
     <footer className="bg-card border-t border-border mt-20">
       <div className="container mx-auto px-4 py-16">
@@ -88,7 +76,6 @@ const Footer = () => {
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-              onClick={handleWhatsAppClick}
             >
               WhatsApp +33 6 58 29 72 20
             </a>
