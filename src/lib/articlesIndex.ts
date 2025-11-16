@@ -1,55 +1,63 @@
-import { postsIndex } from "@/lib/content";
-import { site } from "@/lib/siteContent";
+import type { JsonArticle } from "./content";
 
 export type AdminArticleListItem = {
-	title: string;
-	excerpt: string;
-	image: string;
-	category: string;
-	readTime: string;
-	slug: string;
-	tags?: string[];
-	date: string;
+  slug: string;
+  title: string;
+  category: string;
+  date: string;
+  excerpt: string;
+  readingMinutes?: number;
+  status: "Publié";
 };
 
-function normalize(s: string): string {
-	return s
-		.toLowerCase()
-		.normalize("NFD")
-		.replace(/[\u0300-\u036f]/g, "")
-		.trim();
+function normalizeJsonArticle(input: any): AdminArticleListItem | null {
+  if (!input || typeof input !== "object") return null;
+  const ja = input as JsonArticle;
+
+  const slug = (ja.slug || "").trim();
+  const title = (ja.title || "").trim();
+  if (!slug || !title) return null;
+
+  const category = (ja.category || "").toString() || "Autre";
+  const date =
+    (ja.date && ja.date.slice(0, 10)) ||
+    new Date().toISOString().slice(0, 10);
+  const excerpt = (ja.excerpt || "").toString();
+  const readingMinutes =
+    typeof ja.readingMinutes === "number" && ja.readingMinutes > 0
+      ? ja.readingMinutes
+      : undefined;
+
+  return {
+    slug,
+    title,
+    category,
+    date,
+    excerpt,
+    readingMinutes,
+    status: "Publié",
+  };
 }
 
-function labelForTag(tag?: string): string {
-	const n = normalize(tag || "");
-	if (n.includes("science")) return site.categories.beaute;
-	if (n.includes("nouveau") || n.includes("commerce") || n.includes("lieu")) return site.categories.commercesEtLieux;
-	if (n.includes("experience") || n.includes("lieu")) return site.categories.experience;
-	if (n.includes("beaute")) return site.categories.beaute;
-	return site.categories.beaute;
-}
+// Load all JSON article files at build time.
+// Important: unwrap `.default` from the globbed modules.
+const jsonModules = import.meta.glob("/content/articles/*.json", {
+  eager: true,
+}) as Record<string, any>;
 
-// Returns the same list that powers the public /articles grid,
-// ensuring admin sees exactly the same article set.
+const adminArticles: AdminArticleListItem[] = Object.entries(jsonModules)
+  .filter(([path]) => !path.endsWith("index.json"))
+  .map(([, mod]) => {
+    const ja =
+      mod && typeof mod === "object" && "default" in mod
+        ? (mod as any).default
+        : mod;
+    return normalizeJsonArticle(ja);
+  })
+  .filter((row): row is AdminArticleListItem => row !== null)
+  // Newest first
+  .sort((a, b) => (a.date < b.date ? 1 : -1));
+
 export function getAllArticlesForAdmin(): AdminArticleListItem[] {
-	// Debug: inspect postsIndex when building admin/public article list
-	if (typeof window !== "undefined") {
-		// eslint-disable-next-line no-console
-		console.log("[articlesIndex] postsIndex length & slugs", {
-			length: postsIndex.length,
-			slugs: postsIndex.map((p) => p.slug),
-		});
-	}
-	return postsIndex.map((p) => ({
-		title: p.title,
-		excerpt: p.summary,
-		image: p.heroImage ?? "/placeholder.svg",
-		category: p.category || labelForTag(p.tags && p.tags.length > 0 ? p.tags[0] : undefined),
-		readTime: `${p.readingMinutes ?? 5} min`,
-		slug: p.slug,
-		tags: p.tags,
-		date: p.date,
-	}));
+  return adminArticles;
 }
-
-
