@@ -14,6 +14,15 @@ type Article = {
   sources?: string[];
 };
 
+function slugify(input: string): string {
+  return String(input || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
+}
+
 function toBase64(content: string | Uint8Array) {
   return Buffer.from(content).toString("base64");
 }
@@ -83,7 +92,7 @@ async function githubRepoPreflight(): Promise<{ ok: true } | { ok: false; status
 }
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== "POST") {
+  if (req.method !== "POST" && req.method !== "DELETE") {
     res.status(405).json({ error: "Method not allowed" });
     return;
   }
@@ -105,6 +114,106 @@ export default async function handler(req: any, res: any) {
     // ignore, fallback to continue
   }
 
+  // DELETE branch: remove article JSON and update index
+  if (req.method === "DELETE") {
+    let payload: any;
+    try {
+      payload = req.body && typeof req.body === "object" ? req.body : JSON.parse(req.body || "{}");
+    } catch {
+      res.status(400).json({ error: "Invalid JSON" });
+      return;
+    }
+    const slug = String(payload?.slug || "").trim();
+    if (!slug) {
+      res.status(400).json({ error: "Slug is required" });
+      return;
+    }
+
+    // If missing credentials, gracefully report ok:false to allow client to keep UI consistent
+    if (!REPO || !TOKEN) {
+      const missingEnv = [!REPO ? "GITHUB_REPO" : null, !TOKEN ? "GITHUB_TOKEN" : null].filter(Boolean);
+      res.status(200).json({ ok: false, error: "Suppression en attente — configuration GitHub manquante (GITHUB_REPO/GITHUB_TOKEN).", missingEnv });
+      return;
+    }
+
+    // Helper to DELETE a file in GitHub repo via Contents API
+    async function githubDelete(path: string, message: string) {
+      const existing = await githubGet(path);
+      if (!existing || !existing.sha) return { existed: false, result: undefined as any };
+      const url = `https://api.github.com/repos/${REPO}/contents/${encodeGitHubPath(path)}`;
+      const resDel = await fetch(url, {
+        method: "DELETE",
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `token ${TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message, sha: existing.sha, branch: BRANCH, committer: { name: "A la Brestoise bot", email: "bot@alabrestoise.local" } }),
+      });
+      if (!resDel.ok) {
+        const txt = await resDel.text();
+        throw new Error(`GitHub DELETE ${resDel.status}: ${txt}`);
+      }
+      const json = await resDel.json();
+      return { existed: true, result: json };
+    }
+
+    try {
+      // 1) Load and update index.json
+      const indexPath = `content/articles/index.json`;
+      let list: Array<Pick<Article, "title" | "slug" | "category" | "tags" | "cover" | "excerpt" | "date"> & { readingMinutes?: number }> = [];
+      try {
+        const existing = await githubGet(indexPath);
+        if (existing && existing.content) {
+          const decoded = Buffer.from(String(existing.content), "base64").toString("utf8");
+          const parsed = JSON.parse(decoded);
+          if (Array.isArray(parsed)) list = parsed;
+        }
+      } catch {
+        // ignore, treat as empty list
+      }
+      const beforeLen = list.length;
+      const nextList = list.filter((m) => m.slug !== slug);
+      if (nextList.length !== beforeLen) {
+        await githubPut(indexPath, JSON.stringify(nextList, null, 2), `chore(cms): delete article ${slug} from index`);
+      }
+
+      // 2) Delete article file
+      const articlePath = `content/articles/${slug}.json`;
+      let deleted = false;
+      try {
+        const delRes = await githubDelete(articlePath, `feat(article): delete ${slug} from admin`);
+        deleted = delRes.existed;
+      } catch (e) {
+        // If the file doesn't exist, githubGet earlier would have returned undefined; but if DELETE fails for another reason, surface error
+        throw e;
+      }
+
+      // 3) Trigger Vercel deployment hook (fire-and-forget style, but we await similarly to POST for symmetry)
+      let deploy = { triggered: false as boolean, error: undefined as string | undefined };
+      const deployHook = process.env.VERCEL_DEPLOY_HOOK_URL;
+      if (deployHook) {
+        try {
+          const dh = await fetch(deployHook, { method: "POST" });
+          deploy.triggered = dh.ok;
+          if (!dh.ok) deploy.error = `Hook HTTP ${dh.status}`;
+        } catch (e: any) {
+          deploy.error = String(e?.message || e);
+        }
+      }
+
+      res.status(200).json({ ok: true, deleted });
+      return;
+    } catch (e: any) {
+      const message = e?.message ? String(e.message) : String(e);
+      const m = /GitHub\s+[A-Z]+\s+(\d{3})/.exec(message);
+      const status = m ? Number(m[1]) : undefined;
+      res.status(500).json({ ok: false, error: "Échec de la suppression GitHub.", details: { status, message } });
+      return;
+    }
+  }
+
+  // POST branch (publish)
   let article: Article | undefined;
   try {
     article = req.body && typeof req.body === "object" ? req.body : JSON.parse(req.body || "{}");
@@ -122,7 +231,10 @@ export default async function handler(req: any, res: any) {
   }
   if (!article.title || !String(article.title).trim()) fieldErrors.title = "Le titre est obligatoire.";
   if (!article.category || !allowedCategories.has(article.category)) fieldErrors.category = "La thématique est obligatoire.";
-  if (!article.slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(article.slug))) fieldErrors.slug = "Le slug ne peut contenir que des lettres, chiffres et tirets.";
+  const rawSlug = (article.slug || article.title) as string;
+  const normalizedSlug = slugify(rawSlug);
+  (article as Article).slug = normalizedSlug;
+  if (!normalizedSlug) fieldErrors.slug = "Le slug ne peut contenir que des lettres, chiffres et tirets.";
   if (!article.body || String(article.body).trim().length < 50) fieldErrors.body = "Le contenu est trop court.";
   if (article.date) {
     const d = new Date(article.date);

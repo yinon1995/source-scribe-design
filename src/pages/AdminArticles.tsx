@@ -1,20 +1,31 @@
-import { useMemo } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Footer from "@/components/Footer";
-import { postsIndex } from "@/lib/content";
 import { getAllArticlesForAdmin } from "@/lib/articlesIndex";
 import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { getAdminToken } from "@/lib/adminSession";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const AdminArticles = () => {
 	const navigate = useNavigate();
 
-	const rows = useMemo(() => {
-		return getAllArticlesForAdmin()
+	const [rows, setRows] = useState(() =>
+		getAllArticlesForAdmin()
 			.slice()
-			.sort((a, b) => new Date(b.date as any).getTime() - new Date(a.date as any).getTime());
-	}, []);
+			.sort((a, b) => new Date(b.date as any).getTime() - new Date(a.date as any).getTime())
+	);
 
 	function handleEdit(slug: string) {
 		navigate(`/admin/nouvel-article?slug=${slug}`);
@@ -24,9 +35,37 @@ const AdminArticles = () => {
 		toast.info(`Fonctionnalité à venir : republier ${slug}`);
 	}
 
-	function handleDelete(slug: string) {
-		if (!window.confirm("Êtes-vous sûr de vouloir supprimer cet article ?")) return;
-		toast.info(`Fonctionnalité à venir : supprimer ${slug}`);
+	async function handleDelete(slug: string) {
+		const token = getAdminToken();
+		if (!token) {
+			toast.error("Session administrateur expirée. Merci de vous reconnecter.");
+			navigate("/admin");
+			return;
+		}
+
+		try {
+			const res = await fetch("/api/publish", {
+				method: "DELETE",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ slug }),
+			});
+
+			if (!res.ok) {
+				const data = await res.json().catch(() => ({}));
+				console.error("Delete failed", data);
+				toast.error("Erreur lors de la suppression de l'article.");
+				return;
+			}
+
+			setRows((current: any[]) => current.filter((row) => row.slug !== slug));
+			toast.success("Article supprimé (la mise à jour du site peut prendre quelques instants).");
+		} catch (err) {
+			console.error(err);
+			toast.error("Erreur réseau lors de la suppression.");
+		}
 	}
 
 	return (
@@ -60,7 +99,7 @@ const AdminArticles = () => {
 								</TableRow>
 							</TableHeader>
 							<TableBody>
-								{postsIndex.length === 0 ? (
+								{rows.length === 0 ? (
 									<TableRow>
 										<TableCell colSpan={5} className="text-center text-muted-foreground py-6">
 											Aucun article publié pour le moment.
@@ -103,16 +142,35 @@ const AdminArticles = () => {
 												>
 													Republier
 												</Button>
-												<Button
-													size="sm"
-													variant="destructive"
-													onClick={(e) => {
-														e.stopPropagation();
-														handleDelete(row.slug);
-													}}
-												>
-													Supprimer
-												</Button>
+												<AlertDialog>
+													<AlertDialogTrigger asChild>
+														<Button
+															size="sm"
+															variant="destructive"
+															onClick={(e) => {
+																e.stopPropagation();
+															}}
+														>
+															Supprimer
+														</Button>
+													</AlertDialogTrigger>
+													<AlertDialogContent>
+														<AlertDialogHeader>
+															<AlertDialogTitle>Supprimer cet article ?</AlertDialogTitle>
+															<AlertDialogDescription>
+																Cette action est irréversible. L’article sera retiré de la liste et du site après la prochaine mise à jour.
+															</AlertDialogDescription>
+														</AlertDialogHeader>
+														<AlertDialogFooter>
+															<AlertDialogCancel>Annuler</AlertDialogCancel>
+															<AlertDialogAction
+																onClick={() => handleDelete(row.slug)}
+															>
+																Oui, supprimer
+															</AlertDialogAction>
+														</AlertDialogFooter>
+													</AlertDialogContent>
+												</AlertDialog>
 											</TableCell>
 										</TableRow>
 									))

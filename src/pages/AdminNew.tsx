@@ -241,11 +241,12 @@ const AdminNew = () => {
   async function handlePublish(e: React.FormEvent) {
     e.preventDefault();
     setServerError({});
+    const sanitizedSlug = slugify(slug || title);
     const nextErrors: { title?: string; category?: string; slug?: string; body?: string; date?: string; cover?: string; password?: string; readingMinutes?: string } = {} as any;
     if (!article.title.trim()) nextErrors.title = "Le titre est obligatoire.";
     const allowed = new Set(["Commerces & lieux", "Expérience", "Beauté"]);
     if (!article.category || !allowed.has(article.category)) nextErrors.category = "La thématique est obligatoire.";
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(article.slug)) nextErrors.slug = "Le slug ne peut contenir que des lettres, chiffres et tirets.";
+    if (!sanitizedSlug) nextErrors.slug = "Le slug ne peut contenir que des lettres, chiffres et tirets.";
     if (!article.body || article.body.trim().length < 50) nextErrors.body = "Le contenu est trop court.";
     if (!article.readingMinutes || article.readingMinutes < 1) nextErrors.readingMinutes = "Temps de lecture invalide.";
     // Block publish if body still contains preview-only local assets
@@ -266,6 +267,9 @@ const AdminNew = () => {
       if (isNaN(d.getTime())) nextErrors.date = "La date n’est pas valide.";
     }
     setErrors(nextErrors);
+    // Normalize slug in UI and request
+    setSlug(sanitizedSlug);
+    const safeArticle = { ...article, slug: sanitizedSlug || article.slug };
     if (Object.keys(nextErrors).length > 0) {
       const order: (keyof typeof nextErrors)[] = ["title", "category", "slug", "body", "readingMinutes", "date", "password"];
       const first = order.find((k) => nextErrors[k]);
@@ -281,7 +285,7 @@ const AdminNew = () => {
     }
     setSubmitting(true);
     try {
-      const reqPayload = { ...article, sources };
+      const reqPayload = { ...safeArticle, sources };
       setLastRequest(reqPayload);
       const res = await fetch("/api/publish", {
         method: "POST",
