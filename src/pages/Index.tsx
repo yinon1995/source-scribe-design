@@ -1,4 +1,5 @@
 import { FormEvent, useState } from "react";
+import { useMemo } from "react";
 import Hero from "@/components/Hero";
 import ArticleCard from "@/components/ArticleCard";
 import CategoryFilter from "@/components/CategoryFilter";
@@ -8,11 +9,9 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { site } from "@/lib/siteContent";
 import beautyHero from "@/assets/beauty-hero.jpg";
-import cafeInterior from "@/assets/cafe-interior.jpg";
-import skincareDetail from "@/assets/skincare-detail.jpg";
-import boutiqueExterior from "@/assets/boutique-exterior.jpg";
 import { subscribe } from "@/lib/subscribe";
 import { openMailto } from "@/lib/subscribe";
+import { postsIndex } from "@/lib/content";
 
 const Index = () => {
   const categories = [
@@ -24,60 +23,30 @@ const Index = () => {
 
   const [activeCategory, setActiveCategory] = useState("Tous");
 
-  const articles = [
-    {
-      title: "Acide hyaluronique : mythes vs données scientifiques",
-      excerpt: "Décryptage scientifique de cet ingrédient star de la cosmétique. Entre promesses marketing et réalité clinique, que peut-on vraiment attendre de l'acide hyaluronique ?",
-      image: beautyHero,
-      category: site.categories.beaute,
-      readTime: "8 min",
-      slug: "acide-hyaluronique-mythes-vs-donnees"
-    },
-    {
-      title: "5 ouvertures à ne pas manquer ce mois-ci",
-      excerpt: "Découvrez les nouveaux commerces qui réinventent l'expérience shopping dans votre ville. Du concept-store éco-responsable à la boutique d'artisanat local.",
-      image: boutiqueExterior,
-      category: site.categories.commercesEtLieux,
-      readTime: "6 min",
-      slug: "5-ouvertures-ne-pas-manquer"
-    },
-    {
-      title: "Une journée dans un café céramique : récit & conseils",
-      excerpt: "Immersion dans un lieu hybride où se mêlent café de spécialité et atelier de céramique. Une expérience créative et gourmande à vivre absolument.",
-      image: cafeInterior,
-      category: site.categories.experience,
-      readTime: "10 min",
-      slug: "journee-cafe-ceramique"
-    },
-    {
-      title: "Niacinamide 10% : quand est-ce pertinent ?",
-      excerpt: "Analyse approfondie de la niacinamide en concentration élevée. Pour quels types de peau ? Quelles associations éviter ? Les études cliniques décryptées.",
-      image: skincareDetail,
-      category: site.categories.beaute,
-      readTime: "7 min",
-      slug: "niacinamide-10-pertinence"
-    },
-    {
-      title: "SPF 50 au quotidien : mode d'emploi complet",
-      excerpt: "Tout ce qu'il faut savoir sur la protection solaire quotidienne. Quantités, réapplication, compatibilité avec le maquillage et idées reçues.",
-      image: beautyHero,
-      category: "Beauté",
-      readTime: "9 min",
-      slug: "spf-50-quotidien-mode-emploi"
-    },
-    {
-      title: "Inside [Nom du salon] : tendances 2025",
-      excerpt: "Reportage exclusif depuis le plus grand salon professionnel de la beauté. Les innovations qui vont marquer l'année et les marques à suivre.",
-      image: skincareDetail,
-      category: "Événements",
-      readTime: "12 min",
-      slug: "inside-salon-tendances-2025"
-    }
-  ];
+  const latestArticles = useMemo(() => {
+    return postsIndex
+      .filter(
+        (post) =>
+          Boolean(post.title?.trim()) &&
+          Boolean(post.slug?.trim()) &&
+          Boolean((post.summary ?? "").trim()),
+      )
+      .sort((a, b) => (a.date < b.date ? 1 : -1))
+      .slice(0, 3)
+      .map((post) => ({
+        title: post.title,
+        excerpt: post.summary ?? "",
+        image: post.heroImage || beautyHero,
+        category: post.category || site.categories.beaute,
+        readTime: `${post.readingMinutes ?? 1} min`,
+        slug: post.slug,
+        tags: post.tags ?? [],
+      }));
+  }, []);
 
   const filteredArticles = activeCategory === "Tous"
-    ? articles
-    : articles.filter(article => article.category === activeCategory);
+    ? latestArticles
+    : latestArticles.filter(article => article.category === activeCategory);
 
   const [email, setEmail] = useState("");
   const emailValid = /\S+@\S+\.\S+/.test(email);
