@@ -103,7 +103,7 @@ export default async function handler(req: any, res: any) {
           ? authHeader.slice(7).trim()
           : "";
         if (provided !== PUBLISH_TOKEN) {
-          res.status(401).json({ error: "Unauthorized" });
+          res.status(401).json({ ok: false, error: "Non autorisé." });
           return;
         }
       }
@@ -120,7 +120,7 @@ export default async function handler(req: any, res: any) {
     const rawSlug = String((payload?.slug || slugFromQuery) || "").trim();
     const slug = slugify(rawSlug);
     if (!slug) {
-      res.status(400).json({ error: "Slug is required" });
+      res.status(400).json({ error: "Slug requis pour la suppression." });
       return;
     }
 
@@ -171,7 +171,7 @@ export default async function handler(req: any, res: any) {
       const nextList = list.filter((m) => m.slug !== slug);
       let deletedFromIndex = false;
       if (nextList.length !== beforeLen) {
-        await githubPut(indexPath, JSON.stringify(nextList, null, 2), `chore(cms): delete article ${slug} from index`);
+        await githubPut(indexPath, JSON.stringify(nextList, null, 2), `feat(article): delete ${slug} from index`);
         deletedFromIndex = true;
       }
 
@@ -187,12 +187,20 @@ export default async function handler(req: any, res: any) {
       }
 
       // 3) Trigger Vercel deployment hook (fire-and-forget)
-      const deployTriggered = Boolean(DEPLOY_HOOK);
+      let deploy: { triggered: boolean; error?: string } | undefined;
       if (DEPLOY_HOOK) {
-        fetch(DEPLOY_HOOK, { method: "POST" }).catch(() => {});
+        deploy = { triggered: false };
+        try {
+          const hookRes = await fetch(DEPLOY_HOOK, { method: "POST" });
+          deploy.triggered = hookRes.ok;
+          if (!hookRes.ok) deploy.error = `Hook HTTP ${hookRes.status}`;
+        } catch (err: any) {
+          deploy.error = "Échec de la demande de déploiement Vercel.";
+        }
       }
+      const deployTriggered = Boolean(DEPLOY_HOOK) && Boolean(deploy?.triggered);
 
-      res.status(200).json({ ok: true, slug, deletedFromIndex, deletedFile, deployTriggered });
+      res.status(200).json({ ok: true, slug, deletedFromIndex, deletedFile, deployTriggered, deploy });
       return;
     } catch (e: any) {
       const message = e?.message ? String(e.message) : String(e);
@@ -213,7 +221,7 @@ export default async function handler(req: any, res: any) {
           ? authHeader.slice(7).trim()
           : "";
         if (provided !== PUBLISH_TOKEN) {
-          res.status(401).json({ ok: false, error: "Accès refusé — mot de passe administrateur invalide." });
+          res.status(401).json({ ok: false, error: "Non autorisé." });
           return;
         }
       }

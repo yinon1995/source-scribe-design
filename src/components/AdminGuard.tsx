@@ -31,12 +31,19 @@ const AdminGuard = ({ children }: AdminGuardProps) => {
 		setHasAccess(true);
 	}
 
+	function handleLogout() {
+		clearAdminToken();
+		setHasAccess(false);
+		setPassword("");
+		navigate("/admin");
+	}
+
 	if (hasAccess) {
 		return (
 			<>
 				<button
 					type="button"
-					onClick={() => { clearAdminToken(); navigate("/admin"); }}
+					onClick={handleLogout}
 					className="fixed right-3 top-3 text-xs text-muted-foreground hover:underline"
 				>
 					Se déconnecter

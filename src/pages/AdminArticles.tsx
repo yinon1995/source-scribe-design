@@ -34,7 +34,7 @@ const AdminArticles = () => {
 	async function handleDelete(slug: string) {
 		const token = getAdminToken();
 		if (!token) {
-			toast.error("Session administrateur expirée. Merci de vous reconnecter.");
+			toast.error("Session administrateur expirée — veuillez vous reconnecter.");
 			navigate("/admin");
 			return;
 		}

@@ -290,13 +290,20 @@ const AdminNew = () => {
       });
       return;
     }
+    const token = getAdminToken();
+    if (!token) {
+      toast.error("Session administrateur expirée — veuillez vous reconnecter.");
+      navigate("/admin");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const reqPayload = { ...safeArticle, sources };
       setLastRequest(reqPayload);
       const res = await fetch("/api/publish", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminPassword}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(reqPayload),
       });
       const json = await res.json().catch(() => ({}));
