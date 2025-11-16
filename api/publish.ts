@@ -30,6 +30,8 @@ function toBase64(content: string | Uint8Array) {
 const REPO = process.env.GITHUB_REPO; // e.g. "nolwennrobet-lab/source-scribe-design"
 const TOKEN = process.env.GITHUB_TOKEN;
 const BRANCH = process.env.PUBLISH_BRANCH || "main";
+const PUBLISH_TOKEN = process.env.PUBLISH_TOKEN;
+const DEPLOY_HOOK = process.env.VERCEL_DEPLOY_HOOK_URL;
 
 function encodeGitHubPath(path: string) {
   // Encode each path segment, not slashes. Using full encodeURIComponent would break the URL
@@ -99,13 +101,12 @@ export default async function handler(req: any, res: any) {
 
   // Admin gate via Authorization: Bearer <token>
   try {
-    const configuredToken = process.env.PUBLISH_TOKEN;
-    if (configuredToken) {
+    if (PUBLISH_TOKEN) {
       const authHeader = req.headers?.authorization || req.headers?.Authorization;
       const provided = typeof authHeader === "string" && authHeader.startsWith("Bearer ")
         ? authHeader.slice(7).trim()
         : "";
-      if (provided !== configuredToken) {
+      if (provided !== PUBLISH_TOKEN) {
         res.status(401).json({ ok: false, error: "Accès refusé — mot de passe administrateur invalide." });
         return;
       }
@@ -189,25 +190,18 @@ export default async function handler(req: any, res: any) {
         throw e;
       }
 
-      // 3) Trigger Vercel deployment hook (fire-and-forget style, but we await similarly to POST for symmetry)
-      let deploy = { triggered: false as boolean, error: undefined as string | undefined };
-      const deployHook = process.env.VERCEL_DEPLOY_HOOK_URL;
-      if (deployHook) {
-        try {
-          const dh = await fetch(deployHook, { method: "POST" });
-          deploy.triggered = dh.ok;
-          if (!dh.ok) deploy.error = `Hook HTTP ${dh.status}`;
-        } catch (e: any) {
-          deploy.error = String(e?.message || e);
-        }
+      // 3) Trigger Vercel deployment hook (fire-and-forget)
+      if (DEPLOY_HOOK) {
+        fetch(DEPLOY_HOOK, { method: "POST" }).catch(() => {});
       }
 
-      res.status(200).json({ ok: true, deleted });
+      res.status(200).json({ ok: true });
       return;
     } catch (e: any) {
       const message = e?.message ? String(e.message) : String(e);
       const m = /GitHub\s+[A-Z]+\s+(\d{3})/.exec(message);
       const status = m ? Number(m[1]) : undefined;
+      console.error("[publish] GitHub error", { repo: REPO, branch: BRANCH, message });
       res.status(500).json({ ok: false, error: "Échec de la suppression GitHub.", details: { status, message } });
       return;
     }
@@ -350,7 +344,8 @@ export default async function handler(req: any, res: any) {
     // Try to extract status code if present in the message like "GitHub PUT 422: ..."
     const m = /GitHub\s+[A-Z]+\s+(\d{3})/.exec(message);
     const status = m ? Number(m[1]) : undefined;
-    res.status(500).json({ ok: false, error: "Échec de la publication GitHub.", details: { status, message } });
+    console.error("[publish] GitHub error", { repo: REPO, branch: BRANCH, message });
+    res.status(500).json({ ok: false, error: "Échec de la publication GitHub. Vérifiez la configuration du dépôt.", details: { status, message } });
     return;
   }
 }
