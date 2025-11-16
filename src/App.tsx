@@ -4,10 +4,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navigation from "@/components/Navigation";
+import AdminGuard from "@/components/AdminGuard";
 import Index from "./pages/Index";
 import Articles from "./pages/Articles";
 import ArticleDetail from "./pages/ArticleDetail";
+import AdminDashboard from "./pages/AdminDashboard";
 import AdminNew from "./pages/AdminNew";
+import AdminArticles from "./pages/AdminArticles";
 import About from "./pages/About";
 import Services from "./pages/Services";
 import Contact from "./pages/Contact";
@@ -31,7 +34,10 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/articles" element={<Articles />} />
             <Route path="/articles/:slug" element={<ArticleDetail />} />
-            <Route path="/admin/new" element={<AdminNew />} />
+            <Route path="/admin" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
+            <Route path="/admin/nouvel-article" element={<AdminGuard><AdminNew /></AdminGuard>} />
+            <Route path="/admin/articles" element={<AdminGuard><AdminArticles /></AdminGuard>} />
+            <Route path="/admin/new" element={<AdminGuard><AdminNew /></AdminGuard>} />
             <Route path="/thematiques" element={<Thematiques />} />
             <Route path="/a-propos" element={<About />} />
             <Route path="/services" element={<Services />} />

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Footer from "@/components/Footer";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,9 +10,11 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import ArticleContent from "@/components/ArticleContent";
+import { getPostBySlug } from "@/lib/content";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Clock } from "lucide-react";
+import { getAdminToken, setAdminToken } from "@/lib/adminSession";
 
 type Article = {
   title: string;
@@ -51,6 +53,9 @@ const DRAFT_KEY = "draft:new-article";
 
 const AdminNew = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editSlug = searchParams.get("slug");
+  const isEditing = !!editSlug;
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
@@ -62,7 +67,7 @@ const AdminNew = () => {
   const [author, setAuthor] = useState("À la Brestoise");
   const [date, setDate] = useState<string>(new Date().toISOString());
   const [submitting, setSubmitting] = useState(false);
-  const [adminPassword, setAdminPassword] = useState("");
+  const [adminPassword, setAdminPassword] = useState(() => getAdminToken() || "");
   const [errors, setErrors] = useState<{ title?: string; category?: string; slug?: string; body?: string; date?: string; cover?: string; password?: string; readingMinutes?: string }>({});
   const [serverError, setServerError] = useState<{ message?: string; details?: string; missingEnv?: string[] }>({});
   const [publishInfo, setPublishInfo] = useState<{ url: string; commit?: { sha: string; url?: string }; files?: { article?: string; index?: string }; deploy?: { triggered: boolean; error?: string } } | null>(null);
@@ -131,6 +136,33 @@ const AdminNew = () => {
       // ignore
     }
   }, []);
+
+  // If editing, load existing content and prefill the form
+  useEffect(() => {
+    if (!isEditing || !editSlug) return;
+    const existing = getPostBySlug(editSlug);
+    if (!existing) return;
+    setTitle(existing.title || "");
+    setSlug(existing.slug || "");
+    setCategory(((existing as any).category as Article["category"]) || "Beauté");
+    setTagsInput(((existing.tags || []) as string[]).join(", "));
+    setCover(existing.heroImage || "");
+    setExcerpt(existing.summary || "");
+    setBody(existing.body || "");
+    setAuthor("À la Brestoise");
+    try {
+      const d = existing.date ? new Date(existing.date) : new Date();
+      setDate(d.toISOString());
+    } catch {
+      setDate(new Date().toISOString());
+    }
+    if (typeof existing.readingMinutes === "number" && existing.readingMinutes > 0) {
+      setReadingMinutes(existing.readingMinutes);
+    }
+    if (Array.isArray(existing.sources)) {
+      setSourcesText(existing.sources.join("\n"));
+    }
+  }, [isEditing, editSlug]);
 
   // auto-generate slug from title unless user edited slug
   useEffect(() => {
@@ -279,7 +311,7 @@ const AdminNew = () => {
         const commitMsg = json?.commit?.url ? ` — commit ${json.commit.sha.slice(0,7)}` : "";
         toast.success(`Article publié — déploiement en cours${commitMsg}`);
         // Auto-redirect after ~75s so the new content is available post-deploy
-        window.setTimeout(() => navigate(json.url || `/articles/${article.slug}`), 75000);
+        window.setTimeout(() => navigate("/articles"), 75000);
         return;
       } else {
         // Graceful failure path (e.g., missing env)
@@ -537,7 +569,7 @@ const AdminNew = () => {
     <div className="min-h-screen bg-background">
       <section className="py-10 md:py-16">
         <div className="container mx-auto px-4">
-          <h1 className="text-3xl md:text-4xl font-display font-bold mb-6">Nouvel article</h1>
+          <h1 className="text-3xl md:text-4xl font-display font-bold mb-6">{isEditing ? "Modifier l’article" : "Nouvel article"}</h1>
           <Card>
             <CardHeader>
               <CardTitle>Rédaction</CardTitle>
@@ -561,6 +593,7 @@ const AdminNew = () => {
                         value={slug}
                         onChange={(e) => { setSlug(e.target.value); setSlugTouched(true); }}
                         placeholder="mon-super-article"
+                        disabled={isEditing}
                       />
                       {errors.slug && <p className="text-sm text-red-600 mt-1">{errors.slug}</p>}
                     </div>
@@ -799,7 +832,7 @@ const AdminNew = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="adminPassword">Mot de passe administrateur</Label>
-                    <Input id="adminPassword" type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="••••••••" />
+                    <Input id="adminPassword" type="password" value={adminPassword} onChange={(e) => { setAdminPassword(e.target.value); setAdminToken(e.target.value); }} placeholder="••••••••" />
                   </div>
 
                   <div className="flex gap-3 pt-2">
