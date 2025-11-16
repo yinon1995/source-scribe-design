@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import Footer from "@/components/Footer";
 import ArticleCard from "@/components/ArticleCard";
 import CategoryFilter from "@/components/CategoryFilter";
@@ -6,81 +7,122 @@ import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { postsIndex } from "@/lib/content";
 import { site } from "@/lib/siteContent";
-import { getAllArticlesForAdmin } from "@/lib/articlesIndex";
+
+type ArticleCardData = {
+  title: string;
+  excerpt: string;
+  image: string;
+  category: string;
+  readTime: string;
+  slug: string;
+  tags: string[];
+  searchIndex: string;
+};
+
+const FALLBACK_IMAGE = "/placeholder.svg";
+
+const normalizeText = (value: string): string =>
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 
 const Articles = () => {
-  function normalize(s: string): string {
-    return s
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .trim();
-  }
-
-  function labelForTag(tag?: string): string {
-    const n = normalize(tag || "");
-    if (n.includes("science")) return site.categories.beaute;
-    if (n.includes("nouveau") || n.includes("commerce") || n.includes("lieu")) return site.categories.commercesEtLieux;
-    if (n.includes("experience") || n.includes("lieu")) return site.categories.experience;
-    if (n.includes("beaute")) return site.categories.beaute;
-    return site.categories.beaute;
-  }
-
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    postsIndex.forEach((p) => (p.tags ?? []).forEach((t) => set.add(labelForTag(t))));
-    // Ensure preferred order
-    const list = [site.categories.beaute, site.categories.commercesEtLieux, site.categories.experience];
-    const extras = Array.from(set).filter((c) => !list.includes(c));
-    return ["Tous", ...list, ...extras];
-  }, []);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialSearch = searchParams.get("search") ?? "";
 
   const [activeCategory, setActiveCategory] = useState("Tous");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialSearch);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Read initial query from URL
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const q = params.get("q") || "";
-    setSearchQuery(q);
-    setDebouncedQuery(q);
+  const articles = useMemo<ArticleCardData[]>(() => {
+    return postsIndex.map((post) => {
+      const tags = Array.isArray(post.tags) ? post.tags : [];
+      const category = post.category || site.categories.beaute;
+      const excerpt = post.summary ?? "";
+      const heroImage = post.heroImage ?? FALLBACK_IMAGE;
+      const joinedFields = [post.title, excerpt, category, tags.join(" "), post.slug ?? ""]
+        .filter(Boolean)
+        .join(" ");
+
+      return {
+        title: post.title,
+        excerpt,
+        image: heroImage,
+        category,
+        readTime: `${post.readingMinutes ?? 1} min`,
+        slug: post.slug,
+        tags,
+        searchIndex: normalizeText(joinedFields),
+      };
+    });
   }, []);
 
-  // Debounce query
-  useEffect(() => {
-    const id = setTimeout(() => setDebouncedQuery(searchQuery), 200);
-    return () => clearTimeout(id);
-  }, [searchQuery]);
-
-  // Sync query to URL
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (searchQuery) {
-      params.set("q", searchQuery);
-    } else {
-      params.delete("q");
-    }
-    const newUrl = `${window.location.pathname}?${params.toString()}`.replace(/\?$/, "");
-    window.history.replaceState(null, "", newUrl);
-  }, [searchQuery]);
-
-  const allArticles = useMemo(() => getAllArticlesForAdmin(), []);
-
-  const filteredArticles = allArticles
-    .filter(article => activeCategory === "Tous" || article.category === activeCategory)
-    .filter(article => {
-      const q = normalize(debouncedQuery);
-      if (q === "") return true;
-      const tokens = q.split(/\s+/).filter(Boolean);
-      const haystack = [
-        normalize(article.title),
-        normalize(article.excerpt ?? ""),
-        normalize(article.category ?? ""),
-        ...(article.tags ?? []).map((t) => normalize(t)),
-      ].join(" ");
-      return tokens.every((t) => haystack.includes(t));
+  const categories = useMemo(() => {
+    const baseOrder = [
+      site.categories.beaute,
+      site.categories.commercesEtLieux,
+      site.categories.experience,
+    ];
+    const available = new Set<string>();
+    articles.forEach((article) => {
+      if (article.category) {
+        available.add(article.category);
+      }
     });
+    const ordered = baseOrder.filter((category) => available.has(category));
+    const extras = Array.from(available).filter((category) => !baseOrder.includes(category));
+    return ["Tous", ...ordered, ...extras];
+  }, [articles]);
+
+  useEffect(() => {
+    setSearchQuery(initialSearch);
+    setDebouncedQuery(initialSearch);
+  }, [initialSearch]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          const trimmed = searchQuery.trim();
+          if (trimmed) {
+            next.set("search", trimmed);
+          } else {
+            next.delete("search");
+          }
+          return next;
+        },
+        { replace: true },
+      );
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery, setSearchParams]);
+
+  const focusSearch = (location.state as { focusSearch?: boolean } | null)?.focusSearch;
+  useEffect(() => {
+    if (focusSearch) {
+      requestAnimationFrame(() => {
+        searchInputRef.current?.focus();
+      });
+      navigate(location.pathname + location.search, { replace: true });
+    }
+  }, [focusSearch, location.pathname, location.search, navigate]);
+
+  const normalizedQuery = normalizeText(debouncedQuery.trim());
+  const filteredArticles = useMemo(() => {
+    return articles.filter((article) => {
+      const matchesCategory = activeCategory === "Tous" || article.category === activeCategory;
+      const matchesSearch = normalizedQuery
+        ? article.searchIndex.includes(normalizedQuery)
+        : true;
+      return matchesCategory && matchesSearch;
+    });
+  }, [articles, activeCategory, normalizedQuery]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -101,6 +143,7 @@ const Articles = () => {
             <div className="relative">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
+                ref={searchInputRef}
                 type="text"
                 placeholder="Rechercher un article..."
                 value={searchQuery}
@@ -119,15 +162,15 @@ const Articles = () => {
 
           {/* Articles Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">
-            {filteredArticles.map((article, index) => (
-              <ArticleCard key={index} {...article} />
+            {filteredArticles.map((article) => (
+              <ArticleCard key={article.slug} {...article} />
             ))}
           </div>
 
           {filteredArticles.length === 0 && (
             <div className="text-center py-20">
               <p className="text-xl text-muted-foreground">
-                Aucun article ne correspond à votre recherche
+                Aucun article ne correspond à votre recherche.
               </p>
             </div>
           )}

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Search, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,12 +13,20 @@ import { CONTACT_MODE } from "@/config/contactFallback";
 const Navigation = () => {
   const { openFallback } = useContactFallback();
   const isPlaceholder = CONTACT_MODE === "placeholder";
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   function handleContactClick(e: React.MouseEvent<HTMLAnchorElement>) {
     if (isPlaceholder) {
       e.preventDefault();
       openFallback();
     }
+  }
+
+  function handleSearchClick() {
+    const currentSearch = searchParams.get("search") ?? "";
+    const target = currentSearch ? `/articles?search=${encodeURIComponent(currentSearch)}` : "/articles";
+    navigate(target, { state: { focusSearch: true } });
   }
 
   return (
@@ -53,7 +61,14 @@ const Navigation = () => {
             >
               {site.nav.contact}
             </Link>
-            <Button variant="ghost" size="icon" className="hover:bg-accent">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="hover:bg-accent"
+              onClick={handleSearchClick}
+              aria-label="Rechercher des articles"
+            >
               <Search className="h-5 w-5" />
             </Button>
           </div>
