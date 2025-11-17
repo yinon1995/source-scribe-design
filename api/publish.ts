@@ -52,7 +52,7 @@ const REPO = process.env.GITHUB_REPO; // e.g. "nolwennrobet-lab/source-scribe-de
 const TOKEN = process.env.GITHUB_TOKEN;
 const BRANCH = process.env.PUBLISH_BRANCH || "main";
 const PUBLISH_TOKEN = process.env.PUBLISH_TOKEN;
-const DEPLOY_HOOK = process.env.VERCEL_DEPLOY_HOOK_URL;
+const VERCEL_DEPLOY_HOOK_URL = process.env.VERCEL_DEPLOY_HOOK_URL;
 
 function encodeGitHubPath(path: string) {
   // Encode each path segment, not slashes. Using full encodeURIComponent would break the URL
@@ -99,6 +99,22 @@ async function githubPut(path: string, content: string, message: string) {
     throw new Error(`GitHub PUT ${res.status}: ${txt}`);
   }
   return res.json();
+}
+
+async function triggerVercelDeployIfConfigured(): Promise<boolean> {
+  if (!VERCEL_DEPLOY_HOOK_URL) return false;
+  try {
+    const res = await fetch(VERCEL_DEPLOY_HOOK_URL, { method: "POST" });
+    if (!res.ok) {
+      console.error("[publish] Vercel deploy hook failed", res.status, await res.text());
+      return false;
+    }
+    console.log("[publish] Vercel deploy hook triggered");
+    return true;
+  } catch (err) {
+    console.error("[publish] Error calling Vercel deploy hook", err);
+  }
+  return false;
 }
 
 async function githubRepoPreflight(): Promise<{ ok: true } | { ok: false; status: number }> {
@@ -207,19 +223,10 @@ export default async function handler(req: any, res: any) {
         throw e;
       }
 
-      // 3) Trigger Vercel deployment hook (fire-and-forget)
-      let deploy: { triggered: boolean; error?: string } | undefined;
-      if (DEPLOY_HOOK) {
-        deploy = { triggered: false };
-        try {
-          const hookRes = await fetch(DEPLOY_HOOK, { method: "POST" });
-          deploy.triggered = hookRes.ok;
-          if (!hookRes.ok) deploy.error = `Hook HTTP ${hookRes.status}`;
-        } catch (err: any) {
-          deploy.error = "Échec de la demande de déploiement Vercel.";
-        }
-      }
-      const deployTriggered = Boolean(DEPLOY_HOOK) && Boolean(deploy?.triggered);
+      const deployTriggered = await triggerVercelDeployIfConfigured();
+      const deploy = VERCEL_DEPLOY_HOOK_URL
+        ? { triggered: deployTriggered }
+        : undefined;
 
       res.status(200).json({ ok: true, slug, deletedFromIndex, deletedFile, deployTriggered, deploy });
       return;
@@ -391,18 +398,10 @@ export default async function handler(req: any, res: any) {
       const articleFileUrl: string | undefined = putArticleRes?.content?.html_url;
       const indexFileUrl: string | undefined = putIndexRes?.content?.html_url;
 
-      // Optionally trigger Vercel deployment
-      let deploy: { triggered: boolean; error?: string } = { triggered: false };
-      if (DEPLOY_HOOK) {
-        try {
-          const dh = await fetch(DEPLOY_HOOK, { method: "POST" });
-          deploy.triggered = dh.ok;
-          if (!dh.ok) deploy.error = `Hook HTTP ${dh.status}`;
-        } catch (e: any) {
-          deploy.error = String(e?.message || e);
-        }
-      }
-      const deployTriggered = Boolean(DEPLOY_HOOK) && Boolean(deploy.triggered);
+      const deployTriggered = await triggerVercelDeployIfConfigured();
+      const deploy = VERCEL_DEPLOY_HOOK_URL
+        ? { triggered: deployTriggered }
+        : undefined;
 
       res.status(200).json({
         ok: true,
