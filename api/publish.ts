@@ -147,7 +147,7 @@ function respond(res: VercelResponse, status: number, body: ApiResponseShape) {
 }
 
 export const config = {
-  runtime: "nodejs18.x",
+  runtime: "nodejs",
 };
 
 console.log("[publish] api/publish.ts module loaded");
