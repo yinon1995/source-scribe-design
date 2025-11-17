@@ -1,9 +1,10 @@
+import { CATEGORY_OPTIONS, normalizeCategory, type JsonArticleCategory } from "../shared/articleCategories";
 // Vercel function to publish JSON articles to GitHub (contents API)
 
 type Article = {
   title: string;
   slug: string;
-  category: "Commerces & lieux" | "Expérience" | "Beauté";
+  category: JsonArticleCategory;
   tags?: string[];
   cover?: string;
   excerpt?: string;
@@ -258,13 +259,23 @@ export default async function handler(req: any, res: any) {
 
     // Payload validation → 422 with structured field errors
     const fieldErrors: { title?: string; slug?: string; category?: string; body?: string; date?: string } = {};
-    const allowedCategories = new Set(["Commerces & lieux", "Expérience", "Beauté"]);
+    const allowedCategories = new Set(CATEGORY_OPTIONS);
     if (!article || typeof article !== "object") {
       res.status(422).json({ ok: false, error: "Champs invalides.", errors: { title: "Le titre est obligatoire.", slug: "Le slug ne peut contenir que des lettres, chiffres et tirets.", body: "Le contenu est trop court." } });
       return;
     }
     if (!article.title || !String(article.title).trim()) fieldErrors.title = "Le titre est obligatoire.";
-    if (!article.category || !allowedCategories.has(article.category)) fieldErrors.category = "La thématique est obligatoire.";
+    const rawCategory = typeof article.category === "string" ? article.category.trim() : "";
+    if (!rawCategory) {
+      fieldErrors.category = "La thématique est obligatoire.";
+    } else {
+      const normalizedCategory = normalizeCategory(rawCategory);
+      if (!allowedCategories.has(normalizedCategory)) {
+        fieldErrors.category = "La thématique est obligatoire.";
+      } else {
+        article.category = normalizedCategory;
+      }
+    }
     if (!article.body || String(article.body).trim().length < 50) fieldErrors.body = "Le contenu est trop court.";
     if (article.date) {
       const d = new Date(article.date);

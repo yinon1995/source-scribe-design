@@ -235,7 +235,7 @@ Each article is a JSON file (type `JsonArticle` in `src/lib/content.ts`):
 type JsonArticle = {
   title: string;
   slug: string;
-  category: "Commerces & lieux" | "Expérience" | "Beauté";
+  category: "Beauté & cosmétique" | "Commerces & places" | "Événementiel";
   tags: string[];
   cover: string;      // image URL
   excerpt: string;    // short French summary
@@ -247,7 +247,9 @@ type JsonArticle = {
 };
 ```
 
-These are created/updated by the admin UI via `api/publish.ts`.
+Legacy JSON files may still contain the older labels (`"Beauté"`, `"Commerces & lieux"`, `"Expérience"`). The runtime normalizes them automatically so the public site and admin UI only surface the new labels.
+
+These articles are created/updated by the admin UI via `api/publish.ts`.
 The function also maintains `content/articles/index.json` (an array of summary objects) for fast listing.
 
 ### 4.2. Legacy Markdown posts (`content/posts/*.md`)

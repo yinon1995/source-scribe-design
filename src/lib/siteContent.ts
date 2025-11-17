@@ -18,9 +18,9 @@ export const site = {
     thematiques: "Thématiques",
   },
   categories: {
-    commercesEtLieux: "Commerces & lieux",
-    experience: "Expérience",
-    beaute: "Beauté",
+    commercesEtLieux: "Commerces & places",
+    experience: "Événementiel",
+    beaute: "Beauté & cosmétique",
   },
   footer: {
     social: {
@@ -36,10 +36,12 @@ export const site = {
   },
 } as const;
 
+const categoryHref = (label: string) => `/articles?category=${encodeURIComponent(label)}`;
+
 export const NAV_CATEGORIES = [
-  { href: "/articles?category=Commerces%20%26%20lieux", label: "Commerces & lieux" },
-  { href: "/articles?category=Expérience", label: "Expérience" },
-  { href: "/articles?category=Beauté", label: "Beauté" },
+  { href: categoryHref(site.categories.commercesEtLieux), label: site.categories.commercesEtLieux },
+  { href: categoryHref(site.categories.experience), label: site.categories.experience },
+  { href: categoryHref(site.categories.beaute), label: site.categories.beaute },
 ] as const;
 
 export const HIDDEN_CATEGORY_LABELS = [

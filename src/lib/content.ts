@@ -1,7 +1,22 @@
+import {
+  CATEGORY_OPTIONS,
+  DEFAULT_CATEGORY,
+  normalizeCategory as baseNormalizeCategory,
+  type JsonArticleCategory,
+  type NormalizedCategory,
+} from "../../shared/articleCategories";
+
+export { CATEGORY_OPTIONS, DEFAULT_CATEGORY };
+export type { JsonArticleCategory, NormalizedCategory };
+
+export function normalizeCategory(input?: JsonArticleCategory | string | null): NormalizedCategory {
+  return baseNormalizeCategory(input);
+}
+
 export type JsonArticle = {
   title: string;
   slug: string;
-  category: "Commerces & lieux" | "Expérience" | "Beauté";
+  category: JsonArticleCategory;
   tags?: string[];
   cover?: string;
   excerpt?: string;
@@ -222,7 +237,7 @@ const jsonPosts: Post[] = jsonArticles.map((ja) => {
     title: ja.title,
     slug: ja.slug,
     date,
-    category: ja.category,
+    category: normalizeCategory(ja.category),
     summary: ja.excerpt,
     tags: Array.isArray(ja.tags) ? ja.tags.map(String) : undefined,
     heroImage: ja.cover || undefined,

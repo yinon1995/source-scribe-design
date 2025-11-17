@@ -82,7 +82,7 @@ Passionnée par la valorisation des expériences et des savoir-faire, j’aide l
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">Commerces & lieux</h3>
+                <h3 className="text-lg font-semibold text-foreground">Commerces & places</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Domaines hôteliers, boutiques & concept-stores, cafés et restaurants, ateliers créatifs, activités
                 </p>

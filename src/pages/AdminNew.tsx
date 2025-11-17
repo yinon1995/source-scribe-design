@@ -11,7 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import ArticleContent from "@/components/ArticleContent";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getPostBySlug, type JsonArticle } from "@/lib/content";
+import {
+  CATEGORY_OPTIONS,
+  DEFAULT_CATEGORY,
+  getPostBySlug,
+  normalizeCategory,
+  type JsonArticle,
+  type NormalizedCategory,
+} from "@/lib/content";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Clock } from "lucide-react";
@@ -20,7 +27,7 @@ import { getAdminToken, setAdminToken } from "@/lib/adminSession";
 type Article = {
   title: string;
   slug: string;
-  category: "Commerces & lieux" | "Expérience" | "Beauté";
+  category: NormalizedCategory;
   tags: string[];
   cover: string;
   excerpt: string;
@@ -74,7 +81,7 @@ const AdminNew = () => {
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
-  const [category, setCategory] = useState<Article["category"]>("Beauté");
+  const [category, setCategory] = useState<Article["category"]>(DEFAULT_CATEGORY);
   const [tagsInput, setTagsInput] = useState("");
   const [cover, setCover] = useState("");
   const [excerpt, setExcerpt] = useState("");
@@ -161,7 +168,7 @@ const AdminNew = () => {
         if (!isExpired && d) {
           setTitle(d.title || "");
           setSlug(d.slug || "");
-          setCategory((d.category as Article["category"]) || "Beauté");
+          setCategory(normalizeCategory(d.category));
           setTagsInput((d.tags || []).join(", "));
           setCover(d.cover || "");
           setExcerpt(d.excerpt || "");
@@ -203,7 +210,7 @@ const AdminNew = () => {
     if (!existing) return;
     setTitle(existing.title || "");
     setSlug(existing.slug || "");
-    setCategory(((existing as any).category as Article["category"]) || "Beauté");
+    setCategory(normalizeCategory((existing as any).category));
     setTagsInput(((existing.tags || []) as string[]).join(", "));
     setCover(existing.heroImage || "");
     setExcerpt(existing.summary || "");
@@ -378,7 +385,7 @@ const AdminNew = () => {
   );
 
   const sources = useMemo(() => sourcesText.split("\n").map((s) => s.trim()).filter(Boolean), [sourcesText]);
-  const showPracticalInfoSection = footerType === "practical-info" || category === "Commerces & lieux";
+  const showPracticalInfoSection = footerType === "practical-info" || category === "Commerces & places";
 
   async function handlePublish(e: React.FormEvent) {
     e.preventDefault();
@@ -386,7 +393,7 @@ const AdminNew = () => {
     const sanitizedSlug = slugify(slug || title);
     const nextErrors: { title?: string; category?: string; slug?: string; body?: string; date?: string; cover?: string; password?: string; readingMinutes?: string } = {} as any;
     if (!article.title.trim()) nextErrors.title = "Le titre est obligatoire.";
-    const allowed = new Set(["Commerces & lieux", "Expérience", "Beauté"]);
+    const allowed = new Set<NormalizedCategory>(CATEGORY_OPTIONS);
     if (!article.category || !allowed.has(article.category)) nextErrors.category = "La thématique est obligatoire.";
     if (!sanitizedSlug) nextErrors.slug = "Le slug ne peut contenir que des lettres, chiffres et tirets.";
     if (!article.body || article.body.trim().length < 50) nextErrors.body = "Le contenu est trop court.";
@@ -874,9 +881,11 @@ const AdminNew = () => {
                           <SelectValue placeholder="Choisir…" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Commerces & lieux">Commerces & lieux</SelectItem>
-                          <SelectItem value="Expérience">Expérience</SelectItem>
-                          <SelectItem value="Beauté">Beauté</SelectItem>
+                          {CATEGORY_OPTIONS.map((option) => (
+                            <SelectItem key={option} value={option}>
+                              {option}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       {errors.category && <p className="text-sm text-red-600 mt-1">{errors.category}</p>}

@@ -1,4 +1,5 @@
 import type { JsonArticle } from "./content";
+import { normalizeCategory } from "../../shared/articleCategories";
 
 export type AdminArticleListItem = {
   slug: string;
@@ -18,7 +19,7 @@ function normalizeJsonArticle(input: any): AdminArticleListItem | null {
   const title = (ja.title || "").trim();
   if (!slug || !title) return null;
 
-  const category = (ja.category || "").toString() || "Autre";
+  const category = normalizeCategory(ja.category);
   const date =
     (ja.date && ja.date.slice(0, 10)) ||
     new Date().toISOString().slice(0, 10);
