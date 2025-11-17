@@ -11,9 +11,9 @@ const AdminDashboard = () => {
 		<div className="min-h-screen bg-background flex flex-col">
 			<main className="flex-1 py-10 md:py-16">
 				<div className="container mx-auto px-4 space-y-8">
-					<h1 className="text-3xl md:text-4xl font-display font-bold">
-						Espace rédaction
-					</h1>
+					<h2 className="text-xl md:text-2xl font-display font-semibold">
+						Que souhaitez-vous faire ?
+					</h2>
 					<p className="text-muted-foreground">
 						Choisissez ce que vous voulez faire.
 					</p>
