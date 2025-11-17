@@ -603,45 +603,48 @@ const AdminNew = () => {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(reqPayload),
       });
-      const json = await res.json().catch(() => ({}));
-      setLastResponse({ status: res.status, body: json });
-      const errorMessage = typeof json?.error === "string" ? json.error : undefined;
+      const body = await res.json().catch(() => ({}));
+      setLastResponse({ status: res.status, body });
+      const errorMessage = typeof body?.error === "string" ? body.error : undefined;
       if (res.status === 401) {
         setServerError({ message: errorMessage || "Accès refusé — mot de passe administrateur invalide." });
         persistDraft(safeArticle);
-        console.error("[admin] Publication non autorisée", json);
+        console.error("[admin] Publication non autorisée", res.status, errorMessage || "Accès refusé — mot de passe administrateur invalide.", body);
         return;
       }
       if (res.status === 422) {
-        const fieldErrors = json?.errors || {};
+        const fieldErrors = body?.errors || {};
         setErrors((prev) => ({ ...prev, ...fieldErrors }));
         setServerError({ message: errorMessage || "Champs invalides." });
         persistDraft(safeArticle);
-        console.error("[admin] Erreur de validation publication", json);
+        console.error("[admin] Erreur de validation publication", res.status, errorMessage || "Champs invalides.", body);
         return;
       }
-      if (!res.ok || !json?.success) {
-        const detailsMsg = json?.details?.message ? String(json.details.message) : undefined;
+      if (!res.ok || !body?.success) {
+        const fallback =
+          res.status >= 500 ? "Erreur serveur — veuillez réessayer." : "Publication impossible. Brouillon conservé localement.";
+        const message = errorMessage || fallback;
+        const detailsMsg = body?.details?.message ? String(body.details.message) : undefined;
         setServerError({
-          message: errorMessage || (res.status >= 500 ? "Erreur serveur — veuillez réessayer." : "Publication impossible. Brouillon conservé localement."),
+          message,
           details: detailsMsg,
-          missingEnv: Array.isArray(json?.missingEnv) ? json.missingEnv : undefined,
+          missingEnv: Array.isArray(body?.missingEnv) ? body.missingEnv : undefined,
         });
         persistDraft(safeArticle);
-        console.error("[admin] Publication échouée", res.status, errorMessage, json);
+        console.error("[admin] Publication échouée", res.status, message, body);
         return;
       }
 
       setServerError({});
       removeDraft();
       setPublishInfo({
-        url: json.url,
-        commit: json.commit,
-        files: json.files,
-        deploy: json.deploy,
-        deployTriggered: Boolean(json.deployTriggered),
+        url: body.url,
+        commit: body.commit,
+        files: body.files,
+        deploy: body.deploy,
+        deployTriggered: Boolean(body.deployTriggered),
       });
-      const commitMsg = json?.commit?.url ? ` (commit ${json.commit.sha.slice(0, 7)})` : "";
+      const commitMsg = body?.commit?.url ? ` (commit ${body.commit.sha.slice(0, 7)})` : "";
       toast.success(`Article publié — la mise à jour du site public peut prendre 1 à 3 minutes.${commitMsg}`);
       // Auto-redirect after ~75s so the new content est disponible post-deploy
       window.setTimeout(() => navigate("/articles"), 75000);

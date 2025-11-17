@@ -1,4 +1,5 @@
 // API route: publish/delete articles in GitHub repo
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { CATEGORY_OPTIONS, normalizeCategory, type JsonArticleCategory } from "../shared/articleCategories";
 // Vercel function to publish JSON articles to GitHub (contents API)
 type Article = {
@@ -53,9 +54,6 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const PUBLISH_BRANCH = process.env.PUBLISH_BRANCH || "main";
 const PUBLISH_TOKEN = process.env.PUBLISH_TOKEN;
 const VERCEL_DEPLOY_HOOK_URL = process.env.VERCEL_DEPLOY_HOOK_URL;
-
-console.log("[publish] GITHUB_REPO:", GITHUB_REPO);
-console.log("[publish] PUBLISH_BRANCH:", PUBLISH_BRANCH);
 
 function encodeGitHubPath(path: string) {
   // Encode each path segment, not slashes. Using full encodeURIComponent would break the URL
@@ -140,11 +138,60 @@ type ApiResponseShape = {
   [key: string]: unknown;
 };
 
-function respond(res: any, status: number, body: ApiResponseShape) {
-  res.status(status).json(body);
+function respond(res: VercelResponse, status: number, body: ApiResponseShape) {
+  if (!res.headersSent) {
+    res.setHeader("Content-Type", "application/json");
+  }
+  res.statusCode = status;
+  res.end(JSON.stringify(body));
 }
 
-export default async function handler(req: any, res: any) {
+export const config = {
+  runtime: "nodejs18.x",
+};
+
+console.log("[publish] api/publish.ts module loaded");
+console.log("[publish] GITHUB_REPO:", GITHUB_REPO);
+console.log("[publish] PUBLISH_BRANCH:", PUBLISH_BRANCH);
+
+async function readJsonBody<T = Record<string, unknown>>(req: VercelRequest): Promise<T> {
+  const existing = (req as any).body;
+  if (existing !== undefined && existing !== null) {
+    if (typeof existing === "string") {
+      const parsed = existing.length ? JSON.parse(existing) : {};
+      (req as any).body = parsed;
+      return parsed as T;
+    }
+    if (Buffer.isBuffer(existing)) {
+      const text = existing.toString("utf8");
+      const parsed = text ? JSON.parse(text) : {};
+      (req as any).body = parsed;
+      return parsed as T;
+    }
+    return existing as T;
+  }
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    if (typeof chunk === "string") {
+      chunks.push(Buffer.from(chunk));
+    } else {
+      chunks.push(chunk);
+    }
+  }
+  if (!chunks.length) {
+    const empty = {} as T;
+    (req as any).body = empty;
+    return empty;
+  }
+  const text = Buffer.concat(chunks).toString("utf8");
+  const parsed = text ? JSON.parse(text) : {};
+  (req as any).body = parsed;
+  return parsed as T;
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log("[publish] handler invoked", req.method);
+
   async function handleDelete() {
     // Admin gate via Authorization: Bearer <token>
     try {
@@ -162,11 +209,12 @@ export default async function handler(req: any, res: any) {
     } catch {
       // ignore, fallback
     }
-    let payload: any;
+    let payload: any = {};
     try {
-      payload = req.body && typeof req.body === "object" ? req.body : JSON.parse(req.body || "{}");
+      payload = await readJsonBody<Record<string, unknown>>(req);
     } catch {
-      payload = {};
+      respond(res, 400, { success: false, error: "JSON invalide" });
+      return;
     }
     const slugFromQuery = typeof req.query?.slug === "string" ? String(req.query.slug) : "";
     const rawSlug = String((payload?.slug || slugFromQuery) || "").trim();
@@ -285,9 +333,9 @@ export default async function handler(req: any, res: any) {
     } catch {
       // ignore
     }
-    let article: Article | undefined;
+    let article: any;
     try {
-      article = req.body && typeof req.body === "object" ? req.body : JSON.parse(req.body || "{}");
+      article = await readJsonBody<Article>(req);
     } catch {
       respond(res, 400, { success: false, error: "JSON invalide" });
       return;
@@ -471,30 +519,25 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // Method routing
-  if (req.method === "OPTIONS") {
-    res.status(200).end();
-    return;
-  }
-  if (req.method === "DELETE") {
-    try {
+  try {
+    if (req.method === "OPTIONS") {
+      res.status(200).end();
+      return;
+    }
+    if (req.method === "DELETE") {
       await handleDelete();
-    } catch (error) {
-      console.error("[publish] Unhandled delete error", error);
-      respond(res, 500, { success: false, error: "Erreur serveur interne" });
+      return;
     }
-    return;
-  }
-  if (req.method === "POST") {
-    try {
+    if (req.method === "POST") {
       await handlePublish();
-    } catch (error) {
-      console.error("[publish] Unhandled publish error", error);
-      respond(res, 500, { success: false, error: "Erreur serveur interne" });
+      return;
     }
-    return;
+    respond(res, 405, { success: false, error: "Method not allowed" });
+  } catch (error) {
+    console.error("[publish] Unhandled error", error);
+    const message = error instanceof Error ? error.message : "Erreur serveur interne";
+    respond(res, 500, { success: false, error: message || "Erreur serveur interne" });
   }
-  respond(res, 405, { success: false, error: "Method not allowed" });
 }
 
 
