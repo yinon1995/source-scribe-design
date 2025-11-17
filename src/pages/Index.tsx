@@ -8,10 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { site } from "@/lib/siteContent";
-import beautyHero from "@/assets/beauty-hero.jpg";
 import { subscribe } from "@/lib/subscribe";
 import { openMailto } from "@/lib/subscribe";
 import { CATEGORY_OPTIONS, postsIndex } from "@/lib/content";
+import { FALLBACK_ARTICLE_IMAGE } from "@/lib/images";
 
 const Index = () => {
   const categories = useMemo(() => ["Tous", ...CATEGORY_OPTIONS], []);
@@ -34,7 +34,7 @@ const Index = () => {
     return source.slice(0, 3).map((post) => ({
       title: post.title,
       excerpt: post.summary ?? "",
-      image: post.heroImage || beautyHero,
+      image: post.heroImage || FALLBACK_ARTICLE_IMAGE,
       category: post.category || site.categories.beaute,
       readTime: `${post.readingMinutes ?? 1} min`,
       slug: post.slug,

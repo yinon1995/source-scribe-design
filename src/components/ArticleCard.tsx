@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
 import { Clock, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { FALLBACK_ARTICLE_IMAGE } from "@/lib/images";
 
 interface ArticleCardProps {
   title: string;
   excerpt: string;
-  image: string;
+  image?: string;
   category: string;
   readTime: string;
   slug: string;
@@ -14,14 +15,18 @@ interface ArticleCardProps {
 }
 
 const ArticleCard = ({ title, excerpt, image, category, readTime, slug, tags, featured = false }: ArticleCardProps) => {
+  const coverImage = image || FALLBACK_ARTICLE_IMAGE;
+  const coverAlt = title ? `Illustration pour ${title}` : "Illustration d'article";
+
   return (
     <Link to={`/articles/${slug}`} className="group">
       <article className="bg-card rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
         {/* Image */}
         <div className="aspect-[16/10] overflow-hidden bg-muted">
           <img
-            src={image}
-            alt={title}
+            src={coverImage}
+            alt={coverAlt}
+            loading="lazy"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         </div>

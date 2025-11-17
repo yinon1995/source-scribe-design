@@ -1024,9 +1024,14 @@ const handleClearAll = useCallback(() => {
                     <Input id="cover" value={cover} onChange={(e) => setCover(e.target.value)} placeholder="https://…" />
                     {errors.cover && <p className="text-sm text-red-600 mt-1">{errors.cover}</p>}
                     {cover && (
-                      <div className="mt-2 rounded-lg overflow-hidden border bg-muted/30">
+                      <div className="mt-3 rounded-xl overflow-hidden border bg-muted/40">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={cover} alt="Aperçu" className="w-full h-40 object-cover" />
+                        <img
+                          src={cover}
+                          alt={`Prévisualisation de l'image de couverture pour ${title || "l'article"}`}
+                          loading="lazy"
+                          className="w-full h-48 object-cover"
+                        />
                       </div>
                     )}
                     <div className="pt-2">
@@ -1164,6 +1169,10 @@ const handleClearAll = useCallback(() => {
                       rows={12}
                       className="resize-none"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Vous pouvez insérer des images avec la syntaxe Markdown&nbsp;:{" "}
+                      <code>![Texte alternatif](/images/mon-image.jpg)</code> ou <code>![Texte alternatif](https://exemple.com/image.jpg)</code>.
+                    </p>
                     <p className="text-xs text-muted-foreground text-right">{body.length} caractères</p>
                     {errors.body && <p className="text-sm text-red-600 mt-1">{errors.body}</p>}
                   </div>

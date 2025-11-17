@@ -50,7 +50,9 @@ const MarkdownPreview: React.FC<Props> = ({ markdown, className, localMap }) => 
             // Resolve preview-only local asset placeholders
             const src = props.src || "";
             const resolved = src.startsWith("local:") && localMap ? (localMap[src] || src) : src;
-            return <LazyMarkdownImage {...props} src={resolved} />;
+            const baseClass = "my-4 w-full max-w-full rounded-xl border border-border/40 object-cover";
+            const composedClass = props.className ? `${baseClass} ${props.className}` : baseClass;
+            return <LazyMarkdownImage {...props} className={composedClass} src={resolved} />;
           },
         }}
       >

@@ -19,6 +19,7 @@ export type JsonArticle = {
   category: JsonArticleCategory;
   tags?: string[];
   cover?: string;
+  heroImage?: string;
   excerpt?: string;
   body: string;
   author?: string;
@@ -226,6 +227,12 @@ const jsonArticles: JsonArticle[] = Object.values(jsonModules)
   .map((mod) => (mod && typeof mod === "object" && "default" in mod ? mod.default : mod))
   .filter((value): value is JsonArticle => Boolean(value && typeof value === "object"));
 
+function normalizeImageSrc(value?: string | null): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 const jsonPosts: Post[] = jsonArticles.map((ja) => {
   const date = ja.date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
   const readingMinutes =
@@ -235,6 +242,7 @@ const jsonPosts: Post[] = jsonArticles.map((ja) => {
   const searchAliases = Array.isArray(ja.searchAliases)
     ? ja.searchAliases.map((alias) => String(alias))
     : undefined;
+  const heroImage = normalizeImageSrc(ja.cover) ?? normalizeImageSrc(ja.heroImage);
 
   return {
     title: ja.title,
@@ -243,7 +251,7 @@ const jsonPosts: Post[] = jsonArticles.map((ja) => {
     category: normalizeCategory(ja.category),
     summary: ja.excerpt,
     tags: Array.isArray(ja.tags) ? ja.tags.map(String) : undefined,
-    heroImage: ja.cover || undefined,
+    heroImage,
     readingMinutes,
     sources: Array.isArray(ja.sources) ? ja.sources.map(String) : undefined,
     isJson: true,

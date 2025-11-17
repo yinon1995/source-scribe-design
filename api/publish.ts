@@ -14,6 +14,7 @@ type Article = {
   category: JsonArticleCategory;
   tags?: string[];
   cover?: string;
+  heroImage?: string;
   excerpt?: string;
   body: string; // markdown
   author?: string;
@@ -44,6 +45,12 @@ type Article = {
 };
 
 function slugify(input: string): string {
+function normalizeImageUrl(input?: string | null): string | undefined {
+  if (typeof input !== "string") return undefined;
+  const trimmed = input.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
   return String(input || "")
     .toLowerCase()
     .normalize("NFD")
@@ -481,9 +488,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const readingMinutes = Number(article.readingMinutes) > 0
         ? Number(article.readingMinutes)
         : estimateMinutes(`${article.excerpt || ""}\n\n${article.body || ""}`);
+      const cover = normalizeImageUrl(article.cover) ?? normalizeImageUrl((article as any).heroImage);
       const featured = article.featured === true;
       const articleForWrite = {
         ...article,
+        cover: cover,
         featured,
         readingMinutes,
         sources: Array.isArray(article.sources) ? article.sources : [],
@@ -492,6 +501,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       type Meta = Pick<Article, "title" | "slug" | "category" | "tags" | "cover" | "excerpt" | "date"> & {
         readingMinutes?: number;
         featured?: boolean;
+        heroImage?: string;
       };
       const meta: Meta = {
         title: articleForWrite.title,
@@ -499,6 +509,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         category: articleForWrite.category,
         tags: articleForWrite.tags || [],
         cover: articleForWrite.cover || "",
+        heroImage: articleForWrite.cover || "",
         excerpt: articleForWrite.excerpt || "",
         date: articleForWrite.date || new Date().toISOString(),
         readingMinutes,
@@ -528,6 +539,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           category: meta.category,
           tags: meta.tags,
           cover: meta.cover,
+          heroImage: meta.heroImage,
           excerpt: meta.excerpt,
           date: meta.date,
           readingMinutes: meta.readingMinutes,

@@ -5,6 +5,7 @@ import remarkBreaks from "remark-breaks";
 import remarkDirective from "remark-directive";
 import rehypeRaw from "rehype-raw";
 import type { Post } from "@/lib/content";
+import { FALLBACK_ARTICLE_IMAGE } from "@/lib/images";
 
 type Props =
   | { article: Post; body?: undefined; sources?: string[]; localMap?: Record<string, string> }
@@ -13,7 +14,7 @@ type Props =
 const ArticleContent: React.FC<Props> = (props) => {
   const article = props.article;
   const displayDate = article?.date ? new Date(article.date).toLocaleDateString("fr-FR") : "";
-  const heroImage = article?.heroImage ?? null;
+  const heroImage = article ? article.heroImage ?? FALLBACK_ARTICLE_IMAGE : null;
   const heroLayout = article?.heroLayout ?? "default";
   const showTitleInHero = article ? article.showTitleInHero !== false : true;
   const footerType = article?.footerType ?? "default";
@@ -25,7 +26,9 @@ const ArticleContent: React.FC<Props> = (props) => {
     practicalInfo &&
     Object.values(practicalInfo).some((value) => typeof value === "string" && value.trim().length > 0);
 
-  const heroSection = article ? renderHero({ article, displayDate, heroImage, heroLayout, showTitleInHero }) : null;
+  const heroSection = article
+    ? renderHero({ article, displayDate, heroImage: heroImage ?? FALLBACK_ARTICLE_IMAGE, heroLayout, showTitleInHero })
+    : null;
 
   return (
     <article className="pb-20">
@@ -38,11 +41,27 @@ const ArticleContent: React.FC<Props> = (props) => {
               remarkPlugins={[remarkGfm, remarkBreaks, remarkDirective]}
               rehypePlugins={[rehypeRaw]}
               components={{
-                img: (imgProps) => {
-                  const src = imgProps.src || "";
-                  const mapped = localMap && src in localMap ? localMap[src] : src;
-                  // eslint-disable-next-line jsx-a11y/alt-text
-                  return <img {...imgProps} src={mapped} />;
+                img: ({ node: _node, ...imgProps }) => {
+                  const rawSrc = imgProps.src || "";
+                  const resolved =
+                    rawSrc.startsWith("local:") && localMap ? localMap[rawSrc] || rawSrc : localMap?.[rawSrc] || rawSrc;
+                  const baseClass = "my-6 w-full max-w-full rounded-2xl border border-border/60 shadow-sm";
+                  const className = imgProps.className ? `${baseClass} ${imgProps.className}` : baseClass;
+                  const altText =
+                    (imgProps.alt && imgProps.alt.trim().length > 0
+                      ? imgProps.alt
+                      : article?.title
+                        ? `Illustration – ${article.title}`
+                        : "Illustration d'article") || "Illustration d'article";
+                  return (
+                    <img
+                      {...imgProps}
+                      src={resolved}
+                      loading={imgProps.loading ?? "lazy"}
+                      alt={altText}
+                      className={className}
+                    />
+                  );
                 },
               }}
             >
@@ -147,7 +166,7 @@ export default ArticleContent;
 type HeroProps = {
   article: Post;
   displayDate: string;
-  heroImage: string | null;
+  heroImage: string;
   heroLayout: "default" | "image-full" | "compact";
   showTitleInHero: boolean;
 };
