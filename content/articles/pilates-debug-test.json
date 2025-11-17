@@ -1,13 +1,16 @@
 {
-  "title": "Pilates Debug Test",
+  "title": "nini",
   "slug": "pilates-debug-test",
   "category": "Beauté",
   "tags": [],
-  "cover": "",
   "excerpt": "Petit article de test pour vérifier la publication.",
   "body": "\ndf\ngedt\nh\nedthbedtz\ngbh\ndfn\nfgn\nfg\nn\n\ngnfry\nxj\nrxyj\nryx\nj\ntuj\ntu\nkut\nk\ntgukm\nrfxy\nryxfj\njryx\njmry\nrxyn",
   "author": "À la Brestoise",
   "date": "2025-11-16T00:00:00.000Z",
   "readingMinutes": 1,
+  "heroLayout": "default",
+  "showTitleInHero": true,
+  "footerType": "default",
+  "schemaType": "Article",
   "sources": []
 }
