@@ -1,4 +1,10 @@
 // Admin editor page (create/edit)
+// Draft behavior:
+// - When no slug is provided (new article), the form starts clean and auto-saves to `draft:article:new`.
+//   That draft is auto-loaded (if fresh) when coming back to the page.
+// - When editing an existing article (slug present), we only load the published content.
+//   No auto-loading or auto-saving of slug-specific drafts happens; the "Enregistrer le brouillon"
+//   button is the only way to persist a draft snapshot locally.
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Footer from "@/components/Footer";
@@ -287,7 +293,7 @@ const AdminNew = () => {
 
   // Load draft per context (new vs specific slug) so multiple edits stay isolated
   useEffect(() => {
-    if (!draftKey) return;
+    if (!draftKey || isEditing) return;
     try {
       const raw = localStorage.getItem(draftKey);
       if (!raw) return;
@@ -300,7 +306,7 @@ const AdminNew = () => {
         return;
       }
       if (snapshot) {
-        applySnapshot(snapshot, { slugTouched: isEditing || Boolean(snapshot.slug) });
+        applySnapshot(snapshot, { slugTouched: Boolean(snapshot.slug) });
       }
     } catch {
       // ignore invalid drafts
@@ -896,8 +902,9 @@ const AdminNew = () => {
 
   // Auto-save draft on field changes (debounced)
   useEffect(() => {
+    if (isEditing) return;
     scheduleDraftSave(article);
-  }, [article, scheduleDraftSave]);
+  }, [article, scheduleDraftSave, isEditing]);
 
 const handleClearAll = useCallback(() => {
   const confirmed = window.confirm("Êtes-vous sûr de vouloir tout effacer ? Cette action supprimera tout le contenu de l’article en cours.");
