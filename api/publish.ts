@@ -1,7 +1,6 @@
 // API route: publish/delete articles in GitHub repo
 import { CATEGORY_OPTIONS, normalizeCategory, type JsonArticleCategory } from "../shared/articleCategories";
 // Vercel function to publish JSON articles to GitHub (contents API)
-
 type Article = {
   title: string;
   slug: string;
@@ -49,11 +48,14 @@ function toBase64(content: string | Uint8Array) {
   return Buffer.from(content).toString("base64");
 }
 
-const REPO = process.env.GITHUB_REPO; // e.g. "nolwennrobet-lab/source-scribe-design"
-const TOKEN = process.env.GITHUB_TOKEN;
-const BRANCH = process.env.PUBLISH_BRANCH || "main";
+const GITHUB_REPO = process.env.GITHUB_REPO;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const PUBLISH_BRANCH = process.env.PUBLISH_BRANCH || "main";
 const PUBLISH_TOKEN = process.env.PUBLISH_TOKEN;
 const VERCEL_DEPLOY_HOOK_URL = process.env.VERCEL_DEPLOY_HOOK_URL;
+
+console.log("[publish] GITHUB_REPO:", GITHUB_REPO);
+console.log("[publish] PUBLISH_BRANCH:", PUBLISH_BRANCH);
 
 function encodeGitHubPath(path: string) {
   // Encode each path segment, not slashes. Using full encodeURIComponent would break the URL
@@ -61,12 +63,12 @@ function encodeGitHubPath(path: string) {
 }
 
 async function githubGet(path: string) {
-  if (!REPO || !TOKEN) return undefined;
-  const url = `https://api.github.com/repos/${REPO}/contents/${encodeGitHubPath(path)}?ref=${encodeURIComponent(BRANCH)}`;
+  if (!GITHUB_REPO || !GITHUB_TOKEN) return undefined;
+  const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${encodeGitHubPath(path)}?ref=${encodeURIComponent(PUBLISH_BRANCH)}`;
   const res = await fetch(url, {
     headers: {
       Accept: "application/vnd.github+json",
-      Authorization: `token ${TOKEN}`,
+      Authorization: `token ${GITHUB_TOKEN}`,
     },
   });
   if (res.status === 404) return undefined;
@@ -75,28 +77,29 @@ async function githubGet(path: string) {
 }
 
 async function githubPut(path: string, content: string, message: string) {
-  if (!REPO || !TOKEN) throw new Error("Missing GitHub credentials");
+  if (!GITHUB_REPO || !GITHUB_TOKEN) throw new Error("Missing GitHub credentials");
   let sha: string | undefined;
   const existing = await githubGet(path);
   if (existing && typeof existing.sha === "string") sha = existing.sha;
-  const url = `https://api.github.com/repos/${REPO}/contents/${encodeGitHubPath(path)}`;
+  const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${encodeGitHubPath(path)}`;
   const res = await fetch(url, {
     method: "PUT",
     headers: {
       Accept: "application/vnd.github+json",
-      Authorization: `token ${TOKEN}`,
+      Authorization: `token ${GITHUB_TOKEN}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
       message,
       content: toBase64(content),
-      branch: BRANCH,
+      branch: PUBLISH_BRANCH,
       sha,
       committer: { name: "A la Brestoise bot", email: "bot@alabrestoise.local" },
     }),
   });
   if (!res.ok) {
     const txt = await res.text();
+    console.error("[publish] GitHub PUT failed", res.status, txt);
     throw new Error(`GitHub PUT ${res.status}: ${txt}`);
   }
   return res.json();
@@ -120,12 +123,12 @@ async function triggerVercelDeployIfConfigured(): Promise<boolean> {
 }
 
 async function githubRepoPreflight(): Promise<{ ok: true } | { ok: false; status: number }> {
-  if (!REPO || !TOKEN) return { ok: false, status: 0 };
-  const url = `https://api.github.com/repos/${REPO}`;
+  if (!GITHUB_REPO || !GITHUB_TOKEN) return { ok: false, status: 0 };
+  const url = `https://api.github.com/repos/${GITHUB_REPO}`;
   const res = await fetch(url, {
     headers: {
       Accept: "application/vnd.github+json",
-      Authorization: `token ${TOKEN}`,
+      Authorization: `token ${GITHUB_TOKEN}`,
     },
   });
   if (res.status === 200) return { ok: true };
@@ -152,7 +155,7 @@ export default async function handler(req: any, res: any) {
           : "";
         if (provided !== PUBLISH_TOKEN) {
           console.warn("[publish] Unauthorized delete attempt");
-          respond(res, 401, { success: false, error: "Non autorisé." });
+          respond(res, 401, { success: false, error: "Admin token invalide" });
           return;
         }
       }
@@ -170,13 +173,13 @@ export default async function handler(req: any, res: any) {
     const slug = slugify(rawSlug);
     if (!slug) {
       console.warn("[publish] DELETE missing slug", { rawSlug });
-      respond(res, 400, { success: false, error: "Slug requis pour la suppression." });
+      respond(res, 400, { success: false, error: "Slug manquant" });
       return;
     }
 
     // If missing credentials, gracefully report ok:false to allow client to keep UI consistent
-    if (!REPO || !TOKEN) {
-      const missingEnv = [!REPO ? "GITHUB_REPO" : null, !TOKEN ? "GITHUB_TOKEN" : null].filter(Boolean);
+    if (!GITHUB_REPO || !GITHUB_TOKEN) {
+      const missingEnv = [!GITHUB_REPO ? "GITHUB_REPO" : null, !GITHUB_TOKEN ? "GITHUB_TOKEN" : null].filter(Boolean);
       respond(res, 503, {
         success: false,
         error: "Suppression en attente — configuration GitHub manquante (GITHUB_REPO/GITHUB_TOKEN).",
@@ -189,18 +192,19 @@ export default async function handler(req: any, res: any) {
     async function githubDelete(path: string, message: string) {
       const existing = await githubGet(path);
       if (!existing || !existing.sha) return { existed: false, result: undefined as any };
-      const url = `https://api.github.com/repos/${REPO}/contents/${encodeGitHubPath(path)}`;
+      const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${encodeGitHubPath(path)}`;
       const resDel = await fetch(url, {
         method: "DELETE",
         headers: {
           Accept: "application/vnd.github+json",
-          Authorization: `token ${TOKEN}`,
+          Authorization: `token ${GITHUB_TOKEN}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message, sha: existing.sha, branch: BRANCH, committer: { name: "A la Brestoise bot", email: "bot@alabrestoise.local" } }),
+        body: JSON.stringify({ message, sha: existing.sha, branch: PUBLISH_BRANCH, committer: { name: "A la Brestoise bot", email: "bot@alabrestoise.local" } }),
       });
       if (!resDel.ok) {
         const txt = await resDel.text();
+        console.error("[publish] GitHub DELETE failed", resDel.status, txt);
         throw new Error(`GitHub DELETE ${resDel.status}: ${txt}`);
       }
       const json = await resDel.json();
@@ -258,7 +262,7 @@ export default async function handler(req: any, res: any) {
       const message = e?.message ? String(e.message) : String(e);
       const m = /GitHub\s+[A-Z]+\s+(\d{3})/.exec(message);
       const status = m ? Number(m[1]) : undefined;
-      console.error("[publish] GitHub error", { repo: REPO, branch: BRANCH, message });
+      console.error("[publish] GitHub error", { repo: GITHUB_REPO, branch: PUBLISH_BRANCH, message });
       respond(res, 500, { success: false, error: "Échec de la suppression GitHub.", details: { status, message } });
       return;
     }
@@ -274,7 +278,7 @@ export default async function handler(req: any, res: any) {
           : "";
         if (provided !== PUBLISH_TOKEN) {
           console.warn("[publish] Unauthorized publish attempt");
-          respond(res, 401, { success: false, error: "Non autorisé." });
+          respond(res, 401, { success: false, error: "Admin token invalide" });
           return;
         }
       }
@@ -285,7 +289,7 @@ export default async function handler(req: any, res: any) {
     try {
       article = req.body && typeof req.body === "object" ? req.body : JSON.parse(req.body || "{}");
     } catch {
-      res.status(400).json({ error: "Invalid JSON" });
+      respond(res, 400, { success: false, error: "JSON invalide" });
       return;
     }
 
@@ -332,7 +336,7 @@ export default async function handler(req: any, res: any) {
       respond(res, 422, {
         success: false,
         error: "Champs invalides.",
-        errors: { slug: "Le slug ne peut contenir que des lettres, chiffres et tirets." },
+        errors: { slug: "Slug manquant" },
       });
       return;
     }
@@ -340,8 +344,8 @@ export default async function handler(req: any, res: any) {
     const slug = normalizedSlugInput;
 
     // If missing credentials, gracefully report ok:false and keep draft
-    if (!REPO || !TOKEN) {
-      const missingEnv = [!REPO ? "GITHUB_REPO" : null, !TOKEN ? "GITHUB_TOKEN" : null].filter(Boolean);
+    if (!GITHUB_REPO || !GITHUB_TOKEN) {
+      const missingEnv = [!GITHUB_REPO ? "GITHUB_REPO" : null, !GITHUB_TOKEN ? "GITHUB_TOKEN" : null].filter(Boolean);
       respond(res, 503, {
         success: false,
         error: "Publication en attente — configuration GitHub manquante (GITHUB_REPO/GITHUB_TOKEN). Le brouillon a été conservé localement.",
@@ -355,8 +359,8 @@ export default async function handler(req: any, res: any) {
       const check = await githubRepoPreflight();
       if (!check.ok && (check.status === 404 || check.status === 403)) {
         // Log diagnostic info on server without leaking secrets
-        console.error("publish: GitHub error", { status: check.status, repo: REPO, branch: BRANCH });
-        res.status(200).json({ ok: false, error: "Référentiel introuvable ou accès refusé.", details: { status: check.status } });
+        console.error("[publish] GitHub repo access error", { status: check.status, repo: GITHUB_REPO, branch: PUBLISH_BRANCH });
+        respond(res, 502, { success: false, error: "Référentiel introuvable ou accès refusé.", details: { status: check.status } });
         return;
       }
     } catch {
@@ -457,7 +461,7 @@ export default async function handler(req: any, res: any) {
       // Try to extract status code if present in the message like "GitHub PUT 422: ..."
       const m = /GitHub\s+[A-Z]+\s+(\d{3})/.exec(message);
       const status = m ? Number(m[1]) : undefined;
-      console.error("[publish] GitHub error", { repo: REPO, branch: BRANCH, message });
+      console.error("[publish] GitHub error", { repo: GITHUB_REPO, branch: PUBLISH_BRANCH, message });
       respond(res, 500, {
         success: false,
         error: "Échec de la publication GitHub. Vérifiez la configuration du dépôt.",
@@ -473,14 +477,24 @@ export default async function handler(req: any, res: any) {
     return;
   }
   if (req.method === "DELETE") {
-    await handleDelete();
+    try {
+      await handleDelete();
+    } catch (error) {
+      console.error("[publish] Unhandled delete error", error);
+      respond(res, 500, { success: false, error: "Erreur serveur interne" });
+    }
     return;
   }
   if (req.method === "POST") {
-    await handlePublish();
+    try {
+      await handlePublish();
+    } catch (error) {
+      console.error("[publish] Unhandled publish error", error);
+      respond(res, 500, { success: false, error: "Erreur serveur interne" });
+    }
     return;
   }
-  res.status(405).json({ error: "Method not allowed" });
+  respond(res, 405, { success: false, error: "Method not allowed" });
 }
 
 

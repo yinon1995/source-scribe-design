@@ -896,6 +896,16 @@ const AdminNew = () => {
     scheduleDraftSave(article);
   }, [article, scheduleDraftSave]);
 
+const handleClearAll = useCallback(() => {
+  const confirmed = window.confirm("Êtes-vous sûr de vouloir tout effacer ? Cette action supprimera tout le contenu de l’article en cours.");
+  if (!confirmed) return;
+  applySnapshot(undefined, { slugTouched: false });
+  removeDraft();
+  setServerError({});
+  setPublishInfo(null);
+  toast.success("Le formulaire a été réinitialisé.");
+}, [applySnapshot, removeDraft]);
+
   return (
     <div className="min-h-screen bg-background">
       <section className="py-10 md:py-16">
@@ -1309,7 +1319,8 @@ const AdminNew = () => {
                     <Input id="adminPassword" type="password" value={adminPassword} onChange={(e) => { setAdminPassword(e.target.value); setAdminToken(e.target.value); }} placeholder="••••••••" />
                   </div>
 
-                  <div className="flex gap-3 pt-2">
+                  <div className="flex flex-wrap gap-3 pt-2">
+                    <Button type="button" variant="outline" onClick={handleClearAll}>Tout effacer</Button>
                     <Button type="button" variant="secondary" onClick={handleSaveDraft}>Enregistrer le brouillon</Button>
                     <Button type="submit" disabled={submitting} aria-busy={submitting}>
                       {submitting && (
