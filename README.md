@@ -1,4 +1,8 @@
-Here’s an updated README that includes what we just did with **Gmail compose + placeholder mode** and explains how to switch back to **real email sending** once you have a proper domain.
+Perfect. Here’s a **fresh README** that includes everything from your last version **plus** what we just did with:
+
+* **Google Search Console**
+* **Google Analytics 4 (hard-coded gtag)**
+* **Google Tag Manager container (installed, but GA4 still hard-coded)**
 
 You can replace your current `README.md` with this:
 
@@ -326,14 +330,12 @@ From `src/App.tsx` / `src/pages`:
 ### 5.2. Article list page (`src/pages/Articles.tsx`)
 
 * Imports `postsIndex`.
-
 * Maps each item to a card:
 
   * Image (`heroImage` or fallback)
   * Category (from `category`)
   * Reading time (`readingMinutes` → `"x min"`)
   * Title, excerpt, tags, etc.
-
 * Handles filters: category buttons, search bar, etc.
 
 ---
@@ -368,13 +370,10 @@ All admin routes are wrapped by `AdminGuard` in `src/App.tsx`:
   * Form fields for:
 
     * Title, slug, category, tags, cover image URL, summary (excerpt), body (Markdown), sources, author, date, reading time, etc.
-
   * Admin password/token is read from `adminSession` and sent as `Authorization: Bearer <PUBLISH_TOKEN>` to `api/publish.ts`.
-
   * On **Publier**:
 
     * Calls `POST /api/publish` with JSON body.
-
   * **Edit mode**:
 
     * When opened as `/admin/nouvel-article?slug=<slug>`:
@@ -382,17 +381,14 @@ All admin routes are wrapped by `AdminGuard` in `src/App.tsx`:
       * Uses `getPostBySlug(slug)` or the JSON index to prefill fields.
       * Keeps the same `slug` so URLs don’t break.
       * Publishing updates the same JSON file and index entry (no duplicate articles).
-
   * Drafts can be autosaved to `localStorage` so they survive refresh.
 
 * `/admin/articles` — **existing articles list**:
 
   * Uses `getAllArticlesForAdmin()` (from `src/lib/articlesIndex.ts`) to list all JSON articles.
-
   * Table columns typically:
 
     * `Title | Slug | Publication date | Status | Actions`
-
   * Actions:
 
     * **Modifier**: navigates to `/admin/nouvel-article?slug=<slug>`.
@@ -405,7 +401,6 @@ All admin routes are wrapped by `AdminGuard` in `src/App.tsx`:
   * `getAdminToken()` – reads the stored token.
   * `setAdminToken(value)` – stores the token.
   * `clearAdminToken()` – removes the token.
-
 * `src/components/AdminGuard.tsx`:
 
   * On mount, calls `getAdminToken()`.
@@ -439,16 +434,12 @@ All admin routes are wrapped by `AdminGuard` in `src/App.tsx`:
 6. `api/publish.ts`:
 
    * Verifies the token against `PUBLISH_TOKEN`.
-
    * Normalizes the slug (lowercase, no spaces or accents).
-
    * Writes/updates:
 
      * `content/articles/<slug>.json` — full article.
      * `content/articles/index.json` — list of article metadata.
-
    * Commits changes to `GITHUB_REPO` on branch `PUBLISH_BRANCH` via the GitHub Contents API.
-
    * Optionally calls `VERCEL_DEPLOY_HOOK_URL` to trigger deploy.
 
 7. After the new deployment finishes:
@@ -560,12 +551,137 @@ From `package.json`:
   * Right now the site is in **placeholder / Gmail** mode (no domain).
   * Once a real domain is ready, switch `CONTACT_MODE` to `"live"` and wire the contact APIs to your email provider.
 
+---
+
+## 11. SEO, Search Console & Analytics
+
+### 11.1. `index.html` `<head>` — SEO basics
+
+`index.html` contains:
+
+* Page `<title>` and `<meta name="description">`.
+* `<link rel="canonical" href="https://source-scribe-design-git-main-yinon-coscas-projects.vercel.app/" />`
+  (Update this to your final production domain once you have a custom domain.)
+
+Update these if the brand tagline or canonical domain changes.
+
+### 11.2. Google Search Console
+
+We use **two** verification methods; either one is enough, but both are currently present.
+
+1. **Meta tag in `<head>`** (in `index.html`):
+
+   ```html
+   <!-- Google Search Console verification -->
+   <meta
+     name="google-site-verification"
+     content="7bsdR8oaNMIgzwYDMuIZ_IzT0k8iDhRWF2nlxgSmR2k"
+   />
+   ```
+
+   If you create a new Search Console property or change domains, Google may give a different `content` value.
+   Replace the value accordingly.
+
+2. **HTML verification file** under `public/`:
+
+   * File: `public/googleaf71934b5fb50d33.html`
+   * Its contents are exactly what Search Console provided (typically a single line).
+
+   On Vercel, this is served at:
+
+   ```
+   https://<your-vercel-domain>/googleaf71934b5fb50d33.html
+   ```
+
+   Keep this file in version control unless you explicitly remove the property in Search Console.
+
+### 11.3. Google Analytics 4 (GA4)
+
+GA4 is currently **hard-coded directly in `index.html`**, **not** via Google Tag Manager.
+This keeps things simple and is enough for basic stats.
+
+The snippet looks like this (measurement ID anonymised here):
+
+```html
+<!-- Google Analytics 4 -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-XXXXXXXXXX');
+</script>
+```
+
+Replace `G-XXXXXXXXXX` with the actual GA4 Measurement ID of the property you use.
+If you change GA4 properties later, update both occurrences.
+
+This setup is already working: when someone visits the site, you should see them in the **“Aperçu en temps réel / Realtime”** report in GA4.
+
+### 11.4. Google Tag Manager (GTM)
+
+We have installed a **Google Tag Manager container**, but GA4 is **still hard-coded**.
+The GTM container is ready for future pixels/tracking, but currently contains no GA4 tag.
+
+In `index.html`:
+
+1. **In `<head>` (as high as possible):**
+
+   ```html
+   <!-- Google Tag Manager -->
+   <script>
+     (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+     new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+     j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+     'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+     })(window,document,'script','dataLayer','GTM-P5PX3JQT');
+   </script>
+   <!-- End Google Tag Manager -->
+   ```
+
+2. **Right after the opening `<body>` tag:**
+
+   ```html
+   <!-- Google Tag Manager (noscript) -->
+   <noscript>
+     <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-P5PX3JQT"
+       height="0" width="0" style="display:none;visibility:hidden">
+     </iframe>
+   </noscript>
+   <!-- End Google Tag Manager (noscript) -->
+   ```
+
+Container ID: `GTM-P5PX3JQT`.
+
+**Important rules:**
+
+* Right now, GA4 is **hard-coded** and **not** configured as a tag inside GTM.
+  This is intentional to avoid double-counting.
+
+* If in the future you want to manage GA4 (and other pixels) via GTM:
+
+  1. Create a **GA4 Configuration tag** in GTM and publish.
+  2. Then **remove the hard-coded GA4 snippet** from `index.html`.
+     Otherwise you’ll record each visit twice.
+
+For now, GTM is just “installed and empty”, ready for future marketing/advanced tracking.
+
+---
+
 With this README, you should be able to:
 
 * Understand how the current JSON-based CMS works.
 * Safely ask Cursor / another AI to continue from the exact state we’re in now.
 * **Avoid the Vercel/domain confusion** that previously caused hours of debugging.
-* Know how to move from “Gmail-only placeholder contact” to full live emailing once the domain is ready.
+* Know how contact works today (Gmail compose placeholder) and how to switch to live emailing.
+* Understand the current SEO/analytics setup:
+
+  * Search Console verification (meta + HTML file),
+  * GA4 hard-coded tracking,
+  * Google Tag Manager container installed but not yet used for GA4.
 
 ```
 
+If you want, next step we can do a **tiny “Ops” section**: which GA4/SC reports to check once a week and what to look for (traffic, top articles, organic vs direct, etc.).
+::contentReference[oaicite:0]{index=0}
+```
