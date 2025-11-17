@@ -772,11 +772,15 @@ const AdminNew = () => {
 
   function insertAtCaret(snippet: string) {
     const ta = bodyRef.current;
-    if (!ta) return;
+    if (!ta) {
+      setBody((prev) => `${prev ?? ""}${snippet}`);
+      return;
+    }
     pushBodySnapshot();
-    const a = ta.selectionStart ?? 0;
-    const b = ta.selectionEnd ?? a;
-    const next = body.slice(0, a) + snippet + body.slice(b);
+    const value = body;
+    const a = ta.selectionStart ?? value.length;
+    const b = ta.selectionEnd ?? value.length;
+    const next = value.slice(0, a) + snippet + value.slice(b);
     setBody(next);
     requestAnimationFrame(() => {
       if (!bodyRef.current) return;
@@ -784,19 +788,6 @@ const AdminNew = () => {
       bodyRef.current.focus();
       bodyRef.current.setSelectionRange(pos, pos);
     });
-  }
-
-  async function doUploadImage(slugArg: string, file: File): Promise<string> {
-    const content = await file.arrayBuffer().then((buf) => Buffer.from(buf).toString("base64"));
-    const payload = { slug: slugArg, fileName: file.name, content };
-    const res = await fetch("/api/upload-image", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminPassword}` },
-      body: JSON.stringify(payload),
-    });
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok || !json?.ok) throw new Error(json?.error || `Upload failed (${res.status})`);
-    return String(json.path);
   }
 
   function openImageDialog() {
@@ -809,25 +800,36 @@ const AdminNew = () => {
 
   async function confirmInsertImage() {
     try {
-      let path = imgUrl.trim();
-      let tempBlobUrl: string | undefined;
-      if (!path && imgFile) {
-        // immediate local preview
-        tempBlobUrl = URL.createObjectURL(imgFile);
-        // upload in background, but await to insert canonical path
-        path = await doUploadImage(slug || slugify(title) || "article", imgFile);
-        // map canonical path to blob for local preview
-        setPreviewImageMap((m) => ({ ...m, [path!]: tempBlobUrl! }));
+      let resolvedSrc = imgUrl.trim();
+      let previewBlobUrl: string | undefined;
+
+      if (!resolvedSrc && imgFile) {
+        previewBlobUrl = URL.createObjectURL(imgFile);
+        const targetSlug = slug || slugify(title) || "article";
+        resolvedSrc = await doUploadImage(targetSlug, imgFile);
+        if (previewBlobUrl && resolvedSrc) {
+          const blob = previewBlobUrl;
+          const finalPath = resolvedSrc;
+          setPreviewImageMap((prev) => ({ ...prev, [finalPath]: blob }));
+        }
       }
-      if (!path) {
+
+      if (!resolvedSrc) {
         toast.error("Fournissez une URL ou un fichier.");
         return;
       }
-      const cls = imgAlign === "left" ? "img-left" : imgAlign === "right" ? "img-right" : "img-full";
-      const alt = imgAlt || "";
-      const snippet = `<figure class="${cls}"><img src="${path}" alt="${alt}" /><figcaption>${alt}</figcaption></figure>`;
-      insertAtCaret(snippet);
+
+      const safeAlt = imgAlt.trim().replace(/[\[\]]/g, "") || "Image";
+      const alignmentHint =
+        imgAlign === "left" ? " <!-- align:left -->" : imgAlign === "right" ? " <!-- align:right -->" : "";
+      const markdown = `![${safeAlt}](${resolvedSrc})${alignmentHint}`;
+
+      insertAtCaret(`\n\n${markdown}\n\n`);
       setImageDialogOpen(false);
+      setImgAlt("");
+      setImgUrl("");
+      setImgFile(null);
+      setImgAlign("full");
     } catch (e: any) {
       toast.error(String(e?.message || e));
     }

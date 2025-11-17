@@ -23,8 +23,7 @@ const Index = () => {
       .filter(
         (post) =>
           Boolean(post.title?.trim()) &&
-          Boolean(post.slug?.trim()) &&
-          Boolean((post.summary ?? "").trim()),
+          Boolean(post.slug?.trim()),
       )
       .sort((a, b) => (a.date < b.date ? 1 : -1));
 
@@ -33,7 +32,7 @@ const Index = () => {
 
     return source.slice(0, 3).map((post) => ({
       title: post.title,
-      excerpt: post.summary ?? "",
+      excerpt: (post.summary ?? "").trim() || `Découvrez ${post.title}`,
       image: post.heroImage || FALLBACK_ARTICLE_IMAGE,
       category: post.category || site.categories.beaute,
       readTime: `${post.readingMinutes ?? 1} min`,
