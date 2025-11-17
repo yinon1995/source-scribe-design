@@ -1,4 +1,7 @@
 // API route: publish/delete articles in GitHub repo
+// Contract: Always respond with JSON. Success responses include commit/file/deploy info.
+// Failures carry a localized `error` string plus optional `missingEnv`, and expose `details.message`
+// only while running in non-production environments to avoid leaking internals in prod.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { CATEGORY_OPTIONS, normalizeCategory, type JsonArticleCategory } from "../shared/articleCategories";
 // Vercel function to publish JSON articles to GitHub (contents API)
@@ -54,6 +57,8 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const PUBLISH_BRANCH = process.env.PUBLISH_BRANCH || "main";
 const PUBLISH_TOKEN = process.env.PUBLISH_TOKEN;
 const VERCEL_DEPLOY_HOOK_URL = process.env.VERCEL_DEPLOY_HOOK_URL;
+const SITE_URL = (process.env.SITE_URL || "https://a-la-brestoise.vercel.app").replace(/\/+$/, "");
+const INCLUDE_ERROR_DETAILS = process.env.NODE_ENV !== "production";
 
 function encodeGitHubPath(path: string) {
   // Encode each path segment, not slashes. Using full encodeURIComponent would break the URL
@@ -104,20 +109,25 @@ async function githubPut(path: string, content: string, message: string) {
 }
 
 // Fire-and-forget deploy hook so publishing from /admin keeps the live site fresh
-async function triggerVercelDeployIfConfigured(): Promise<boolean> {
-  if (!VERCEL_DEPLOY_HOOK_URL) return false;
+type DeployResult = { triggered: boolean; error: string | null };
+
+async function triggerVercelDeployIfConfigured(): Promise<DeployResult> {
+  if (!VERCEL_DEPLOY_HOOK_URL) {
+    return { triggered: false, error: "Deploy hook non configuré" };
+  }
   try {
     const res = await fetch(VERCEL_DEPLOY_HOOK_URL, { method: "POST" });
     if (!res.ok) {
-      console.error("[publish] Vercel deploy hook failed", res.status, await res.text());
-      return false;
+      const txt = await res.text();
+      console.error("[publish] Vercel deploy hook failed", res.status, txt);
+      return { triggered: false, error: `Deploy hook ${res.status}` };
     }
     console.log("[publish] Vercel deploy hook triggered");
-    return true;
-  } catch (err) {
+    return { triggered: true, error: null };
+  } catch (err: any) {
     console.error("[publish] Error calling Vercel deploy hook", err);
+    return { triggered: false, error: err?.message || "Deploy hook error" };
   }
-  return false;
 }
 
 async function githubRepoPreflight(): Promise<{ ok: true } | { ok: false; status: number }> {
@@ -144,6 +154,25 @@ function respond(res: VercelResponse, status: number, body: ApiResponseShape) {
   }
   res.statusCode = status;
   res.end(JSON.stringify(body));
+}
+
+type ErrorExtras = {
+  missingEnv?: string[];
+  detailsMessage?: string;
+};
+
+function sendError(res: VercelResponse, status: number, error: string, extras: ErrorExtras = {}) {
+  const payload: ApiResponseShape = {
+    success: false,
+    error,
+  };
+  if (extras.missingEnv?.length) {
+    payload.missingEnv = extras.missingEnv;
+  }
+  if (INCLUDE_ERROR_DETAILS && extras.detailsMessage) {
+    payload.details = { message: extras.detailsMessage };
+  }
+  respond(res, status, payload);
 }
 
 export const config = {
@@ -202,7 +231,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           : "";
         if (provided !== PUBLISH_TOKEN) {
           console.warn("[publish] Unauthorized delete attempt");
-          respond(res, 401, { success: false, error: "Admin token invalide" });
+          sendError(res, 401, "Admin token invalide");
           return;
         }
       }
@@ -213,7 +242,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       payload = await readJsonBody<Record<string, unknown>>(req);
     } catch {
-      respond(res, 400, { success: false, error: "JSON invalide" });
+      sendError(res, 400, "JSON invalide");
       return;
     }
     const slugFromQuery = typeof req.query?.slug === "string" ? String(req.query.slug) : "";
@@ -221,16 +250,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const slug = slugify(rawSlug);
     if (!slug) {
       console.warn("[publish] DELETE missing slug", { rawSlug });
-      respond(res, 400, { success: false, error: "Slug manquant" });
+      sendError(res, 400, "Slug manquant");
       return;
     }
 
     // If missing credentials, gracefully report ok:false to allow client to keep UI consistent
     if (!GITHUB_REPO || !GITHUB_TOKEN) {
-      const missingEnv = [!GITHUB_REPO ? "GITHUB_REPO" : null, !GITHUB_TOKEN ? "GITHUB_TOKEN" : null].filter(Boolean);
-      respond(res, 503, {
-        success: false,
-        error: "Suppression en attente — configuration GitHub manquante (GITHUB_REPO/GITHUB_TOKEN).",
+      const missingEnv = [!GITHUB_REPO ? "GITHUB_REPO" : null, !GITHUB_TOKEN ? "GITHUB_TOKEN" : null].filter(Boolean) as string[];
+      sendError(res, 503, "Suppression en attente — configuration GitHub manquante (GITHUB_REPO/GITHUB_TOKEN).", {
         missingEnv,
       });
       return;
@@ -292,17 +319,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         throw e;
       }
 
-      const deployTriggered = await triggerVercelDeployIfConfigured();
-      const deploy =
-        VERCEL_DEPLOY_HOOK_URL !== undefined
-          ? { triggered: deployTriggered }
-          : undefined;
+      const deploy = await triggerVercelDeployIfConfigured();
       respond(res, 200, {
         success: true,
         slug,
         deletedFromIndex,
         deletedFile,
-        deployTriggered,
+        deployTriggered: deploy.triggered,
         deploy,
       });
       return;
@@ -311,7 +334,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const m = /GitHub\s+[A-Z]+\s+(\d{3})/.exec(message);
       const status = m ? Number(m[1]) : undefined;
       console.error("[publish] GitHub error", { repo: GITHUB_REPO, branch: PUBLISH_BRANCH, message });
-      respond(res, 500, { success: false, error: "Échec de la suppression GitHub.", details: { status, message } });
+      sendError(res, 502, "Échec de la suppression GitHub.", { detailsMessage: status ? `${status} ${message}` : message });
       return;
     }
   }
@@ -326,7 +349,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           : "";
         if (provided !== PUBLISH_TOKEN) {
           console.warn("[publish] Unauthorized publish attempt");
-          respond(res, 401, { success: false, error: "Admin token invalide" });
+          sendError(res, 401, "Admin token invalide");
           return;
         }
       }
@@ -337,7 +360,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       article = await readJsonBody<Article>(req);
     } catch {
-      respond(res, 400, { success: false, error: "JSON invalide" });
+      sendError(res, 400, "JSON invalide");
       return;
     }
 
@@ -393,7 +416,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // If missing credentials, gracefully report ok:false and keep draft
     if (!GITHUB_REPO || !GITHUB_TOKEN) {
-      const missingEnv = [!GITHUB_REPO ? "GITHUB_REPO" : null, !GITHUB_TOKEN ? "GITHUB_TOKEN" : null].filter(Boolean);
+      const missingEnv = [!GITHUB_REPO ? "GITHUB_REPO" : null, !GITHUB_TOKEN ? "GITHUB_TOKEN" : null].filter(Boolean) as string[];
       respond(res, 503, {
         success: false,
         error: "Publication en attente — configuration GitHub manquante (GITHUB_REPO/GITHUB_TOKEN). Le brouillon a été conservé localement.",
@@ -408,7 +431,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!check.ok && (check.status === 404 || check.status === 403)) {
         // Log diagnostic info on server without leaking secrets
         console.error("[publish] GitHub repo access error", { status: check.status, repo: GITHUB_REPO, branch: PUBLISH_BRANCH });
-        respond(res, 502, { success: false, error: "Référentiel introuvable ou accès refusé.", details: { status: check.status } });
+        sendError(res, 502, "Référentiel introuvable ou accès refusé.", { detailsMessage: `status=${check.status}` });
         return;
       }
     } catch {
