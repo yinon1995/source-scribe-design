@@ -9,6 +9,7 @@ export type AdminArticleListItem = {
   excerpt: string;
   readingMinutes?: number;
   status: "Publié";
+  featured?: boolean;
 };
 
 function normalizeJsonArticle(input: any): AdminArticleListItem | null {
@@ -37,6 +38,7 @@ function normalizeJsonArticle(input: any): AdminArticleListItem | null {
     excerpt,
     readingMinutes,
     status: "Publié",
+    featured: ja.featured === true,
   };
 }
 

@@ -7,6 +7,7 @@ import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from "@
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getAdminToken } from "@/lib/adminSession";
+import { Star } from "lucide-react";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -105,7 +106,15 @@ const AdminArticles = () => {
 											className="hover:bg-muted"
 										>
 											<TableCell className="font-medium">
-													{row.title || "(Sans titre)"}
+												<div className="flex items-center gap-2">
+													{row.featured && (
+														<span className="inline-flex items-center text-amber-500" title="Mis en avant sur la page d’accueil">
+															<Star className="h-4 w-4 fill-current" aria-hidden />
+															<span className="sr-only">Article mis en avant sur la page d’accueil</span>
+														</span>
+													)}
+													<span>{row.title || "(Sans titre)"}</span>
+												</div>
 											</TableCell>
 											<TableCell className="text-muted-foreground">
 													{row.slug}

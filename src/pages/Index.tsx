@@ -11,37 +11,35 @@ import { site } from "@/lib/siteContent";
 import beautyHero from "@/assets/beauty-hero.jpg";
 import { subscribe } from "@/lib/subscribe";
 import { openMailto } from "@/lib/subscribe";
-import { postsIndex } from "@/lib/content";
+import { CATEGORY_OPTIONS, postsIndex } from "@/lib/content";
 
 const Index = () => {
-  const categories = [
-    "Tous",
-    site.categories.beaute,
-    site.categories.commercesEtLieux,
-    site.categories.experience,
-  ];
+  const categories = useMemo(() => ["Tous", ...CATEGORY_OPTIONS], []);
 
   const [activeCategory, setActiveCategory] = useState("Tous");
 
   const latestArticles = useMemo(() => {
-    return postsIndex
+    const eligible = postsIndex
       .filter(
         (post) =>
           Boolean(post.title?.trim()) &&
           Boolean(post.slug?.trim()) &&
           Boolean((post.summary ?? "").trim()),
       )
-      .sort((a, b) => (a.date < b.date ? 1 : -1))
-      .slice(0, 3)
-      .map((post) => ({
-        title: post.title,
-        excerpt: post.summary ?? "",
-        image: post.heroImage || beautyHero,
-        category: post.category || site.categories.beaute,
-        readTime: `${post.readingMinutes ?? 1} min`,
-        slug: post.slug,
-        tags: post.tags ?? [],
-      }));
+      .sort((a, b) => (a.date < b.date ? 1 : -1));
+
+    const featuredPool = eligible.filter((post) => post.featured === true);
+    const source = featuredPool.length > 0 ? featuredPool : eligible;
+
+    return source.slice(0, 3).map((post) => ({
+      title: post.title,
+      excerpt: post.summary ?? "",
+      image: post.heroImage || beautyHero,
+      category: post.category || site.categories.beaute,
+      readTime: `${post.readingMinutes ?? 1} min`,
+      slug: post.slug,
+      tags: post.tags ?? [],
+    }));
   }, []);
 
   const filteredArticles = activeCategory === "Tous"

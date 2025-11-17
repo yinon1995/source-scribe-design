@@ -59,6 +59,7 @@ type Article = {
   searchAliases?: string[];
   canonicalUrl?: string;
   schemaType: "Article" | "LocalBusiness" | "Restaurant";
+  featured: boolean;
 };
 
 function slugify(input: string): string {
@@ -104,6 +105,7 @@ const AdminNew = () => {
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
   const [category, setCategory] = useState<Article["category"]>(DEFAULT_CATEGORY);
+  const [featured, setFeatured] = useState(false);
   const [tagsInput, setTagsInput] = useState("");
   const [cover, setCover] = useState("");
   const [excerpt, setExcerpt] = useState("");
@@ -181,6 +183,7 @@ const AdminNew = () => {
       setSlug(snapshot?.slug ?? "");
       setSlugTouched(options?.slugTouched ?? Boolean(snapshot?.slug));
       setCategory(normalizedCategory);
+      setFeatured(snapshot?.featured === true);
       setTagsInput(tagsList.join(", "));
       setCover(snapshot?.cover ?? "");
       setExcerpt(excerptValue);
@@ -247,6 +250,7 @@ const AdminNew = () => {
       searchAliases: Array.isArray(existing.searchAliases) ? existing.searchAliases : [],
       canonicalUrl: existing.canonicalUrl,
       schemaType: (existing.schemaType ?? "Article") as Article["schemaType"],
+      featured: existing.featured === true,
     }),
     [],
   );
@@ -454,6 +458,7 @@ const AdminNew = () => {
       searchAliases,
       canonicalUrl,
       schemaType,
+      featured,
     }),
     [
       title,
@@ -484,6 +489,7 @@ const AdminNew = () => {
       searchAliases,
       canonicalUrl,
       schemaType,
+      featured,
     ],
   );
 
@@ -606,6 +612,7 @@ const AdminNew = () => {
         searchAliases: searchAliasesPayload,
         canonicalUrl: trimmedCanonicalUrl || undefined,
         schemaType,
+        featured: safeArticle.featured === true ? true : false,
       };
       const reqPayload = payload;
       setLastRequest(reqPayload);
@@ -983,6 +990,24 @@ const handleClearAll = useCallback(() => {
                         </SelectContent>
                       </Select>
                       {errors.category && <p className="text-sm text-red-600 mt-1">{errors.category}</p>}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-dashed p-4 bg-muted/20">
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="featured"
+                        checked={featured}
+                        onCheckedChange={(checked) => setFeatured(checked === true)}
+                      />
+                      <div className="space-y-1">
+                        <Label htmlFor="featured" className="font-medium">
+                          Mettre en avant sur la page d’accueil
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Les articles mis en avant alimentent la section « Articles récents » de l’accueil.
+                        </p>
+                      </div>
                     </div>
                   </div>
 

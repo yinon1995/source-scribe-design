@@ -45,6 +45,7 @@ export type JsonArticle = {
   searchAliases?: string[];
   canonicalUrl?: string;
   schemaType?: "Article" | "LocalBusiness" | "Restaurant";
+  featured?: boolean;
 };
 
 export type PostFrontmatter = {
@@ -79,6 +80,7 @@ export type PostFrontmatter = {
   canonicalUrl?: string;
   schemaType?: "Article" | "LocalBusiness" | "Restaurant";
   isJson?: boolean;
+  featured?: boolean;
 };
 
 export type Post = PostFrontmatter & {
@@ -201,6 +203,7 @@ function coerceFrontmatter(data: Record<string, unknown>, fallbackSlug: string):
     readingMinutes,
     sources: bodySources,
     isJson: false,
+    featured: false,
   };
 
   return fm;
@@ -260,6 +263,7 @@ const jsonPosts: Post[] = jsonArticles.map((ja) => {
     searchAliases,
     canonicalUrl: ja.canonicalUrl,
     schemaType: ja.schemaType ?? "Article",
+    featured: ja.featured === true,
   };
 });
 

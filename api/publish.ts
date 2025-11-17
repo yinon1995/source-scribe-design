@@ -40,6 +40,7 @@ type Article = {
   searchAliases?: string[];
   canonicalUrl?: string;
   schemaType?: "Article" | "LocalBusiness" | "Restaurant";
+  featured?: boolean;
 };
 
 function slugify(input: string): string {
@@ -304,7 +305,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       // 1) Load and update index.json
       const indexPath = `content/articles/index.json`;
-      let list: Array<Pick<Article, "title" | "slug" | "category" | "tags" | "cover" | "excerpt" | "date"> & { readingMinutes?: number }> = [];
+      let list: Array<Pick<Article, "title" | "slug" | "category" | "tags" | "cover" | "excerpt" | "date"> & {
+        readingMinutes?: number;
+        featured?: boolean;
+      }> = [];
       try {
         const existing = await githubGet(indexPath);
         if (existing && existing.content) {
@@ -420,6 +424,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
+    article.featured = article.featured === true;
+
     const normalizedSlugInput = slugify(String(article.slug || article.title || ""));
     if (!normalizedSlugInput) {
       respond(res, 422, {
@@ -475,9 +481,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const readingMinutes = Number(article.readingMinutes) > 0
         ? Number(article.readingMinutes)
         : estimateMinutes(`${article.excerpt || ""}\n\n${article.body || ""}`);
-      const articleForWrite = { ...article, readingMinutes, sources: Array.isArray(article.sources) ? article.sources : [] } as Article & { readingMinutes: number };
+      const featured = article.featured === true;
+      const articleForWrite = {
+        ...article,
+        featured,
+        readingMinutes,
+        sources: Array.isArray(article.sources) ? article.sources : [],
+      } as Article & { readingMinutes: number };
 
-      type Meta = Pick<Article, "title" | "slug" | "category" | "tags" | "cover" | "excerpt" | "date"> & { readingMinutes?: number };
+      type Meta = Pick<Article, "title" | "slug" | "category" | "tags" | "cover" | "excerpt" | "date"> & {
+        readingMinutes?: number;
+        featured?: boolean;
+      };
       const meta: Meta = {
         title: articleForWrite.title,
         slug: articleForWrite.slug,
@@ -487,6 +502,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         excerpt: articleForWrite.excerpt || "",
         date: articleForWrite.date || new Date().toISOString(),
         readingMinutes,
+        featured,
       };
 
       const indexPath = `content/articles/index.json`;
@@ -515,6 +531,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           excerpt: meta.excerpt,
           date: meta.date,
           readingMinutes: meta.readingMinutes,
+          featured: meta.featured,
         };
       } else {
         list.push(meta);

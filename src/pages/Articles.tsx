@@ -5,8 +5,11 @@ import ArticleCard from "@/components/ArticleCard";
 import CategoryFilter from "@/components/CategoryFilter";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
-import { postsIndex } from "@/lib/content";
-import { site } from "@/lib/siteContent";
+import {
+  CATEGORY_OPTIONS,
+  normalizeCategory,
+  postsIndex,
+} from "@/lib/content";
 
 type ArticleCardData = {
   title: string;
@@ -17,6 +20,7 @@ type ArticleCardData = {
   slug: string;
   tags: string[];
   searchIndex: string;
+  featured?: boolean;
 };
 
 const FALLBACK_IMAGE = "/placeholder.svg";
@@ -51,7 +55,8 @@ const Articles = () => {
       })
       .map((post) => {
         const tags = Array.isArray(post.tags) ? post.tags : [];
-        const category = post.category || site.categories.beaute;
+        const category = normalizeCategory(post.category);
+        const featured = post.featured === true;
         const excerpt = post.summary ?? "";
         const heroImage = post.heroImage ?? FALLBACK_IMAGE;
 
@@ -74,28 +79,12 @@ const Articles = () => {
           slug: post.slug as string,
           tags,
           searchIndex: normalizeText(joinedFields),
+          featured,
         };
       });
   }, []);
 
-  const categories = useMemo(() => {
-    const baseOrder = [
-      site.categories.beaute,
-      site.categories.commercesEtLieux,
-      site.categories.experience,
-    ];
-    const available = new Set<string>();
-    articles.forEach((article) => {
-      if (article.category) {
-        available.add(article.category);
-      }
-    });
-    const ordered = baseOrder.filter((category) => available.has(category));
-    const extras = Array.from(available).filter(
-      (category) => !baseOrder.includes(category),
-    );
-    return ["Tous", ...ordered, ...extras];
-  }, [articles]);
+  const categories = useMemo(() => ["Tous", ...CATEGORY_OPTIONS], []);
 
   useEffect(() => {
     setSearchQuery(initialSearch);
@@ -135,16 +124,17 @@ const Articles = () => {
   }, [focusSearch, location.pathname, location.search, navigate]);
 
   const normalizedQuery = normalizeText(debouncedQuery.trim());
+  const hasSearchQuery = normalizedQuery.length > 0;
   const filteredArticles = useMemo(() => {
     return articles.filter((article) => {
       const matchesCategory =
         activeCategory === "Tous" || article.category === activeCategory;
-      const matchesSearch = normalizedQuery
+      const matchesSearch = hasSearchQuery
         ? article.searchIndex.includes(normalizedQuery)
         : true;
       return matchesCategory && matchesSearch;
     });
-  }, [articles, activeCategory, normalizedQuery]);
+  }, [articles, activeCategory, hasSearchQuery, normalizedQuery]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -193,7 +183,11 @@ const Articles = () => {
           {filteredArticles.length === 0 && (
             <div className="text-center py-20">
               <p className="text-xl text-muted-foreground">
-                Aucun article ne correspond à votre recherche.
+                {hasSearchQuery
+                  ? "Aucun article ne correspond à votre recherche."
+                  : activeCategory === "Tous"
+                    ? "Aucun article disponible pour le moment."
+                    : "Aucun article pour cette thématique pour le moment."}
               </p>
             </div>
           )}

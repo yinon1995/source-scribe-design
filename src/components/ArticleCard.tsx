@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Clock } from "lucide-react";
+import { Clock, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface ArticleCardProps {
@@ -10,9 +10,10 @@ interface ArticleCardProps {
   readTime: string;
   slug: string;
   tags?: string[];
+  featured?: boolean;
 }
 
-const ArticleCard = ({ title, excerpt, image, category, readTime, slug, tags }: ArticleCardProps) => {
+const ArticleCard = ({ title, excerpt, image, category, readTime, slug, tags, featured = false }: ArticleCardProps) => {
   return (
     <Link to={`/articles/${slug}`} className="group">
       <article className="bg-card rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
@@ -27,10 +28,18 @@ const ArticleCard = ({ title, excerpt, image, category, readTime, slug, tags }: 
 
         {/* Content */}
         <div className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <Badge variant="secondary" className="rounded-full px-3 py-1">
-              {category}
-            </Badge>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              {featured && (
+                <span className="inline-flex items-center gap-1 text-amber-500 text-xs font-semibold uppercase tracking-wide">
+                  <Star className="h-3.5 w-3.5 fill-current" aria-hidden />
+                  <span>En avant</span>
+                </span>
+              )}
+              <Badge variant="secondary" className="rounded-full px-3 py-1">
+                {category}
+              </Badge>
+            </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
               <span>{readTime}</span>
