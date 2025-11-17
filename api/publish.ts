@@ -6,7 +6,7 @@
 // - respond() enforces JSON-only responses so Vercel never falls back to HTML 500s.
 // - All env/network work stays in try/catch blocks inside the handler to keep module load safe.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { CATEGORY_OPTIONS, normalizeCategory, type JsonArticleCategory } from "../shared/articleCategories";
+import { CATEGORY_OPTIONS, normalizeCategory, type JsonArticleCategory } from "../shared/articleCategories.js";
 // Vercel function to publish JSON articles to GitHub (contents API)
 type Article = {
   title: string;
@@ -134,7 +134,12 @@ async function triggerVercelDeployIfConfigured(): Promise<DeployResult> {
   }
 }
 
-async function githubRepoPreflight(): Promise<{ ok: true } | { ok: false; status: number }> {
+type GithubRepoPreflightResult = {
+  ok: boolean;
+  status?: number;
+};
+
+async function githubRepoPreflight(): Promise<GithubRepoPreflightResult> {
   if (!GITHUB_REPO || !GITHUB_TOKEN) return { ok: false, status: 0 };
   const url = `https://api.github.com/repos/${GITHUB_REPO}`;
   const res = await fetch(url, {
@@ -143,7 +148,7 @@ async function githubRepoPreflight(): Promise<{ ok: true } | { ok: false; status
       Authorization: `token ${GITHUB_TOKEN}`,
     },
   });
-  if (res.status === 200) return { ok: true };
+  if (res.status === 200) return { ok: true, status: 200 };
   return { ok: false, status: res.status };
 }
 
@@ -445,10 +450,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Repo preflight check (detect 404 or 403 early with clear message)
     try {
       const check = await githubRepoPreflight();
-      if (!check.ok && (check.status === 404 || check.status === 403)) {
+      const repoStatus = check.status;
+      if (!check.ok && (repoStatus === 404 || repoStatus === 403)) {
         // Log diagnostic info on server without leaking secrets
-        console.error("[publish] GitHub repo access error", { status: check.status, repo: GITHUB_REPO, branch: PUBLISH_BRANCH });
-        sendError(res, 502, "Référentiel introuvable ou accès refusé.", { detailsMessage: `status=${check.status}` });
+        console.error("[publish] GitHub repo access error", { status: repoStatus, repo: GITHUB_REPO, branch: PUBLISH_BRANCH });
+        sendError(res, 502, "Référentiel introuvable ou accès refusé.", { detailsMessage: `status=${repoStatus}` });
         return;
       }
     } catch {
