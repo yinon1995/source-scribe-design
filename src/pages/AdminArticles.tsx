@@ -1,3 +1,4 @@
+// Admin list page
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Footer from "@/components/Footer";
@@ -50,7 +51,8 @@ const AdminArticles = () => {
 				return;
 			}
 
-			setRows((current) => current.filter((row) => row.slug !== slug));
+			const removedSlug = typeof data?.slug === "string" && data.slug.trim().length > 0 ? data.slug : slug;
+			setRows((current) => current.filter((row) => row.slug !== removedSlug));
 			toast.success("Article supprimé — la mise à jour du site public peut prendre 1 à 3 minutes.");
 		} catch (err) {
 			console.error(err);

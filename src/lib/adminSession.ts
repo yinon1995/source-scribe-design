@@ -1,3 +1,4 @@
+// Admin session helpers (in-memory only)
 let inMemoryToken: string | null = null;
 
 /**

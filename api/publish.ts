@@ -1,3 +1,4 @@
+// API route: publish/delete articles in GitHub repo
 import { CATEGORY_OPTIONS, normalizeCategory, type JsonArticleCategory } from "../shared/articleCategories";
 // Vercel function to publish JSON articles to GitHub (contents API)
 
@@ -140,6 +141,7 @@ export default async function handler(req: any, res: any) {
           ? authHeader.slice(7).trim()
           : "";
         if (provided !== PUBLISH_TOKEN) {
+          console.warn("[publish] Unauthorized delete attempt");
           res.status(401).json({ ok: false, error: "Non autorisé." });
           return;
         }
@@ -157,6 +159,7 @@ export default async function handler(req: any, res: any) {
     const rawSlug = String((payload?.slug || slugFromQuery) || "").trim();
     const slug = slugify(rawSlug);
     if (!slug) {
+      console.warn("[publish] DELETE missing slug", { rawSlug });
       res.status(400).json({ error: "Slug requis pour la suppression." });
       return;
     }
@@ -249,6 +252,7 @@ export default async function handler(req: any, res: any) {
           ? authHeader.slice(7).trim()
           : "";
         if (provided !== PUBLISH_TOKEN) {
+          console.warn("[publish] Unauthorized publish attempt");
           res.status(401).json({ ok: false, error: "Non autorisé." });
           return;
         }
@@ -268,6 +272,7 @@ export default async function handler(req: any, res: any) {
     const fieldErrors: { title?: string; slug?: string; category?: string; body?: string; date?: string } = {};
     const allowedCategories = new Set(CATEGORY_OPTIONS);
     if (!article || typeof article !== "object") {
+      console.warn("[publish] Invalid payload (not an object)");
       res.status(422).json({ ok: false, error: "Champs invalides.", errors: { title: "Le titre est obligatoire.", slug: "Le slug ne peut contenir que des lettres, chiffres et tirets.", body: "Le contenu est trop court." } });
       return;
     }

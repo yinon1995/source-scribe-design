@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+// Admin editor page (create/edit)
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Footer from "@/components/Footer";
 import { Input } from "@/components/ui/input";
@@ -71,13 +72,25 @@ function estimateMinutes(text: string, wpm = 200) {
   return Math.max(1, Math.round(words / wpm));
 }
 
-const DRAFT_KEY = "draft:new-article";
+const NEW_ARTICLE_DRAFT_KEY = "draft:article:new";
+const ARTICLE_DRAFT_PREFIX = "draft:article:";
+const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+type ArticleDraftSnapshot = Partial<Article> & {
+  sources?: string[];
+  searchAliases?: string[];
+  practicalInfo?: JsonArticle["practicalInfo"];
+};
 
 const AdminNew = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editSlug = searchParams.get("slug");
   const isEditing = !!editSlug;
+  const draftKey = useMemo(
+    () => (isEditing && editSlug ? `${ARTICLE_DRAFT_PREFIX}${editSlug}` : NEW_ARTICLE_DRAFT_KEY),
+    [isEditing, editSlug],
+  );
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
@@ -132,6 +145,102 @@ const AdminNew = () => {
   // Map of image src -> blob url for immediate preview
   const [previewImageMap, setPreviewImageMap] = useState<Record<string, string>>({});
 
+  const applySnapshot = useCallback(
+    (snapshot?: ArticleDraftSnapshot, options?: { slugTouched?: boolean }) => {
+      const normalizedCategory = snapshot?.category ? normalizeCategory(snapshot.category) : DEFAULT_CATEGORY;
+      const tagsList = Array.isArray(snapshot?.tags) ? snapshot?.tags : [];
+      const excerptValue = snapshot?.excerpt ?? "";
+      const bodyValue = snapshot?.body ?? "";
+      const derivedReadingMinutes =
+        typeof snapshot?.readingMinutes === "number" && snapshot.readingMinutes > 0
+          ? snapshot.readingMinutes
+          : estimateMinutes(`${excerptValue}\n\n${bodyValue}`);
+      const isoDate = (() => {
+        if (snapshot?.date) {
+          try {
+            return new Date(snapshot.date).toISOString();
+          } catch {
+            // ignore invalid date
+          }
+        }
+        return new Date().toISOString();
+      })();
+      const practicalInfo = snapshot?.practicalInfo ?? {};
+
+      setTitle(snapshot?.title ?? "");
+      setSlug(snapshot?.slug ?? "");
+      setSlugTouched(options?.slugTouched ?? Boolean(snapshot?.slug));
+      setCategory(normalizedCategory);
+      setTagsInput(tagsList.join(", "));
+      setCover(snapshot?.cover ?? "");
+      setExcerpt(excerptValue);
+      setBody(bodyValue);
+      setAuthor(snapshot?.author ?? "À la Brestoise");
+      setDate(isoDate);
+      setReadingMinutes(derivedReadingMinutes);
+      setHeroLayout(snapshot?.heroLayout ?? "default");
+      setShowTitleInHero(snapshot?.showTitleInHero !== false);
+      setFooterType(snapshot?.footerType ?? "default");
+      setFooterNote(snapshot?.footerNote ?? "");
+      setAuthorSlug(snapshot?.authorSlug ?? "");
+      setAuthorAvatarUrl(snapshot?.authorAvatarUrl ?? "");
+      setAuthorRole(snapshot?.authorRole ?? "");
+      setPrimaryPlaceName(snapshot?.primaryPlaceName ?? "");
+      setAddress(practicalInfo?.address ?? "");
+      setPhone(practicalInfo?.phone ?? "");
+      setWebsiteUrl(practicalInfo?.websiteUrl ?? "");
+      setGoogleMapsUrl(practicalInfo?.googleMapsUrl ?? "");
+      setOpeningHours(practicalInfo?.openingHours ?? "");
+      setSeoTitle(snapshot?.seoTitle ?? "");
+      setSeoDescription(snapshot?.seoDescription ?? "");
+      setCanonicalUrl(snapshot?.canonicalUrl ?? "");
+      setSchemaType(snapshot?.schemaType ?? "Article");
+      setSourcesText(Array.isArray(snapshot?.sources) ? snapshot.sources.join("\n") : "");
+      setSearchAliasesText(Array.isArray(snapshot?.searchAliases) ? snapshot.searchAliases.join("\n") : "");
+      setCoverFileUrl(null);
+      setImageDialogOpen(false);
+      setImgAlt("");
+      setImgUrl("");
+      setImgAlign("full");
+      setImgFile(null);
+      setPreviewImageMap({});
+      setLocalAssets([]);
+      manualReadingOverrideRef.current = false;
+    },
+    [],
+  );
+
+  const snapshotFromPost = useCallback(
+    (existing: NonNullable<ReturnType<typeof getPostBySlug>>): ArticleDraftSnapshot => ({
+      title: existing.title,
+      slug: existing.slug,
+      category: (existing as any).category,
+      tags: Array.isArray(existing.tags) ? existing.tags : [],
+      cover: existing.heroImage || "",
+      excerpt: existing.summary || "",
+      body: existing.body || "",
+      author: existing.author || "À la Brestoise",
+      date: existing.date,
+      readingMinutes: existing.readingMinutes,
+      sources: Array.isArray(existing.sources) ? existing.sources : [],
+      heroLayout: (existing.heroLayout ?? "default") as Article["heroLayout"],
+      showTitleInHero: existing.showTitleInHero !== false,
+      footerType: (existing.footerType ?? "default") as Article["footerType"],
+      footerNote: existing.footerNote,
+      authorSlug: existing.authorSlug,
+      authorAvatarUrl: existing.authorAvatarUrl,
+      authorRole: existing.authorRole,
+      primaryPlaceName: existing.primaryPlaceName,
+      practicalInfo: existing.practicalInfo,
+      seoTitle: existing.seoTitle,
+      seoDescription: existing.seoDescription,
+      searchAliases: Array.isArray(existing.searchAliases) ? existing.searchAliases : [],
+      canonicalUrl: existing.canonicalUrl,
+      schemaType: (existing.schemaType ?? "Article") as Article["schemaType"],
+    }),
+    [],
+  );
+
   // Undo history for body textarea
   type BodySnapshot = { body: string; selStart: number; selEnd: number; scrollTop: number };
   const historyRef = useRef<BodySnapshot[]>([]);
@@ -156,99 +265,83 @@ const AdminNew = () => {
     };
   }, [coverFileUrl]);
 
-  // load draft
+  // Reset or hydrate when switching modes / slug changes
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(DRAFT_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const isWrapped = parsed && typeof parsed === "object" && parsed.article;
-        const isExpired = parsed && typeof parsed.ts === "number" && (Date.now() - parsed.ts) > 7 * 24 * 60 * 60 * 1000;
-        const d: Article = isWrapped ? parsed.article as Article : parsed as Article;
-        if (!isExpired && d) {
-          setTitle(d.title || "");
-          setSlug(d.slug || "");
-          setCategory(normalizeCategory(d.category));
-          setTagsInput((d.tags || []).join(", "));
-          setCover(d.cover || "");
-          setExcerpt(d.excerpt || "");
-          setBody(d.body || "");
-          setAuthor(d.author || "À la Brestoise");
-          setDate(d.date || new Date().toISOString());
-          if (typeof d.readingMinutes === "number" && d.readingMinutes > 0) setReadingMinutes(d.readingMinutes);
-          setHeroLayout(d.heroLayout ?? "default");
-          setShowTitleInHero(d.showTitleInHero !== false);
-          setFooterType(d.footerType ?? "default");
-          setFooterNote(d.footerNote || "");
-          setAuthorSlug(d.authorSlug || "");
-          setAuthorAvatarUrl(d.authorAvatarUrl || "");
-          setAuthorRole(d.authorRole || "");
-          setPrimaryPlaceName(d.primaryPlaceName || "");
-          setSeoTitle(d.seoTitle || "");
-          setSeoDescription(d.seoDescription || "");
-          setCanonicalUrl(d.canonicalUrl || "");
-          setSchemaType(d.schemaType ?? "Article");
-          const pi = d.practicalInfo || {};
-          setAddress(pi?.address || "");
-          setPhone(pi?.phone || "");
-          setWebsiteUrl(pi?.websiteUrl || "");
-          setGoogleMapsUrl(pi?.googleMapsUrl || "");
-          setOpeningHours(pi?.openingHours || "");
-          const aliases = Array.isArray(d.searchAliases) ? d.searchAliases : [];
-          setSearchAliasesText(aliases.join("\n"));
-        }
+    setPublishInfo(null);
+    setServerError({});
+    setErrors({});
+
+    if (isEditing && editSlug) {
+      const existing = getPostBySlug(editSlug);
+      if (existing) {
+        applySnapshot(snapshotFromPost(existing), { slugTouched: true });
+      } else {
+        applySnapshot({ slug: editSlug }, { slugTouched: true });
       }
+      return;
+    }
+
+    applySnapshot(undefined, { slugTouched: false });
+  }, [isEditing, editSlug, applySnapshot, snapshotFromPost]);
+
+  // Load draft per context (new vs specific slug)
+  useEffect(() => {
+    if (!draftKey) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const snapshot: ArticleDraftSnapshot | undefined =
+        parsed && typeof parsed === "object" && "article" in parsed ? parsed.article : parsed;
+      const ts = parsed && typeof parsed === "object" && typeof parsed.ts === "number" ? parsed.ts : undefined;
+      if (ts && Date.now() - ts > DRAFT_MAX_AGE_MS) {
+        localStorage.removeItem(draftKey);
+        return;
+      }
+      if (snapshot) {
+        applySnapshot(snapshot, { slugTouched: isEditing || Boolean(snapshot.slug) });
+      }
+    } catch {
+      // ignore invalid drafts
+    }
+  }, [draftKey, applySnapshot, isEditing]);
+
+  const persistDraft = useCallback(
+    (snapshot: Article) => {
+      if (!draftKey) return;
+      try {
+        localStorage.setItem(draftKey, JSON.stringify({ article: snapshot, ts: Date.now() }));
+      } catch {
+        // ignore quota/storage errors
+      }
+    },
+    [draftKey],
+  );
+
+  const removeDraft = useCallback(() => {
+    if (!draftKey) return;
+    try {
+      localStorage.removeItem(draftKey);
     } catch {
       // ignore
     }
-  }, []);
+  }, [draftKey]);
 
-  // If editing, load existing content and prefill the form
-  useEffect(() => {
-    if (!isEditing || !editSlug) return;
-    const existing = getPostBySlug(editSlug);
-    if (!existing) return;
-    setTitle(existing.title || "");
-    setSlug(existing.slug || "");
-    setCategory(normalizeCategory((existing as any).category));
-    setTagsInput(((existing.tags || []) as string[]).join(", "));
-    setCover(existing.heroImage || "");
-    setExcerpt(existing.summary || "");
-    setBody(existing.body || "");
-    setAuthor(existing.author || "À la Brestoise");
-    try {
-      const d = existing.date ? new Date(existing.date) : new Date();
-      setDate(d.toISOString());
-    } catch {
-      setDate(new Date().toISOString());
-    }
-    if (typeof existing.readingMinutes === "number" && existing.readingMinutes > 0) {
-      setReadingMinutes(existing.readingMinutes);
-    }
-    if (Array.isArray(existing.sources)) {
-      setSourcesText(existing.sources.join("\n"));
-    }
-    setHeroLayout((existing.heroLayout ?? "default") as Article["heroLayout"]);
-    setShowTitleInHero(existing.showTitleInHero !== false);
-    setFooterType((existing.footerType ?? "default") as Article["footerType"]);
-    setFooterNote(existing.footerNote || "");
-    setAuthorSlug(existing.authorSlug || "");
-    setAuthorAvatarUrl(existing.authorAvatarUrl || "");
-    setAuthorRole(existing.authorRole || "");
-    setPrimaryPlaceName(existing.primaryPlaceName || "");
-    setSeoTitle(existing.seoTitle || "");
-    setSeoDescription(existing.seoDescription || "");
-    setCanonicalUrl(existing.canonicalUrl || "");
-    setSchemaType((existing.schemaType ?? "Article") as Article["schemaType"]);
-    const pi = existing.practicalInfo || {};
-    setAddress(pi?.address || "");
-    setPhone(pi?.phone || "");
-    setWebsiteUrl(pi?.websiteUrl || "");
-    setGoogleMapsUrl(pi?.googleMapsUrl || "");
-    setOpeningHours(pi?.openingHours || "");
-    const aliases = Array.isArray(existing.searchAliases) ? existing.searchAliases : [];
-    setSearchAliasesText(aliases.join("\n"));
-  }, [isEditing, editSlug]);
+  const scheduleDraftSave = useCallback(
+    (snapshot: Article) => {
+      if (!draftKey) return;
+      if (saveDraftTimerRef.current) window.clearTimeout(saveDraftTimerRef.current);
+      saveDraftTimerRef.current = window.setTimeout(() => persistDraft(snapshot), 800);
+    },
+    [draftKey, persistDraft],
+  );
+
+  useEffect(
+    () => () => {
+      if (saveDraftTimerRef.current) window.clearTimeout(saveDraftTimerRef.current);
+    },
+    [draftKey],
+  );
 
   // auto-generate slug from title only while creating a new article
   useEffect(() => {
@@ -513,21 +606,21 @@ const AdminNew = () => {
       setLastResponse({ status: res.status, body: json });
       if (res.status === 401) {
         setServerError({ message: "Accès refusé — mot de passe administrateur invalide." });
-        localStorage.setItem(DRAFT_KEY, JSON.stringify(article));
-        if (import.meta.env.DEV) console.error(json);
+        persistDraft(article);
+        console.error("[admin] Publication non autorisée", json);
       } else if (res.status === 422) {
         const fieldErrors = json?.errors || {};
         setErrors((prev) => ({ ...prev, ...fieldErrors }));
         setServerError({ message: json?.error || "Champs invalides." });
-        localStorage.setItem(DRAFT_KEY, JSON.stringify(article));
-        if (import.meta.env.DEV) console.error(json);
+        persistDraft(article);
+        console.error("[admin] Erreur de validation publication", json);
       } else if (res.status >= 500) {
         const detailsMsg = json?.details?.message ? String(json.details.message) : undefined;
         setServerError({ message: "Erreur serveur — veuillez réessayer.", details: detailsMsg });
-        localStorage.setItem(DRAFT_KEY, JSON.stringify(article));
-        if (import.meta.env.DEV) console.error(json);
+        persistDraft(article);
+        console.error("[admin] Erreur serveur publication", json);
       } else if (json?.ok) {
-        localStorage.removeItem(DRAFT_KEY);
+        removeDraft();
         setPublishInfo({ url: json.url, commit: json.commit, files: json.files, deploy: json.deploy, deployTriggered: Boolean(json.deployTriggered) });
         const commitMsg = json?.commit?.url ? ` (commit ${json.commit.sha.slice(0,7)})` : "";
         toast.success(`Article publié — la mise à jour du site public peut prendre 1 à 3 minutes.${commitMsg}`);
@@ -538,13 +631,13 @@ const AdminNew = () => {
         // Graceful failure path (e.g., missing env)
         const missingEnv = Array.isArray(json?.missingEnv) ? json.missingEnv : undefined;
         setServerError({ message: json?.error || "Publication impossible. Brouillon conservé localement.", missingEnv });
-        localStorage.setItem(DRAFT_KEY, JSON.stringify(article));
-        if (import.meta.env.DEV) console.error(json);
+        persistDraft(article);
+        console.error("[admin] Publication incomplète", json);
       }
     } catch (err: any) {
       setServerError({ message: "Erreur réseau — réessayez." });
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(article));
-      if (import.meta.env.DEV) console.error(err);
+      persistDraft(article);
+      console.error("[admin] Erreur réseau publication", err);
     } finally {
       setSubmitting(false);
     }
@@ -782,58 +875,14 @@ const AdminNew = () => {
   }
 
   function handleSaveDraft() {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(article));
+    persistDraft(article);
     toast.success("Brouillon enregistré localement");
-  }
-
-  function persistDraft(a: Article) {
-    try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ article: a, ts: Date.now() }));
-    } catch {
-      // ignore
-    }
-  }
-
-  function scheduleDraftSave(a: Article) {
-    if (saveDraftTimerRef.current) window.clearTimeout(saveDraftTimerRef.current);
-    saveDraftTimerRef.current = window.setTimeout(() => persistDraft(a), 800);
   }
 
   // Auto-save draft on field changes (debounced)
   useEffect(() => {
     scheduleDraftSave(article);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    title,
-    slug,
-    category,
-    tagsInput,
-    cover,
-    excerpt,
-    body,
-    author,
-    date,
-    readingMinutes,
-    sourcesText,
-    heroLayout,
-    showTitleInHero,
-    footerType,
-    footerNote,
-    authorSlug,
-    authorAvatarUrl,
-    authorRole,
-    primaryPlaceName,
-    address,
-    phone,
-    websiteUrl,
-    googleMapsUrl,
-    openingHours,
-    seoTitle,
-    seoDescription,
-    searchAliasesText,
-    canonicalUrl,
-    schemaType,
-  ]);
+  }, [article, scheduleDraftSave]);
 
   return (
     <div className="min-h-screen bg-background">

@@ -1,3 +1,4 @@
+// Admin home page (hub)
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import Footer from "@/components/Footer";
