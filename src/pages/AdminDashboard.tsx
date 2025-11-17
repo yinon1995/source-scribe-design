@@ -12,6 +12,7 @@ const AdminDashboard = () => {
 		<div className="min-h-screen bg-background flex flex-col">
 			<main className="flex-1 py-10 md:py-16">
 				<div className="container mx-auto px-4 space-y-8">
+					{/* Headline provided by AdminGuard; this section focuses on quick actions */}
 					<h2 className="text-xl md:text-2xl font-display font-semibold">
 						Que souhaitez-vous faire ?
 					</h2>

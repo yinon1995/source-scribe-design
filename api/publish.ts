@@ -102,6 +102,7 @@ async function githubPut(path: string, content: string, message: string) {
   return res.json();
 }
 
+// Fire-and-forget deploy hook so publishing from /admin keeps the live site fresh
 async function triggerVercelDeployIfConfigured(): Promise<boolean> {
   if (!VERCEL_DEPLOY_HOOK_URL) return false;
   try {

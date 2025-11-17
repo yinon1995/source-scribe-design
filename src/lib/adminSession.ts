@@ -1,4 +1,6 @@
 // Admin session helpers (in-memory only)
+// Note: we intentionally keep this token out of localStorage/sessionStorage
+// so that refreshing the tab naturally signs the admin out.
 let inMemoryToken: string | null = null;
 
 /**

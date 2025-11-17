@@ -28,6 +28,7 @@ const AdminArticles = () => {
 		navigate(`/admin/nouvel-article?slug=${encodeURIComponent(slug)}`);
 	}
 
+	// Ensure delete flow revokes tokenless sessions and keeps UI in sync with backend
 	async function handleDelete(slug: string) {
 		const token = getAdminToken();
 		if (!token) {

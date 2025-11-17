@@ -145,6 +145,7 @@ const AdminNew = () => {
   // Map of image src -> blob url for immediate preview
   const [previewImageMap, setPreviewImageMap] = useState<Record<string, string>>({});
 
+  // Centralized helper to apply either a clean slate, a saved draft, or an existing article.
   const applySnapshot = useCallback(
     (snapshot?: ArticleDraftSnapshot, options?: { slugTouched?: boolean }) => {
       const normalizedCategory = snapshot?.category ? normalizeCategory(snapshot.category) : DEFAULT_CATEGORY;
@@ -284,7 +285,7 @@ const AdminNew = () => {
     applySnapshot(undefined, { slugTouched: false });
   }, [isEditing, editSlug, applySnapshot, snapshotFromPost]);
 
-  // Load draft per context (new vs specific slug)
+  // Load draft per context (new vs specific slug) so multiple edits stay isolated
   useEffect(() => {
     if (!draftKey) return;
     try {
