@@ -5,6 +5,9 @@
 // - When editing an existing article (slug present), we only load the published content.
 //   No auto-loading or auto-saving of slug-specific drafts happens; the "Enregistrer le brouillon"
 //   button is the only way to persist a draft snapshot locally.
+// 2025-11-17 note:
+// - Auto-drafts now serialize a full snapshot (including sources) and only run for brand-new articles.
+// - Edits persist locally only when the admin explicitly clicks "Enregistrer le brouillon".
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Footer from "@/components/Footer";
@@ -314,7 +317,7 @@ const AdminNew = () => {
   }, [draftKey, applySnapshot, isEditing]);
 
   const persistDraft = useCallback(
-    (snapshot: Article) => {
+    (snapshot: ArticleDraftSnapshot) => {
       if (!draftKey) return;
       try {
         localStorage.setItem(draftKey, JSON.stringify({ article: snapshot, ts: Date.now() }));
@@ -335,7 +338,7 @@ const AdminNew = () => {
   }, [draftKey]);
 
   const scheduleDraftSave = useCallback(
-    (snapshot: Article) => {
+    (snapshot: ArticleDraftSnapshot) => {
       if (!draftKey) return;
       if (saveDraftTimerRef.current) window.clearTimeout(saveDraftTimerRef.current);
       saveDraftTimerRef.current = window.setTimeout(() => persistDraft(snapshot), 800);
@@ -485,6 +488,7 @@ const AdminNew = () => {
   );
 
   const sources = useMemo(() => sourcesText.split("\n").map((s) => s.trim()).filter(Boolean), [sourcesText]);
+  const draftSnapshot = useMemo<ArticleDraftSnapshot>(() => ({ ...article, sources }), [article, sources]);
   const showPracticalInfoSection = footerType === "practical-info" || category === "Commerces & places";
 
   async function handlePublish(e: React.FormEvent) {
@@ -520,6 +524,7 @@ const AdminNew = () => {
     setSlug(sanitizedSlug);
     const normalizedSlug = sanitizedSlug || article.slug;
     const safeArticle = { ...article, slug: normalizedSlug };
+    const snapshotForPersist: ArticleDraftSnapshot = { ...draftSnapshot, slug: normalizedSlug };
     if (Object.keys(nextErrors).length > 0) {
       const order: (keyof typeof nextErrors)[] = ["title", "category", "slug", "body", "readingMinutes", "date", "password"];
       const first = order.find((k) => nextErrors[k]);
@@ -614,7 +619,9 @@ const AdminNew = () => {
       const errorMessage = typeof body?.error === "string" ? body.error : undefined;
       if (res.status === 401) {
         setServerError({ message: errorMessage || "Accès refusé — mot de passe administrateur invalide." });
-        persistDraft(safeArticle);
+        if (!isEditing) {
+          persistDraft(snapshotForPersist);
+        }
         console.error("[admin] Publication non autorisée", res.status, errorMessage || "Accès refusé — mot de passe administrateur invalide.", body);
         return;
       }
@@ -622,7 +629,9 @@ const AdminNew = () => {
         const fieldErrors = body?.errors || {};
         setErrors((prev) => ({ ...prev, ...fieldErrors }));
         setServerError({ message: errorMessage || "Champs invalides." });
-        persistDraft(safeArticle);
+        if (!isEditing) {
+          persistDraft(snapshotForPersist);
+        }
         console.error("[admin] Erreur de validation publication", res.status, errorMessage || "Champs invalides.", body);
         return;
       }
@@ -636,7 +645,9 @@ const AdminNew = () => {
           details: detailsMsg,
           missingEnv: Array.isArray(body?.missingEnv) ? body.missingEnv : undefined,
         });
-        persistDraft(safeArticle);
+        if (!isEditing) {
+          persistDraft(snapshotForPersist);
+        }
         console.error("[admin] Publication échouée", res.status, message, body);
         return;
       }
@@ -657,7 +668,9 @@ const AdminNew = () => {
       return;
     } catch (err: any) {
       setServerError({ message: "Erreur réseau — réessayez." });
-      persistDraft(safeArticle);
+      if (!isEditing) {
+        persistDraft(snapshotForPersist);
+      }
       console.error("[admin] Erreur réseau publication", err);
     } finally {
       setSubmitting(false);
@@ -896,15 +909,15 @@ const AdminNew = () => {
   }
 
   function handleSaveDraft() {
-    persistDraft(article);
+    persistDraft(draftSnapshot);
     toast.success("Brouillon enregistré localement");
   }
 
   // Auto-save draft on field changes (debounced)
   useEffect(() => {
     if (isEditing) return;
-    scheduleDraftSave(article);
-  }, [article, scheduleDraftSave, isEditing]);
+    scheduleDraftSave(draftSnapshot);
+  }, [draftSnapshot, scheduleDraftSave, isEditing]);
 
 const handleClearAll = useCallback(() => {
   const confirmed = window.confirm("Êtes-vous sûr de vouloir tout effacer ? Cette action supprimera tout le contenu de l’article en cours.");
