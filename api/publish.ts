@@ -44,13 +44,14 @@ type Article = {
   featured?: boolean;
 };
 
-function slugify(input: string): string {
-function normalizeImageUrl(input?: string | null): string | undefined {
-  if (typeof input !== "string") return undefined;
-  const trimmed = input.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
+function normalizeImageUrl(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  return trimmed;
 }
 
+function slugify(input: string): string {
   return String(input || "")
     .toLowerCase()
     .normalize("NFD")
