@@ -605,39 +605,50 @@ const AdminNew = () => {
       });
       const json = await res.json().catch(() => ({}));
       setLastResponse({ status: res.status, body: json });
+      const errorMessage = typeof json?.error === "string" ? json.error : undefined;
       if (res.status === 401) {
-        setServerError({ message: "Accès refusé — mot de passe administrateur invalide." });
-        persistDraft(article);
+        setServerError({ message: errorMessage || "Accès refusé — mot de passe administrateur invalide." });
+        persistDraft(safeArticle);
         console.error("[admin] Publication non autorisée", json);
-      } else if (res.status === 422) {
+        return;
+      }
+      if (res.status === 422) {
         const fieldErrors = json?.errors || {};
         setErrors((prev) => ({ ...prev, ...fieldErrors }));
-        setServerError({ message: json?.error || "Champs invalides." });
-        persistDraft(article);
+        setServerError({ message: errorMessage || "Champs invalides." });
+        persistDraft(safeArticle);
         console.error("[admin] Erreur de validation publication", json);
-      } else if (res.status >= 500) {
-        const detailsMsg = json?.details?.message ? String(json.details.message) : undefined;
-        setServerError({ message: "Erreur serveur — veuillez réessayer.", details: detailsMsg });
-        persistDraft(article);
-        console.error("[admin] Erreur serveur publication", json);
-      } else if (json?.ok) {
-        removeDraft();
-        setPublishInfo({ url: json.url, commit: json.commit, files: json.files, deploy: json.deploy, deployTriggered: Boolean(json.deployTriggered) });
-        const commitMsg = json?.commit?.url ? ` (commit ${json.commit.sha.slice(0,7)})` : "";
-        toast.success(`Article publié — la mise à jour du site public peut prendre 1 à 3 minutes.${commitMsg}`);
-        // Auto-redirect after ~75s so the new content is available post-deploy
-        window.setTimeout(() => navigate("/articles"), 75000);
         return;
-      } else {
-        // Graceful failure path (e.g., missing env)
-        const missingEnv = Array.isArray(json?.missingEnv) ? json.missingEnv : undefined;
-        setServerError({ message: json?.error || "Publication impossible. Brouillon conservé localement.", missingEnv });
-        persistDraft(article);
-        console.error("[admin] Publication incomplète", json);
       }
+      if (!res.ok || !json?.success) {
+        const detailsMsg = json?.details?.message ? String(json.details.message) : undefined;
+        setServerError({
+          message: errorMessage || (res.status >= 500 ? "Erreur serveur — veuillez réessayer." : "Publication impossible. Brouillon conservé localement."),
+          details: detailsMsg,
+          missingEnv: Array.isArray(json?.missingEnv) ? json.missingEnv : undefined,
+        });
+        persistDraft(safeArticle);
+        console.error("[admin] Publication échouée", res.status, errorMessage, json);
+        return;
+      }
+
+      setServerError({});
+      removeDraft();
+      setPublishInfo({
+        url: json.url,
+        commit: json.commit,
+        files: json.files,
+        deploy: json.deploy,
+        deployTriggered: Boolean(json.deployTriggered),
+      });
+      const commitMsg = json?.commit?.url ? ` (commit ${json.commit.sha.slice(0, 7)})` : "";
+      toast.success(`Article publié — la mise à jour du site public peut prendre 1 à 3 minutes.${commitMsg}`);
+      // Auto-redirect after ~75s so the new content est disponible post-deploy
+      window.setTimeout(() => navigate("/articles"), 75000);
+      return;
     } catch (err: any) {
       setServerError({ message: "Erreur réseau — réessayez." });
-      persistDraft(article);
+      persistDraft(safeArticle);
       console.error("[admin] Erreur réseau publication", err);
     } finally {
       setSubmitting(false);

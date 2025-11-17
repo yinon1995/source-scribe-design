@@ -132,6 +132,15 @@ async function githubRepoPreflight(): Promise<{ ok: true } | { ok: false; status
   return { ok: false, status: res.status };
 }
 
+type ApiResponseShape = {
+  success: boolean;
+  [key: string]: unknown;
+};
+
+function respond(res: any, status: number, body: ApiResponseShape) {
+  res.status(status).json(body);
+}
+
 export default async function handler(req: any, res: any) {
   async function handleDelete() {
     // Admin gate via Authorization: Bearer <token>
@@ -143,7 +152,7 @@ export default async function handler(req: any, res: any) {
           : "";
         if (provided !== PUBLISH_TOKEN) {
           console.warn("[publish] Unauthorized delete attempt");
-          res.status(401).json({ ok: false, error: "Non autorisé." });
+          respond(res, 401, { success: false, error: "Non autorisé." });
           return;
         }
       }
@@ -161,14 +170,18 @@ export default async function handler(req: any, res: any) {
     const slug = slugify(rawSlug);
     if (!slug) {
       console.warn("[publish] DELETE missing slug", { rawSlug });
-      res.status(400).json({ error: "Slug requis pour la suppression." });
+      respond(res, 400, { success: false, error: "Slug requis pour la suppression." });
       return;
     }
 
     // If missing credentials, gracefully report ok:false to allow client to keep UI consistent
     if (!REPO || !TOKEN) {
       const missingEnv = [!REPO ? "GITHUB_REPO" : null, !TOKEN ? "GITHUB_TOKEN" : null].filter(Boolean);
-      res.status(200).json({ ok: false, error: "Suppression en attente — configuration GitHub manquante (GITHUB_REPO/GITHUB_TOKEN).", missingEnv });
+      respond(res, 503, {
+        success: false,
+        error: "Suppression en attente — configuration GitHub manquante (GITHUB_REPO/GITHUB_TOKEN).",
+        missingEnv,
+      });
       return;
     }
 
@@ -228,18 +241,25 @@ export default async function handler(req: any, res: any) {
       }
 
       const deployTriggered = await triggerVercelDeployIfConfigured();
-      const deploy = VERCEL_DEPLOY_HOOK_URL
-        ? { triggered: deployTriggered }
-        : undefined;
-
-      res.status(200).json({ ok: true, slug, deletedFromIndex, deletedFile, deployTriggered, deploy });
+      const deploy =
+        VERCEL_DEPLOY_HOOK_URL !== undefined
+          ? { triggered: deployTriggered }
+          : undefined;
+      respond(res, 200, {
+        success: true,
+        slug,
+        deletedFromIndex,
+        deletedFile,
+        deployTriggered,
+        deploy,
+      });
       return;
     } catch (e: any) {
       const message = e?.message ? String(e.message) : String(e);
       const m = /GitHub\s+[A-Z]+\s+(\d{3})/.exec(message);
       const status = m ? Number(m[1]) : undefined;
       console.error("[publish] GitHub error", { repo: REPO, branch: BRANCH, message });
-      res.status(500).json({ ok: false, error: "Échec de la suppression GitHub.", details: { status, message } });
+      respond(res, 500, { success: false, error: "Échec de la suppression GitHub.", details: { status, message } });
       return;
     }
   }
@@ -254,7 +274,7 @@ export default async function handler(req: any, res: any) {
           : "";
         if (provided !== PUBLISH_TOKEN) {
           console.warn("[publish] Unauthorized publish attempt");
-          res.status(401).json({ ok: false, error: "Non autorisé." });
+          respond(res, 401, { success: false, error: "Non autorisé." });
           return;
         }
       }
@@ -274,7 +294,15 @@ export default async function handler(req: any, res: any) {
     const allowedCategories = new Set(CATEGORY_OPTIONS);
     if (!article || typeof article !== "object") {
       console.warn("[publish] Invalid payload (not an object)");
-      res.status(422).json({ ok: false, error: "Champs invalides.", errors: { title: "Le titre est obligatoire.", slug: "Le slug ne peut contenir que des lettres, chiffres et tirets.", body: "Le contenu est trop court." } });
+      respond(res, 422, {
+        success: false,
+        error: "Champs invalides.",
+        errors: {
+          title: "Le titre est obligatoire.",
+          slug: "Le slug ne peut contenir que des lettres, chiffres et tirets.",
+          body: "Le contenu est trop court.",
+        },
+      });
       return;
     }
     if (!article.title || !String(article.title).trim()) fieldErrors.title = "Le titre est obligatoire.";
@@ -295,14 +323,14 @@ export default async function handler(req: any, res: any) {
       if (isNaN(d.getTime())) fieldErrors.date = "La date n’est pas valide.";
     }
     if (Object.keys(fieldErrors).length > 0) {
-      res.status(422).json({ ok: false, error: "Champs invalides.", errors: fieldErrors });
+      respond(res, 422, { success: false, error: "Champs invalides.", errors: fieldErrors });
       return;
     }
 
     const normalizedSlugInput = slugify(String(article.slug || article.title || ""));
     if (!normalizedSlugInput) {
-      res.status(422).json({
-        ok: false,
+      respond(res, 422, {
+        success: false,
         error: "Champs invalides.",
         errors: { slug: "Le slug ne peut contenir que des lettres, chiffres et tirets." },
       });
@@ -314,7 +342,11 @@ export default async function handler(req: any, res: any) {
     // If missing credentials, gracefully report ok:false and keep draft
     if (!REPO || !TOKEN) {
       const missingEnv = [!REPO ? "GITHUB_REPO" : null, !TOKEN ? "GITHUB_TOKEN" : null].filter(Boolean);
-      res.status(200).json({ ok: false, error: "Publication en attente — configuration GitHub manquante (GITHUB_REPO/GITHUB_TOKEN). Le brouillon a été conservé localement.", missingEnv });
+      respond(res, 503, {
+        success: false,
+        error: "Publication en attente — configuration GitHub manquante (GITHUB_REPO/GITHUB_TOKEN). Le brouillon a été conservé localement.",
+        missingEnv,
+      });
       return;
     }
 
@@ -405,12 +437,13 @@ export default async function handler(req: any, res: any) {
       const indexFileUrl: string | undefined = putIndexRes?.content?.html_url;
 
       const deployTriggered = await triggerVercelDeployIfConfigured();
-      const deploy = VERCEL_DEPLOY_HOOK_URL
-        ? { triggered: deployTriggered }
-        : undefined;
-
-      res.status(200).json({
-        ok: true,
+      const statusCode = existedBefore ? 200 : 201;
+      const deploy =
+        VERCEL_DEPLOY_HOOK_URL !== undefined
+          ? { triggered: deployTriggered }
+          : undefined;
+      respond(res, statusCode, {
+        success: true,
         slug,
         url: `/articles/${slug}`,
         commit: commitSha ? { sha: commitSha, url: commitUrl } : undefined,
@@ -425,7 +458,11 @@ export default async function handler(req: any, res: any) {
       const m = /GitHub\s+[A-Z]+\s+(\d{3})/.exec(message);
       const status = m ? Number(m[1]) : undefined;
       console.error("[publish] GitHub error", { repo: REPO, branch: BRANCH, message });
-      res.status(500).json({ ok: false, error: "Échec de la publication GitHub. Vérifiez la configuration du dépôt.", details: { status, message } });
+      respond(res, 500, {
+        success: false,
+        error: "Échec de la publication GitHub. Vérifiez la configuration du dépôt.",
+        details: { status, message },
+      });
       return;
     }
   }

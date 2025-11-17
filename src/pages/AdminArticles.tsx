@@ -46,7 +46,7 @@ const AdminArticles = () => {
 			});
 			const data = await res.json().catch(() => ({}));
 
-			if (!res.ok || !data?.ok) {
+			if (!res.ok || !data?.success) {
 				console.error("Delete failed", data);
 				toast.error(data?.error || "Erreur lors de la suppression de l'article.");
 				return;
