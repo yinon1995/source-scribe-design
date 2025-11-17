@@ -1,10 +1,5 @@
-Perfect. Here’s a **fresh README** that includes everything from your last version **plus** what we just did with:
-
-* **Google Search Console**
-* **Google Analytics 4 (hard-coded gtag)**
-* **Google Tag Manager container (installed, but GA4 still hard-coded)**
-
-You can replace your current `README.md` with this:
+Nice, everything is in a good place now.
+Here’s a **clean, updated README** you can paste over your current `README.md` (it includes Search Console, GA4, GTM, and the new domain + sitemap setup).
 
 ````markdown
 # À la Brestoise — JSON CMS + Admin “Writing Space”
@@ -20,40 +15,37 @@ This README is meant to be a “brain dump” so a future developer or AI can sa
 
 ## ⚠️ CRITICAL PITFALL — WRONG VERCEL PROJECT / DOMAIN
 
-This single mistake cost hours of debugging, so it’s called out **up front**.
+This mistake previously cost hours of debugging, so it’s called out **up front**.
 
 **Symptoms when it’s wrong:**
 
 - `/admin/articles` shows some articles, but GitHub only has a different set of JSON files.
 - Publishing/deleting in `/admin` “works”, but the **public site** doesn’t change.
-- Two URLs like these behave differently:
+- Two URLs behave differently (admin vs public, or GitHub vs Vercel).
 
-  - `https://source-scribe-design-git-main-yinon-coscas-projects.vercel.app/...`
-  - `https://source-scribe-design-can9uvj3x-yinon-coscas-projects.vercel.app/...`
-
-**Cause:**
+**Cause (historical):**
 
 - There were **multiple Vercel deployments / projects / domains**:
-  - Some tied to this repo: `yinon1995/source-scribe-design`.
+  - One connected to this repo: `yinon1995/source-scribe-design`.
   - Others were **old/legacy projects** or forks.
-- The browser was sometimes on a **legacy domain** or a **different Vercel project**, so:
+- The browser sometimes pointed to a **legacy domain** or a **different Vercel project**, so:
   - `/admin` was reading/writing JSON files in one project/repo.
   - GitHub and the “main” site were looking at another project/repo.
 
-**Fix / Rule:**
+**Current rule:**
 
-1. In Vercel, find the **single project that is connected to**  
-   `yinon1995/source-scribe-design`.
-2. Use **only that project’s domains**, for example:
+1. Use the Vercel project whose **Production domain** is:
 
-   - Production: `https://source-scribe-design-can9uvj3x-yinon-coscas-projects.vercel.app`
-   - Git-connected preview for `main`: `https://source-scribe-design-git-main-yinon-coscas-projects.vercel.app`
+   - **Production:** `https://a-la-brestoise.vercel.app`
 
-3. **Ignore or delete** any old Vercel projects like:
+2. If you see old domains like:
 
-   - `https://source-scribe-design-xxxxx-nollas-projects.vercel.app`
+   - `https://source-scribe-design-xxxxx-*.vercel.app`
+   - `https://source-scribe-design-git-main-*.vercel.app`
 
-If anything looks “impossible” (admin and GitHub do not match, or publish seems to work but the public site doesn’t change), **first check the URL bar** and confirm you are on the project that is actually connected to this repo.
+   treat them as **legacy** unless you have confirmed in the Vercel dashboard that they belong to this exact project.
+
+If anything looks “impossible” (admin and GitHub do not match, or publish seems to work but the public site doesn’t change), **first check the URL bar** and confirm you are on the project that is actually connected to this repo and to `a-la-brestoise.vercel.app`.
 
 ---
 
@@ -88,14 +80,12 @@ If anything looks “impossible” (admin and GitHub do not match, or publish se
 ### Deployment
 
 - Vercel project linked to the GitHub repo `yinon1995/source-scribe-design`.
-- Default domains look like:
+- Main domain:
 
-  - `https://source-scribe-design-can9uvj3x-yinon-coscas-projects.vercel.app`
-  - `https://source-scribe-design-git-main-yinon-coscas-projects.vercel.app`
+  - **Production:** `https://a-la-brestoise.vercel.app`
 
-- Older URLs such as  
-  `https://source-scribe-design-xxxxx-nollas-projects.vercel.app`  
-  are **legacy** and should be ignored.
+- Vercel also exposes auto-generated preview URLs for branches (e.g. `*-git-main-*.vercel.app`).  
+  These are fine to use as long as they belong to the **same** project.
 
 Always confirm in the Vercel dashboard which project is connected to this repo, and use that project’s domains.
 
@@ -162,7 +152,7 @@ For true **server-side emailing** (newsletter/contact forms), you’ll typically
 * `RESEND_FROM` — From-address (must match a verified domain at Resend).
 * Possibly other contact-related vars (e.g. `CONTACT_TO_EMAIL`) — check `api/contact.ts`, `api/subscribe.ts`, etc.
 
-These are mostly relevant once you have a **real domain** configured and want the site to send emails directly.
+These are mostly relevant once you have a **real custom domain** configured and want the site to send emails directly.
 
 ### 3.5. Contact behavior: Gmail compose (current) vs live sending (future)
 
@@ -171,7 +161,7 @@ Contact behavior is controlled via two config files:
 * `src/config/contact.ts`
 * `src/config/contactFallback.ts`
 
-Current setup (no custom domain yet):
+**Current setup (placeholder mode):**
 
 * `src/config/contact.ts` defines:
 
@@ -205,7 +195,7 @@ Current setup (no custom domain yet):
   In **placeholder** mode, the site does **not** try to send emails via API.
   It only opens Gmail (and WhatsApp where relevant) so users can contact manually.
 
-Later, when you have a proper domain and want real emailing again:
+**Later, when you have a proper domain and want real emailing again:**
 
 1. Configure email provider env vars (Resend, etc.).
 
@@ -226,9 +216,8 @@ Later, when you have a proper domain and want real emailing again:
    * Call the relevant API routes (`/api/contact`, `/api/subscribe`, …) instead of only opening Gmail.
    * Keep the Gmail fallback if you still want it as a backup.
 
-The important point:
-Right now the site is in **no-domain / placeholder** mode with **Gmail compose** everywhere.
-Once there is a real domain, you only need to:
+Right now the site is in **no-custom-domain / placeholder** mode with **Gmail compose** everywhere.
+Once there is a real domain+email setup, you only need to:
 
 * Set the email env vars.
 * Flip `CONTACT_MODE` to `"live"`.
@@ -291,13 +280,20 @@ This module:
 
 * Loads Markdown posts:
 
-  * `import.meta.glob("/content/posts/*.md", { query: "?raw", import: "default" })`
+  ```ts
+  import.meta.glob("/content/posts/*.md", {
+    query: "?raw",
+    import: "default",
+  });
+  ```
 
   and parses frontmatter + body into `Post` objects.
 
 * Loads JSON articles:
 
-  * `import.meta.glob("/content/articles/*.json", { eager: true })`
+  ```ts
+  import.meta.glob("/content/articles/*.json", { eager: true });
+  ```
 
   and maps JSON articles into the same `PostFrontmatter` shape.
 
@@ -330,12 +326,14 @@ From `src/App.tsx` / `src/pages`:
 ### 5.2. Article list page (`src/pages/Articles.tsx`)
 
 * Imports `postsIndex`.
+
 * Maps each item to a card:
 
   * Image (`heroImage` or fallback)
   * Category (from `category`)
   * Reading time (`readingMinutes` → `"x min"`)
   * Title, excerpt, tags, etc.
+
 * Handles filters: category buttons, search bar, etc.
 
 ---
@@ -370,10 +368,13 @@ All admin routes are wrapped by `AdminGuard` in `src/App.tsx`:
   * Form fields for:
 
     * Title, slug, category, tags, cover image URL, summary (excerpt), body (Markdown), sources, author, date, reading time, etc.
+
   * Admin password/token is read from `adminSession` and sent as `Authorization: Bearer <PUBLISH_TOKEN>` to `api/publish.ts`.
+
   * On **Publier**:
 
     * Calls `POST /api/publish` with JSON body.
+
   * **Edit mode**:
 
     * When opened as `/admin/nouvel-article?slug=<slug>`:
@@ -381,14 +382,17 @@ All admin routes are wrapped by `AdminGuard` in `src/App.tsx`:
       * Uses `getPostBySlug(slug)` or the JSON index to prefill fields.
       * Keeps the same `slug` so URLs don’t break.
       * Publishing updates the same JSON file and index entry (no duplicate articles).
+
   * Drafts can be autosaved to `localStorage` so they survive refresh.
 
 * `/admin/articles` — **existing articles list**:
 
   * Uses `getAllArticlesForAdmin()` (from `src/lib/articlesIndex.ts`) to list all JSON articles.
+
   * Table columns typically:
 
     * `Title | Slug | Publication date | Status | Actions`
+
   * Actions:
 
     * **Modifier**: navigates to `/admin/nouvel-article?slug=<slug>`.
@@ -401,6 +405,7 @@ All admin routes are wrapped by `AdminGuard` in `src/App.tsx`:
   * `getAdminToken()` – reads the stored token.
   * `setAdminToken(value)` – stores the token.
   * `clearAdminToken()` – removes the token.
+
 * `src/components/AdminGuard.tsx`:
 
   * On mount, calls `getAdminToken()`.
@@ -434,12 +439,16 @@ All admin routes are wrapped by `AdminGuard` in `src/App.tsx`:
 6. `api/publish.ts`:
 
    * Verifies the token against `PUBLISH_TOKEN`.
+
    * Normalizes the slug (lowercase, no spaces or accents).
+
    * Writes/updates:
 
      * `content/articles/<slug>.json` — full article.
      * `content/articles/index.json` — list of article metadata.
+
    * Commits changes to `GITHUB_REPO` on branch `PUBLISH_BRANCH` via the GitHub Contents API.
+
    * Optionally calls `VERCEL_DEPLOY_HOOK_URL` to trigger deploy.
 
 7. After the new deployment finishes:
@@ -480,24 +489,21 @@ All admin routes are wrapped by `AdminGuard` in `src/App.tsx`:
 1. Go to Vercel and open the project that is connected to
    `yinon1995/source-scribe-design`.
 
-2. In that project’s **Domains** tab you’ll see something like:
+2. In that project’s **Domains** tab you’ll see at least:
 
-   * `source-scribe-design-can9uvj3x-yinon-coscas-projects.vercel.app`
-   * `source-scribe-design-git-main-yinon-coscas-projects.vercel.app`
+   * **Production:** `a-la-brestoise.vercel.app`
 
-   Both belong to the **same project** and are fine to use.
+   (Plus auto-generated preview domains for branches.)
 
 3. If you ever see a completely different domain such as:
 
-   * `source-scribe-design-xxxxx-nollas-projects.vercel.app`
+   * `source-scribe-design-xxxxx-*.vercel.app`
 
-   that is from another Vercel project and almost certainly points to
-   **a different repo / older version**. Do **not** use it.
+   that is almost certainly a **different project or an old setup**. Do **not** use it.
 
 4. If you just published an article in `/admin` but:
 
-   * It does not appear in `/articles`,
-   * **and/or**
+   * It does not appear in `/articles`, **and/or**
    * The JSON files in GitHub don’t match what you see in `/admin/articles`,
 
    then you are almost certainly on the **wrong domain/project**.
@@ -519,37 +525,40 @@ From `package.json`:
 ```
 
 * `npm run build` also generates `public/sitemap.xml`.
-* `robots.txt` should point to `<your-domain>/sitemap.xml`.
+* `robots.txt` points to the sitemap:
+
+  ```txt
+  User-agent: *
+  Allow: /
+  Sitemap: https://a-la-brestoise.vercel.app/sitemap.xml
+  ```
 
 ---
 
-## 10. Notes for future devs / future AI
+## 10. Sitemap generation
 
-* **Do not** create a new Vercel project from this repo unless you know why.
-  Prefer reusing the existing project connected to `yinon1995/source-scribe-design`.
+Sitemap generation is handled by `scripts/generate-sitemap.mjs` and a base XML file in `public/sitemap.xml`.
 
-* When touching admin auth, reuse the existing pattern:
+* In `scripts/generate-sitemap.mjs`:
 
-  * `PUBLISH_TOKEN` env var
-  * `AdminGuard` + `adminSession` for client-side token storage
-  * `Authorization: Bearer <PUBLISH_TOKEN>` in admin API calls
+  ```ts
+  const SITE = "https://a-la-brestoise.vercel.app";
+  ```
 
-* When dealing with articles:
+* The script:
 
-  * Treat `content/articles/*.json` + `content/articles/index.json` as the main source of truth.
-  * Use `src/lib/content.ts` helpers (`postsIndex`, `getPostBySlug`).
-  * For admin lists, use `src/lib/articlesIndex.ts`.
+  * Reads Markdown posts from `content/posts/` (if any),
 
-* If you’re not sure where an article lives:
+  * Builds URLs:
 
-  * Check `content/articles/` in GitHub.
-  * Check `content/articles/index.json`.
-  * Add a temporary `console.log` around `postsIndex` or `getAllArticlesForAdmin()` in local dev.
+    * Home: `/`
+    * Articles index: `/articles`
+    * Individual posts: `/articles/<slug>`
 
-* For contact behavior:
+  * Writes the final XML to `public/sitemap.xml`.
 
-  * Right now the site is in **placeholder / Gmail** mode (no domain).
-  * Once a real domain is ready, switch `CONTACT_MODE` to `"live"` and wire the contact APIs to your email provider.
+**Important:**
+Whenever you change the domain or route structure, update `SITE` and/or the URLs generated in this script.
 
 ---
 
@@ -560,111 +569,111 @@ From `package.json`:
 `index.html` contains:
 
 * Page `<title>` and `<meta name="description">`.
-* `<link rel="canonical" href="https://source-scribe-design-git-main-yinon-coscas-projects.vercel.app/" />`
-  (Update this to your final production domain once you have a custom domain.)
+* Canonical link:
+
+  ```html
+  <link rel="canonical" href="https://a-la-brestoise.vercel.app/" />
+  ```
 
 Update these if the brand tagline or canonical domain changes.
 
 ### 11.2. Google Search Console
 
-We use **two** verification methods; either one is enough, but both are currently present.
+Ownership is verified via the **HTML tag** method.
 
-1. **Meta tag in `<head>`** (in `index.html`):
+In `index.html`:
 
-   ```html
-   <!-- Google Search Console verification -->
-   <meta
-     name="google-site-verification"
-     content="7bsdR8oaNMIgzwYDMuIZ_IzT0k8iDhRWF2nlxgSmR2k"
-   />
-   ```
+```html
+<!-- Google Search Console verification -->
+<meta
+  name="google-site-verification"
+  content="fW_c2TgXONX8n-fI0UjWUo5kKFXr2UbMIYveKSuvh14"
+/>
+```
 
-   If you create a new Search Console property or change domains, Google may give a different `content` value.
-   Replace the value accordingly.
+* This tag must remain in `<head>` to keep ownership verified.
+* If Google ever gives you a new `content` value (new property / new domain), replace it accordingly.
 
-2. **HTML verification file** under `public/`:
+The sitemap URL submitted in Search Console is:
 
-   * File: `public/googleaf71934b5fb50d33.html`
-   * Its contents are exactly what Search Console provided (typically a single line).
-
-   On Vercel, this is served at:
-
-   ```
-   https://<your-vercel-domain>/googleaf71934b5fb50d33.html
-   ```
-
-   Keep this file in version control unless you explicitly remove the property in Search Console.
+```text
+https://a-la-brestoise.vercel.app/sitemap.xml
+```
 
 ### 11.3. Google Analytics 4 (GA4)
 
 GA4 is currently **hard-coded directly in `index.html`**, **not** via Google Tag Manager.
-This keeps things simple and is enough for basic stats.
 
-The snippet looks like this (measurement ID anonymised here):
+Measurement ID in use:
+
+* **GA4 Measurement ID:** `G-J9R45GD7L3`
+
+Snippet in `index.html`:
 
 ```html
-<!-- Google Analytics 4 -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+<!-- Google Analytics 4 (property G-J9R45GD7L3) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-J9R45GD7L3"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-XXXXXXXXXX');
+  gtag("js", new Date());
+  gtag("config", "G-J9R45GD7L3");
 </script>
 ```
 
-Replace `G-XXXXXXXXXX` with the actual GA4 Measurement ID of the property you use.
-If you change GA4 properties later, update both occurrences.
+If you change GA4 properties later, update both `G-J9R45GD7L3` occurrences.
 
-This setup is already working: when someone visits the site, you should see them in the **“Aperçu en temps réel / Realtime”** report in GA4.
+This setup is already working: when someone visits the site, you should see them in the **Realtime** report of GA4.
 
 ### 11.4. Google Tag Manager (GTM)
 
-We have installed a **Google Tag Manager container**, but GA4 is **still hard-coded**.
-The GTM container is ready for future pixels/tracking, but currently contains no GA4 tag.
+A Google Tag Manager container is installed, but GA4 is **still hard-coded**, not managed by GTM yet.
+
+Container ID:
+
+* **GTM ID:** `GTM-P5PX3JQT`
 
 In `index.html`:
 
-1. **In `<head>` (as high as possible):**
+**Head (as high as possible):**
 
-   ```html
-   <!-- Google Tag Manager -->
-   <script>
-     (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-     new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-     j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-     'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-     })(window,document,'script','dataLayer','GTM-P5PX3JQT');
-   </script>
-   <!-- End Google Tag Manager -->
-   ```
+```html
+<!-- Google Tag Manager -->
+<script>
+  (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','dataLayer','GTM-P5PX3JQT');
+</script>
+<!-- End Google Tag Manager -->
+```
 
-2. **Right after the opening `<body>` tag:**
+**Immediately after `<body>`:**
 
-   ```html
-   <!-- Google Tag Manager (noscript) -->
-   <noscript>
-     <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-P5PX3JQT"
-       height="0" width="0" style="display:none;visibility:hidden">
-     </iframe>
-   </noscript>
-   <!-- End Google Tag Manager (noscript) -->
-   ```
+```html
+<!-- Google Tag Manager (noscript) -->
+<noscript>
+  <iframe
+    src="https://www.googletagmanager.com/ns.html?id=GTM-P5PX3JQT"
+    height="0"
+    width="0"
+    style="display:none;visibility:hidden"
+  ></iframe>
+</noscript>
+<!-- End Google Tag Manager (noscript) -->
+```
 
-Container ID: `GTM-P5PX3JQT`.
+**Important:**
 
-**Important rules:**
+* Right now, GA4 is **not** set up as a tag inside GTM.
+  Only the container is loaded (ready for future tags: FB pixel, Hotjar, etc.).
 
-* Right now, GA4 is **hard-coded** and **not** configured as a tag inside GTM.
-  This is intentional to avoid double-counting.
-
-* If in the future you want to manage GA4 (and other pixels) via GTM:
+* If in the future you want GA4 managed by GTM:
 
   1. Create a **GA4 Configuration tag** in GTM and publish.
-  2. Then **remove the hard-coded GA4 snippet** from `index.html`.
-     Otherwise you’ll record each visit twice.
-
-For now, GTM is just “installed and empty”, ready for future marketing/advanced tracking.
+  2. **Remove** the hard-coded GA4 snippet from `index.html`.
+     Otherwise each visit will be double-counted.
 
 ---
 
@@ -672,16 +681,23 @@ With this README, you should be able to:
 
 * Understand how the current JSON-based CMS works.
 * Safely ask Cursor / another AI to continue from the exact state we’re in now.
-* **Avoid the Vercel/domain confusion** that previously caused hours of debugging.
+* Avoid the Vercel/domain confusion that previously caused hours of debugging.
 * Know how contact works today (Gmail compose placeholder) and how to switch to live emailing.
 * Understand the current SEO/analytics setup:
 
-  * Search Console verification (meta + HTML file),
-  * GA4 hard-coded tracking,
-  * Google Tag Manager container installed but not yet used for GA4.
+  * Search Console verification via HTML tag,
+  * GA4 tracking with `G-J9R45GD7L3`,
+  * Google Tag Manager container `GTM-P5PX3JQT` installed but not yet used for GA4,
+  * Sitemap & robots.txt correctly pointing to `https://a-la-brestoise.vercel.app/`.
 
-```
+````
 
-If you want, next step we can do a **tiny “Ops” section**: which GA4/SC reports to check once a week and what to look for (traffic, top articles, organic vs direct, etc.).
-::contentReference[oaicite:0]{index=0}
-```
+Next tiny step, if you want: after you paste this into `README.md`, do:
+
+```bash
+git add README.md
+git commit -m "Update README with domain, GA4, GTM and sitemap setup"
+git push origin main
+````
+
+and we’re fully synced.

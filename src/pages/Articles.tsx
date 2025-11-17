@@ -38,27 +38,44 @@ const Articles = () => {
   const [debouncedQuery, setDebouncedQuery] = useState(initialSearch);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
+  // 🔒 Safety: skip any invalid post (no title or no slug)
   const articles = useMemo<ArticleCardData[]>(() => {
-    return postsIndex.map((post) => {
-      const tags = Array.isArray(post.tags) ? post.tags : [];
-      const category = post.category || site.categories.beaute;
-      const excerpt = post.summary ?? "";
-      const heroImage = post.heroImage ?? FALLBACK_IMAGE;
-      const joinedFields = [post.title, excerpt, category, tags.join(" "), post.slug ?? ""]
-        .filter(Boolean)
-        .join(" ");
+    return postsIndex
+      .filter((post) => {
+        if (!post) return false;
+        const hasTitle =
+          typeof post.title === "string" && post.title.trim().length > 0;
+        const hasSlug =
+          typeof post.slug === "string" && post.slug.trim().length > 0;
+        return hasTitle && hasSlug;
+      })
+      .map((post) => {
+        const tags = Array.isArray(post.tags) ? post.tags : [];
+        const category = post.category || site.categories.beaute;
+        const excerpt = post.summary ?? "";
+        const heroImage = post.heroImage ?? FALLBACK_IMAGE;
 
-      return {
-        title: post.title,
-        excerpt,
-        image: heroImage,
-        category,
-        readTime: `${post.readingMinutes ?? 1} min`,
-        slug: post.slug,
-        tags,
-        searchIndex: normalizeText(joinedFields),
-      };
-    });
+        const joinedFields = [
+          post.title,
+          excerpt,
+          category,
+          tags.join(" "),
+          post.slug ?? "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        return {
+          title: post.title,
+          excerpt,
+          image: heroImage,
+          category,
+          readTime: `${post.readingMinutes ?? 1} min`,
+          slug: post.slug as string,
+          tags,
+          searchIndex: normalizeText(joinedFields),
+        };
+      });
   }, []);
 
   const categories = useMemo(() => {
@@ -74,7 +91,9 @@ const Articles = () => {
       }
     });
     const ordered = baseOrder.filter((category) => available.has(category));
-    const extras = Array.from(available).filter((category) => !baseOrder.includes(category));
+    const extras = Array.from(available).filter(
+      (category) => !baseOrder.includes(category),
+    );
     return ["Tous", ...ordered, ...extras];
   }, [articles]);
 
@@ -103,7 +122,9 @@ const Articles = () => {
     return () => window.clearTimeout(timer);
   }, [searchQuery, setSearchParams]);
 
-  const focusSearch = (location.state as { focusSearch?: boolean } | null)?.focusSearch;
+  const focusSearch = (
+    location.state as { focusSearch?: boolean } | null
+  )?.focusSearch;
   useEffect(() => {
     if (focusSearch) {
       requestAnimationFrame(() => {
@@ -116,7 +137,8 @@ const Articles = () => {
   const normalizedQuery = normalizeText(debouncedQuery.trim());
   const filteredArticles = useMemo(() => {
     return articles.filter((article) => {
-      const matchesCategory = activeCategory === "Tous" || article.category === activeCategory;
+      const matchesCategory =
+        activeCategory === "Tous" || article.category === activeCategory;
       const matchesSearch = normalizedQuery
         ? article.searchIndex.includes(normalizedQuery)
         : true;
@@ -134,7 +156,8 @@ const Articles = () => {
               Tous les articles
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Explorez l'ensemble des contenus par thématique ou recherchez un sujet précis
+              Explorez l'ensemble des contenus par thématique ou recherchez un
+              sujet précis
             </p>
           </div>
 
