@@ -2,6 +2,9 @@
 // Contract: Always respond with JSON. Success responses include commit/file/deploy info.
 // Failures carry a localized `error` string plus optional `missingEnv`, and expose `details.message`
 // only while running in non-production environments to avoid leaking internals in prod.
+// 2025-11-17 hardening summary:
+// - respond() enforces JSON-only responses so Vercel never falls back to HTML 500s.
+// - All env/network work stays in try/catch blocks inside the handler to keep module load safe.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { CATEGORY_OPTIONS, normalizeCategory, type JsonArticleCategory } from "../shared/articleCategories";
 // Vercel function to publish JSON articles to GitHub (contents API)
@@ -54,10 +57,11 @@ function toBase64(content: string | Uint8Array) {
 
 const GITHUB_REPO = process.env.GITHUB_REPO;
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const PUBLISH_BRANCH = process.env.PUBLISH_BRANCH || "main";
+const RAW_PUBLISH_BRANCH = process.env.PUBLISH_BRANCH;
+const PUBLISH_BRANCH = RAW_PUBLISH_BRANCH?.trim() || "main";
 const PUBLISH_TOKEN = process.env.PUBLISH_TOKEN;
 const VERCEL_DEPLOY_HOOK_URL = process.env.VERCEL_DEPLOY_HOOK_URL;
-const SITE_URL = (process.env.SITE_URL || "https://a-la-brestoise.vercel.app").replace(/\/+$/, "");
+const SITE_URL = "https://a-la-brestoise.vercel.app";
 const INCLUDE_ERROR_DETAILS = process.env.NODE_ENV !== "production";
 
 function encodeGitHubPath(path: string) {
@@ -109,7 +113,7 @@ async function githubPut(path: string, content: string, message: string) {
 }
 
 // Fire-and-forget deploy hook so publishing from /admin keeps the live site fresh
-type DeployResult = { triggered: boolean; error: string | null };
+type DeployResult = { triggered: boolean; error?: string | null };
 
 async function triggerVercelDeployIfConfigured(): Promise<DeployResult> {
   if (!VERCEL_DEPLOY_HOOK_URL) {
@@ -145,6 +149,9 @@ async function githubRepoPreflight(): Promise<{ ok: true } | { ok: false; status
 
 type ApiResponseShape = {
   success: boolean;
+  error?: string;
+  details?: { message?: string };
+  missingEnv?: string[];
   [key: string]: unknown;
 };
 
@@ -152,8 +159,7 @@ function respond(res: VercelResponse, status: number, body: ApiResponseShape) {
   if (!res.headersSent) {
     res.setHeader("Content-Type", "application/json");
   }
-  res.statusCode = status;
-  res.end(JSON.stringify(body));
+  res.status(status).send(JSON.stringify(body));
 }
 
 type ErrorExtras = {
@@ -256,8 +262,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // If missing credentials, gracefully report ok:false to allow client to keep UI consistent
     if (!GITHUB_REPO || !GITHUB_TOKEN) {
-      const missingEnv = [!GITHUB_REPO ? "GITHUB_REPO" : null, !GITHUB_TOKEN ? "GITHUB_TOKEN" : null].filter(Boolean) as string[];
-      sendError(res, 503, "Suppression en attente — configuration GitHub manquante (GITHUB_REPO/GITHUB_TOKEN).", {
+      const missingEnv = [
+        !GITHUB_REPO ? "GITHUB_REPO" : null,
+        !RAW_PUBLISH_BRANCH ? "PUBLISH_BRANCH" : null,
+        !GITHUB_TOKEN ? "GITHUB_TOKEN" : null,
+      ].filter(Boolean) as string[];
+      sendError(res, 503, "Suppression en attente — configuration GitHub manquante (GITHUB_REPO / PUBLISH_BRANCH / GITHUB_TOKEN).", {
         missingEnv,
       });
       return;
@@ -325,6 +335,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         slug,
         deletedFromIndex,
         deletedFile,
+        files: { article: articlePath, index: indexPath },
         deployTriggered: deploy.triggered,
         deploy,
       });
@@ -334,7 +345,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const m = /GitHub\s+[A-Z]+\s+(\d{3})/.exec(message);
       const status = m ? Number(m[1]) : undefined;
       console.error("[publish] GitHub error", { repo: GITHUB_REPO, branch: PUBLISH_BRANCH, message });
-      sendError(res, 502, "Échec de la suppression GitHub.", { detailsMessage: status ? `${status} ${message}` : message });
+      sendError(res, 502, "Erreur GitHub, vérifiez le dépôt / la branche / le token.", {
+        detailsMessage: status ? `${status} ${message}` : message,
+      });
       return;
     }
   }
@@ -416,10 +429,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // If missing credentials, gracefully report ok:false and keep draft
     if (!GITHUB_REPO || !GITHUB_TOKEN) {
-      const missingEnv = [!GITHUB_REPO ? "GITHUB_REPO" : null, !GITHUB_TOKEN ? "GITHUB_TOKEN" : null].filter(Boolean) as string[];
+      const missingEnv = [
+        !GITHUB_REPO ? "GITHUB_REPO" : null,
+        !RAW_PUBLISH_BRANCH ? "PUBLISH_BRANCH" : null,
+        !GITHUB_TOKEN ? "GITHUB_TOKEN" : null,
+      ].filter(Boolean) as string[];
       respond(res, 503, {
         success: false,
-        error: "Publication en attente — configuration GitHub manquante (GITHUB_REPO/GITHUB_TOKEN). Le brouillon a été conservé localement.",
+        error: "Publication en attente — configuration GitHub manquante (GITHUB_REPO / PUBLISH_BRANCH / GITHUB_TOKEN).",
         missingEnv,
       });
       return;
@@ -508,22 +525,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Build commit/links payload
       const commitSha: string | undefined = putIndexRes?.commit?.sha || putArticleRes?.commit?.sha;
       const commitUrl: string | undefined = putIndexRes?.commit?.html_url || putArticleRes?.commit?.html_url;
-      const articleFileUrl: string | undefined = putArticleRes?.content?.html_url;
-      const indexFileUrl: string | undefined = putIndexRes?.content?.html_url;
 
-      const deployTriggered = await triggerVercelDeployIfConfigured();
+      const deploy = await triggerVercelDeployIfConfigured();
       const statusCode = existedBefore ? 200 : 201;
-      const deploy =
-        VERCEL_DEPLOY_HOOK_URL !== undefined
-          ? { triggered: deployTriggered }
-          : undefined;
       respond(res, statusCode, {
         success: true,
         slug,
-        url: `/articles/${slug}`,
+        url: `${SITE_URL}/articles/${slug}`,
         commit: commitSha ? { sha: commitSha, url: commitUrl } : undefined,
-        files: { article: articleFileUrl, index: indexFileUrl },
-        deployTriggered,
+        files: { article: articlePath, index: indexPath },
+        deployTriggered: deploy.triggered,
         deploy,
       });
       return;
@@ -533,10 +544,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const m = /GitHub\s+[A-Z]+\s+(\d{3})/.exec(message);
       const status = m ? Number(m[1]) : undefined;
       console.error("[publish] GitHub error", { repo: GITHUB_REPO, branch: PUBLISH_BRANCH, message });
-      respond(res, 500, {
-        success: false,
-        error: "Échec de la publication GitHub. Vérifiez la configuration du dépôt.",
-        details: { status, message },
+      sendError(res, 502, "Erreur GitHub, vérifiez le dépôt / la branche / le token.", {
+        detailsMessage: status ? `${status} ${message}` : message,
       });
       return;
     }
@@ -544,7 +553,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     if (req.method === "OPTIONS") {
-      res.status(200).end();
+      respond(res, 200, { success: true });
       return;
     }
     if (req.method === "DELETE") {
@@ -555,10 +564,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await handlePublish();
       return;
     }
-    respond(res, 405, { success: false, error: "Method not allowed" });
-  } catch (error) {
-    console.error("[publish] Unhandled error", error);
-    const message = error instanceof Error ? error.message : "Erreur serveur interne";
+    respond(res, 405, { success: false, error: "Méthode non autorisée" });
+  } catch (err) {
+    console.error("[publish] Unhandled error:", err);
+    const message = err instanceof Error ? err.message : "Erreur serveur interne";
     respond(res, 500, { success: false, error: message || "Erreur serveur interne" });
   }
 }
