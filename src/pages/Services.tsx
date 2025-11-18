@@ -2,15 +2,14 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Camera, Sparkles, Mail } from "lucide-react";
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CONTACT_MODE } from "@/config/contactFallback";
-import { openGmailCompose } from "@/config/contact";
+import { createLead } from "@/lib/inboxClient";
 
 const Services = () => {
   const services = [
@@ -121,12 +120,7 @@ const Services = () => {
               Discutons ensemble de vos besoins. Chaque prestation est personnalisable selon vos objectifs et votre budget.
             </p>
             <div className="flex justify-center">
-              <Button
-                className="rounded-full transition duration-200 hover:opacity-90"
-                onClick={() => openGmailCompose({ subject: "À la Brestoise – Demande de devis" })}
-              >
-                Envoyer un email
-              </Button>
+              <QuoteDialog />
             </div>
           </div>
 
@@ -163,73 +157,51 @@ const Services = () => {
 export default Services;
 
 function ServiceInterestDialog({ service }: { service: string }) {
-  const isPlaceholder = CONTACT_MODE === "placeholder";
-
-  if (isPlaceholder) {
-    return (
-      <Dialog>
-        <DialogTrigger asChild>
-          <Button variant="outline" className="rounded-full transition duration-200 hover:opacity-90">
-            Intéressé(e)
-          </Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Intéressé(e) — {service}</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Écrivez-nous directement depuis Gmail pour nous parler de votre projet.
-          </p>
-          <DialogFooter>
-            <Button onClick={() => openGmailCompose({ subject: `À la Brestoise – Intéressé(e) par ${service}` })}>
-              Écrire un e-mail
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+
   const emailValid = /\S+@\S+\.\S+/.test(email);
   const messageValid = message.trim().length > 0;
   const idBase = service.toLowerCase().replace(/\s+/g, "-");
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitted(true);
     if (!emailValid || !messageValid) {
       toast({ title: "Veuillez remplir les champs requis" });
       return;
     }
-    try {
-      const res = await fetch("/api/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "interesse-service", service, email, message }),
-      });
-      if (res.ok) {
-        toast({ title: "Merci !" });
-        setEmail("");
-        setMessage("");
-      } else {
-        openGmailCompose({
-          subject: `À la Brestoise – Intéressé(e) par ${service}`,
-          body: `Email: ${email}\nService: ${service}\n\nMessage:\n${message}`,
-        });
-      }
-    } catch {
-      openGmailCompose({
-        subject: `À la Brestoise – Intéressé(e) par ${service}`,
-        body: `Email: ${email}\nService: ${service}\n\nMessage:\n${message}`,
-      });
+    setLoading(true);
+    const result = await createLead({
+      category: "services",
+      source: `services-section:${service}`,
+      email,
+      name: name || undefined,
+      message,
+      meta: { service },
+    });
+    setLoading(false);
+    if (result.success) {
+      toast({ title: "Merci ! Je reviens vers vous rapidement." });
+      setName("");
+      setEmail("");
+      setMessage("");
+      setSubmitted(false);
+      setOpen(false);
+      return;
     }
+    toast({
+      title: "Impossible d’enregistrer votre demande",
+      description: result.error || "Veuillez réessayer dans quelques instants.",
+    });
   }
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" className="rounded-full transition duration-200 hover:opacity-90">
           Intéressé(e)
@@ -241,7 +213,16 @@ function ServiceInterestDialog({ service }: { service: string }) {
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor={`interest-email-${idBase}`}>Email</Label>
+            <Label htmlFor={`interest-name-${idBase}`}>Nom</Label>
+            <Input
+              id={`interest-name-${idBase}`}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Votre nom (facultatif)"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`interest-email-${idBase}`}>Email *</Label>
             <Input
               id={`interest-email-${idBase}`}
               type="email"
@@ -256,7 +237,7 @@ function ServiceInterestDialog({ service }: { service: string }) {
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor={`interest-message-${idBase}`}>Message</Label>
+            <Label htmlFor={`interest-message-${idBase}`}>Message *</Label>
             <Textarea
               id={`interest-message-${idBase}`}
               required
@@ -270,7 +251,112 @@ function ServiceInterestDialog({ service }: { service: string }) {
             )}
           </div>
           <DialogFooter>
-            <Button type="submit" className="rounded-full">Envoyer</Button>
+            <Button type="submit" disabled={loading} className="rounded-full">
+              {loading ? "Envoi..." : "Envoyer"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function QuoteDialog() {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const emailValid = /\S+@\S+\.\S+/.test(email);
+  const messageValid = message.trim().length > 0;
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSubmitted(true);
+    if (!emailValid || !messageValid) {
+      toast({ title: "Veuillez remplir les champs requis" });
+      return;
+    }
+    setLoading(true);
+    const result = await createLead({
+      category: "quote",
+      source: "services-quote",
+      email,
+      name: name || undefined,
+      message,
+    });
+    setLoading(false);
+    if (result.success) {
+      toast({ title: "Merci ! Votre demande de devis a bien été envoyée." });
+      setName("");
+      setEmail("");
+      setMessage("");
+      setSubmitted(false);
+      setOpen(false);
+      return;
+    }
+    toast({
+      title: "Impossible d’enregistrer votre demande",
+      description: result.error || "Veuillez réessayer dans quelques instants.",
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="rounded-full transition duration-200 hover:opacity-90">
+          Envoyer un email
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Demande de devis</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="quote-name">Nom</Label>
+            <Input
+              id="quote-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Votre nom (facultatif)"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="quote-email">Email *</Label>
+            <Input
+              id="quote-email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              aria-invalid={submitted && !emailValid}
+              aria-describedby="quote-email-error"
+            />
+            {submitted && !emailValid && (
+              <p id="quote-email-error" className="text-sm text-red-600">Email invalide</p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="quote-message">Décrivez votre projet *</Label>
+            <Textarea
+              id="quote-message"
+              required
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              aria-invalid={submitted && !messageValid}
+              aria-describedby="quote-message-error"
+            />
+            {submitted && !messageValid && (
+              <p id="quote-message-error" className="text-sm text-red-600">Message requis</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={loading} className="rounded-full">
+              {loading ? "Envoi..." : "Envoyer"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -279,82 +365,60 @@ function ServiceInterestDialog({ service }: { service: string }) {
 }
 
 function TestimonialDialog() {
-  const isPlaceholder = CONTACT_MODE === "placeholder";
-
-  if (isPlaceholder) {
-    return (
-      <Dialog>
-        <DialogTrigger asChild>
-          <Button variant="outline" className="rounded-full transition duration-200 hover:opacity-90">
-            Proposer un témoignage
-          </Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Proposer un témoignage</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Envoyez votre témoignage via Gmail. Ajoutez vos coordonnées et nous reviendrons vers vous rapidement.
-          </p>
-          <DialogFooter>
-            <Button onClick={() => openGmailCompose({ subject: "À la Brestoise – Témoignage" })}>
-              Écrire un e-mail
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
+  const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [organisation, setOrganisation] = useState("");
+  const [email, setEmail] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [message, setMessage] = useState("");
   const [consent, setConsent] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  async function onSubmit(e: React.FormEvent) {
+  const nameValid = Boolean(name.trim());
+  const messageValid = Boolean(message.trim());
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitted(true);
-    if (!name.trim() || !message.trim()) {
+    if (!nameValid || !messageValid) {
       toast({ title: "Champs requis manquants" });
       return;
     }
-    try {
-      const res = await fetch("/api/testimonial", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          organisation,
-          logoUrl: logoUrl || undefined,
-          message,
-          consent,
-        }),
-      });
-      if (res.ok) {
-        toast({ title: "Merci pour votre témoignage !" });
-        setName("");
-        setOrganisation("");
-        setLogoUrl("");
-        setMessage("");
-        setConsent(false);
-      } else {
-        openGmailCompose({
-          subject: "À la Brestoise – Témoignage",
-          body: `Nom: ${name}\nOrganisation: ${organisation}\nLogo URL: ${logoUrl}\n\nMessage:\n${message}\n\nConsentement: ${consent ? "oui" : "non"}`,
-        });
-      }
-    } catch {
-      openGmailCompose({
-        subject: "À la Brestoise – Témoignage",
-        body: `Nom: ${name}\nOrganisation: ${organisation}\nLogo URL: ${logoUrl}\n\nMessage:\n${message}\n\nConsentement: ${consent ? "oui" : "non"}`,
-      });
+    setLoading(true);
+    const result = await createLead({
+      category: "testimonial",
+      source: "services-testimonial",
+      name,
+      email: email || undefined,
+      message,
+      meta: {
+        organisation: organisation || undefined,
+        logoUrl: logoUrl || undefined,
+        consent,
+      },
+    });
+    setLoading(false);
+    if (result.success) {
+      toast({ title: "Merci pour votre témoignage !" });
+      setName("");
+      setOrganisation("");
+      setEmail("");
+      setLogoUrl("");
+      setMessage("");
+      setConsent(false);
+      setSubmitted(false);
+      setOpen(false);
+      return;
     }
+    toast({
+      title: "Impossible d’enregistrer votre témoignage",
+      description: result.error || "Veuillez réessayer prochainement.",
+    });
   }
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" className="rounded-full transition duration-200 hover:opacity-90">
           Proposer un témoignage
@@ -367,13 +431,27 @@ function TestimonialDialog() {
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="testi-name">Nom</Label>
+              <Label htmlFor="testi-name">Nom *</Label>
               <Input
                 id="testi-name"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                aria-invalid={submitted && !name.trim()}
+                aria-invalid={submitted && !nameValid}
+                aria-describedby="testi-name-error"
+              />
+              {submitted && !nameValid && (
+                <p id="testi-name-error" className="text-sm text-red-600">Nom requis</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="testi-email">Email</Label>
+              <Input
+                id="testi-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Facultatif mais utile pour répondre"
               />
             </div>
             <div className="space-y-2">
@@ -400,8 +478,12 @@ function TestimonialDialog() {
                 required
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                aria-invalid={submitted && !message.trim()}
+                aria-invalid={submitted && !messageValid}
+                aria-describedby="testi-message-error"
               />
+              {submitted && !messageValid && (
+                <p id="testi-message-error" className="text-sm text-red-600">Message requis</p>
+              )}
             </div>
           </div>
           <div className="flex items-start gap-3">
@@ -411,7 +493,9 @@ function TestimonialDialog() {
             </Label>
           </div>
           <DialogFooter>
-            <Button type="submit" className="rounded-full">Envoyer</Button>
+            <Button type="submit" disabled={loading} className="rounded-full">
+              {loading ? "Envoi..." : "Envoyer"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { site } from "@/lib/siteContent";
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
-import { subscribe, openMailto } from "@/lib/subscribe";
+import { createLead } from "@/lib/inboxClient";
 
 const Footer = () => {
   return (
@@ -100,16 +100,24 @@ function FooterNewsletter() {
       return;
     }
     setLoading(true);
-    const result = await subscribe(email, "footer");
-    if (result === "ok") {
-      toast({ title: "Merci !" });
-      setEmail("");
-    } else {
-      const href = `mailto:nolwennalabrestoise@gmail.com?subject=${encodeURIComponent("Abonnement newsletter")}&body=${encodeURIComponent(`${email}\n\n(source: footer | path: ${window.location.pathname})`)}`;
-      openMailto(href);
-      toast({ title: "Erreur serveur — envoi par e-mail proposé." });
-    }
+    const result = await createLead({
+      category: "newsletter",
+      source: "footer-newsletter",
+      email,
+      meta: {
+        path: typeof window !== "undefined" ? window.location.pathname : undefined,
+      },
+    });
     setLoading(false);
+    if (result.success) {
+      toast({ title: "Merci ! Votre e-mail a bien été enregistré." });
+      setEmail("");
+      return;
+    }
+    toast({
+      title: "Impossible d’enregistrer votre e-mail",
+      description: result.error || "Veuillez réessayer d’ici quelques instants.",
+    });
   }
 
   return (

@@ -48,6 +48,20 @@ const AdminDashboard = () => {
 								</Button>
 							</CardContent>
 						</Card>
+
+						<Card className="flex flex-col justify-between">
+							<CardHeader>
+								<CardTitle>Voir les demandes</CardTitle>
+							</CardHeader>
+							<CardContent className="flex flex-col gap-3">
+								<p className="text-sm text-muted-foreground">
+									Consulter les newsletters, devis, services et contacts reçus.
+								</p>
+								<Button variant="secondary" className="self-start" onClick={() => navigate("/admin/demandes")}>
+									Ouvrir l’inbox
+								</Button>
+							</CardContent>
+						</Card>
 					</div>
 				</div>
 			</main>

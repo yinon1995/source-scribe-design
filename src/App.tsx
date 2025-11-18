@@ -11,6 +11,7 @@ import ArticleDetail from "./pages/ArticleDetail";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminNew from "./pages/AdminNew";
 import AdminArticles from "./pages/AdminArticles";
+import AdminInbox from "./pages/AdminInbox";
 import About from "./pages/About";
 import Services from "./pages/Services";
 import Contact from "./pages/Contact";
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/admin" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
             <Route path="/admin/nouvel-article" element={<AdminGuard><AdminNew /></AdminGuard>} />
             <Route path="/admin/articles" element={<AdminGuard><AdminArticles /></AdminGuard>} />
+            <Route path="/admin/demandes" element={<AdminGuard><AdminInbox /></AdminGuard>} />
             <Route path="/admin/new" element={<AdminGuard><AdminNew /></AdminGuard>} />
             <Route path="/thematiques" element={<Thematiques />} />
             <Route path="/a-propos" element={<About />} />

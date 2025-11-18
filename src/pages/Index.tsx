@@ -8,8 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { site } from "@/lib/siteContent";
-import { subscribe } from "@/lib/subscribe";
-import { openMailto } from "@/lib/subscribe";
+import { createLead } from "@/lib/inboxClient";
 import { CATEGORY_OPTIONS, postsIndex } from "@/lib/content";
 
 const Index = () => {
@@ -43,6 +42,7 @@ const Index = () => {
     : featuredArticles.filter((article) => article.category === activeCategory);
 
   const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const emailValid = /\S+@\S+\.\S+/.test(email);
   async function onSubscribe(e: FormEvent) {
     e.preventDefault();
@@ -50,15 +50,25 @@ const Index = () => {
       toast({ title: "Email invalide" });
       return;
     }
-    const result = await subscribe(email, "home-cta");
-    if (result === "ok") {
-      toast({ title: "Merci !" });
+    setSubmitting(true);
+    const result = await createLead({
+      category: "newsletter",
+      source: "home-newsletter",
+      email,
+      meta: {
+        path: typeof window !== "undefined" ? window.location.pathname : undefined,
+      },
+    });
+    setSubmitting(false);
+    if (result.success) {
+      toast({ title: "Merci ! Votre e-mail a bien été enregistré." });
       setEmail("");
-    } else {
-      const href = `mailto:nolwennalabrestoise@gmail.com?subject=${encodeURIComponent("Abonnement newsletter")}&body=${encodeURIComponent(`${email}\n\n(source: home-cta | path: ${window.location.pathname})`)}`;
-      openMailto(href);
-      toast({ title: "Erreur serveur — envoi par e-mail proposé." });
+      return;
     }
+    toast({
+      title: "Impossible d’enregistrer votre e-mail",
+      description: result.error || "Veuillez réessayer dans quelques instants.",
+    });
   }
 
   return (
@@ -118,8 +128,8 @@ const Index = () => {
                 aria-invalid={!emailValid}
                 className="rounded-full max-w-xs"
               />
-              <Button type="submit" className="rounded-full transition duration-200 hover:opacity-90">
-                S’abonner
+              <Button type="submit" disabled={submitting} className="rounded-full transition duration-200 hover:opacity-90">
+                {submitting ? "Envoi..." : "S’abonner"}
               </Button>
             </form>
           </div>
