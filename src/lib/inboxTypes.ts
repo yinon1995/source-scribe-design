@@ -3,7 +3,8 @@ export type LeadCategory =
   | "services"
   | "quote"
   | "testimonial"
-  | "contact";
+  | "contact"
+  | "suggestion";
 
 export type Lead = {
   id: string;
@@ -31,6 +32,7 @@ export const LEAD_CATEGORY_LABELS: Record<LeadCategory, string> = {
   quote: "Services / partenariats / devis",
   testimonial: "Recommandations / témoignages",
   contact: "Contact général",
+  suggestion: "Suggestion de sujet",
 };
 
 export const ALL_LEAD_CATEGORIES: LeadCategory[] = [
@@ -39,6 +41,7 @@ export const ALL_LEAD_CATEGORIES: LeadCategory[] = [
   "quote",
   "testimonial",
   "contact",
+  "suggestion",
 ];
 
 export const LEAD_CATEGORY_FILTERS = [

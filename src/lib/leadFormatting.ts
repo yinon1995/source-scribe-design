@@ -17,6 +17,7 @@ const META_KEY_LABELS: Record<string, string> = {
   instagramUrl: "Lien Instagram",
   service: "Service",
   services: "Services",
+  subject: "Sujet",
 };
 
 const MESSAGE_PREVIEW_MAX = 110;

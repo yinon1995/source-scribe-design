@@ -8,61 +8,48 @@ import { toast } from "@/hooks/use-toast";
 import heroImage from "@/assets/hero-portrait.jpeg";
 import { site } from "@/lib/siteContent";
 import { Link } from "react-router-dom";
-import { CONTACT_MODE } from "@/config/contactFallback";
-import { openGmailCompose, getGmailComposeUrl } from "@/config/contact";
+import { createLead } from "@/lib/inboxClient";
 
 const Hero = () => {
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const emailValid = /\S+@\S+\.\S+/.test(email);
   const subjectValid = subject.trim().length > 0;
   const messageValid = message.trim().length > 0;
-  const isPlaceholder = CONTACT_MODE === "placeholder";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (isPlaceholder) {
-      openGmailCompose({
-        subject: "À la Brestoise – Proposition de sujet",
-        body: `Email: ${email}\nSujet: ${subject}\n\nMessage:\n${message}`,
-      });
-      return;
-    }
     setSubmitted(true);
     if (!emailValid || !subjectValid || !messageValid) {
       toast({ title: "Veuillez remplir les champs requis" });
       return;
     }
-    try {
-      const res = await fetch("/api/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "proposer-un-sujet", email, subject, message }),
+    setSubmitting(true);
+    const result = await createLead({
+      category: "suggestion",
+      source: "hero-proposer-sujet",
+      email,
+      message,
+      meta: { subject },
+    });
+    setSubmitting(false);
+    if (!result.success) {
+      toast({
+        title: "Impossible d’enregistrer votre suggestion",
+        description: result.error || "Veuillez réessayer dans quelques instants.",
       });
-      if (res.ok) {
-        toast({ title: "Merci !" });
-        setEmail("");
-        setSubject("");
-        setMessage("");
-      } else {
-        openGmailCompose({
-          subject: "À la Brestoise – Proposition de sujet",
-          body: `Email: ${email}\nSujet: ${subject}\n\nMessage:\n${message}`,
-        });
-      }
-    } catch {
-      openGmailCompose({
-        subject: "À la Brestoise – Proposition de sujet",
-        body: `Email: ${email}\nSujet: ${subject}\n\nMessage:\n${message}`,
-      });
+      return;
     }
-  }
-
-  function handleMailLinkClick(e: React.MouseEvent<HTMLAnchorElement>) {
-    e.preventDefault();
-    openGmailCompose({ subject: "À la Brestoise – Proposition de sujet" });
+    toast({ title: "Merci pour votre idée !" });
+    setEmail("");
+    setSubject("");
+    setMessage("");
+    setSubmitted(false);
+    setDialogOpen(false);
   }
 
   return (
@@ -90,7 +77,7 @@ const Hero = () => {
                   {site.hero.ctaLabel}
                 </Button>
               </Link>
-              <Dialog>
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogTrigger asChild>
                   <Button 
                     size="lg" 
@@ -149,21 +136,11 @@ const Hero = () => {
                       )}
                     </div>
                     <DialogFooter>
-                      <Button type="submit" className="rounded-full">Envoyer</Button>
+                      <Button type="submit" className="rounded-full" disabled={submitting}>
+                        {submitting ? "Envoi..." : "Envoyer"}
+                      </Button>
                     </DialogFooter>
                   </form>
-                  <p className="text-xs text-muted-foreground">
-                    ou envoyer un email directement à{" "}
-                    <a
-                      className="underline"
-                      href={getGmailComposeUrl({ subject: "À la Brestoise – Proposition de sujet" })}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={handleMailLinkClick}
-                    >
-                      Ouvrir Gmail
-                    </a>
-                  </p>
                 </DialogContent>
               </Dialog>
             </div>

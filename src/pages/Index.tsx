@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { site } from "@/lib/siteContent";
 import { createLead } from "@/lib/inboxClient";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { CATEGORY_OPTIONS, postsIndex } from "@/lib/content";
 
 const Index = () => {

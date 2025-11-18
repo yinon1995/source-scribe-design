@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AdminBackButton } from "@/components/AdminBackButton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import LeadMetaGrid from "@/components/admin/LeadMetaGrid";
 import { toast } from "@/hooks/use-toast";
 import { fetchLeads, deleteLead } from "@/lib/inboxClient";
@@ -14,6 +15,7 @@ import { formatLeadMessagePreview } from "@/lib/leadFormatting";
 import { ALL_LEAD_CATEGORIES, LEAD_CATEGORY_LABELS, type Lead, type LeadCategory } from "@/lib/inboxTypes";
 
 type LeadFilter = LeadCategory | "all";
+type TimeFilter = "all" | "last-30-days" | "last-90-days";
 
 const categoryFilters: { value: LeadFilter; label: string }[] = [
   { value: "all", label: "Tous" },
@@ -31,6 +33,7 @@ const formatter = new Intl.DateTimeFormat("fr-FR", {
 const AdminInbox = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filter, setFilter] = useState<LeadFilter>("all");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -63,9 +66,18 @@ const AdminInbox = () => {
   }, [adminToken]);
 
   const filteredLeads = useMemo(() => {
-    if (filter === "all") return leads;
-    return leads.filter((lead) => lead.category === filter);
-  }, [leads, filter]);
+    const byCategory = filter === "all" ? leads : leads.filter((lead) => lead.category === filter);
+    if (timeFilter === "all") return byCategory;
+    const now = new Date();
+    const days = timeFilter === "last-30-days" ? 30 : 90;
+    const cutoff = new Date(now);
+    cutoff.setDate(now.getDate() - days);
+    return byCategory.filter((lead) => {
+      if (!lead.createdAt) return true;
+      const created = new Date(lead.createdAt);
+      return created >= cutoff;
+    });
+  }, [leads, filter, timeFilter]);
 
   async function handleDelete(id: string) {
     if (!adminToken) {
@@ -94,21 +106,36 @@ const AdminInbox = () => {
           <CardTitle>Demandes reçues</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Tabs value={filter} onValueChange={(value) => setFilter(value as LeadFilter)}>
-            <TabsList className="flex flex-wrap justify-start gap-2">
-              {categoryFilters.map((option) => {
-                const count = option.value === "all"
-                  ? leads.length
-                  : leads.filter((lead) => lead.category === option.value).length;
-                return (
-                  <TabsTrigger key={option.value} value={option.value} className="text-sm">
-                    {option.label}
-                    <span className="ml-2 text-xs text-muted-foreground">({count})</span>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-          </Tabs>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <Tabs value={filter} onValueChange={(value) => setFilter(value as LeadFilter)}>
+              <TabsList className="flex flex-wrap justify-start gap-2">
+                {categoryFilters.map((option) => {
+                  const count = option.value === "all"
+                    ? leads.length
+                    : leads.filter((lead) => lead.category === option.value).length;
+                  return (
+                    <TabsTrigger key={option.value} value={option.value} className="text-sm">
+                      {option.label}
+                      <span className="ml-2 text-xs text-muted-foreground">({count})</span>
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </Tabs>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Période :</span>
+              <Select value={timeFilter} onValueChange={(value) => setTimeFilter(value as TimeFilter)}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Toutes les périodes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes les périodes</SelectItem>
+                  <SelectItem value="last-30-days">Derniers 30 jours</SelectItem>
+                  <SelectItem value="last-90-days">3 derniers mois</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
           {loading && <p className="text-sm text-muted-foreground">Chargement des demandes…</p>}
           {!loading && error && (

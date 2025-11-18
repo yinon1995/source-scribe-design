@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomUUID } from "crypto";
 
-type LeadCategory = "newsletter" | "services" | "quote" | "testimonial" | "contact";
+type LeadCategory = "newsletter" | "services" | "quote" | "testimonial" | "contact" | "suggestion";
 
 type Lead = {
   id: string;
@@ -181,7 +181,7 @@ function ensureGithubConfig(): GithubConfigCheck {
 }
 
 function isLeadCategory(value: string): value is LeadCategory {
-  return ["newsletter", "services", "quote", "testimonial", "contact"].includes(value);
+  return ["newsletter", "services", "quote", "testimonial", "contact", "suggestion"].includes(value);
 }
 
 type LeadPayload = {
