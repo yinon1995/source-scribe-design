@@ -139,6 +139,7 @@ const AdminNew = () => {
   const [lastResponse, setLastResponse] = useState<any>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const coverFileInputRef = useRef<HTMLInputElement | null>(null);
+  const inlineImageInputRef = useRef<HTMLInputElement | null>(null);
   const saveDraftTimerRef = useRef<number | null>(null);
   const manualReadingOverrideRef = useRef(false);
   const [readingMinutes, setReadingMinutes] = useState<number>(() => estimateMinutes(`${excerpt}\n\n${body}`));
@@ -164,7 +165,8 @@ const AdminNew = () => {
   const refCounter = useRef(1);
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [imageAlt, setImageAlt] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [isImageReading, setIsImageReading] = useState(false);
   const [imageAlignment, setImageAlignment] = useState<"left" | "right" | "full">("full");
 
   // Centralized helper to apply either a clean slate, a saved draft, or an existing article.
@@ -223,7 +225,8 @@ const AdminNew = () => {
       setSearchAliasesText(Array.isArray(snapshot?.searchAliases) ? snapshot.searchAliases.join("\n") : "");
       setImageDialogOpen(false);
       setImageAlt("");
-      setImageUrl("");
+      setImageDataUrl(null);
+      setIsImageReading(false);
       setImageAlignment("full");
       manualReadingOverrideRef.current = false;
     },
@@ -799,34 +802,34 @@ const AdminNew = () => {
 
   function openImageDialog() {
     setImageAlt("");
-    setImageUrl("");
+    setImageDataUrl(null);
+    setIsImageReading(false);
     setImageAlignment("full");
     setImageDialogOpen(true);
   }
 
-  async function handleInsertImage() {
-    let resolvedSrc: string | null = null;
-
-    const trimmedUrl = imageUrl.trim();
-    if (!trimmedUrl) {
-      toast.error("Indiquez une URL d’image.");
+  function handleInsertImage() {
+    if (!imageDataUrl) {
+      toast.error("Sélectionnez une image à insérer.");
       return;
     }
-    resolvedSrc = trimmedUrl;
 
     const safeAlt = imageAlt.trim().replace(/[\[\]]/g, "") || "Image";
-    let markdown = `![${safeAlt}](${resolvedSrc})`;
+    let markdown = `![${safeAlt}](${imageDataUrl})`;
     if (imageAlignment === "left") {
       markdown = `${markdown}{.align-left}`;
     } else if (imageAlignment === "right") {
       markdown = `${markdown}{.align-right}`;
     }
 
-    const insertText = `\n\n${markdown}\n\n`;
+    const captionText = imageAlt.trim();
+    const captionBlock = captionText ? `\n\n_${captionText}_` : "";
+    const insertText = `\n\n${markdown}${captionBlock}\n\n`;
     insertIntoBodyAtCursor(insertText);
     setImageDialogOpen(false);
     setImageAlt("");
-    setImageUrl("");
+    setImageDataUrl(null);
+    setIsImageReading(false);
     setImageAlignment("full");
   }
 
@@ -948,6 +951,28 @@ const handleClearAll = useCallback(() => {
       }
     },
     [setCover],
+  );
+
+  const handleInlineImageFile = useCallback(
+    async (file: File | null) => {
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        toast.error("Veuillez sélectionner un fichier image.");
+        return;
+      }
+      setIsImageReading(true);
+      try {
+        const dataUrl = await fileToDataUrl(file);
+        setImageDataUrl(dataUrl);
+      } catch (error) {
+        console.error(error);
+        toast.error("Impossible de convertir cette image.");
+        setImageDataUrl(null);
+      } finally {
+        setIsImageReading(false);
+      }
+    },
+    [],
   );
 
   const coverPreview = cover.trim() || null;
@@ -1187,17 +1212,54 @@ const handleClearAll = useCallback(() => {
                           />
                         </div>
                     <div className="space-y-2">
-                      <Label htmlFor="imgUrl">URL de l’image</Label>
-                      <Input
-                        id="imgUrl"
-                        type="url"
-                        value={imageUrl}
-                        onChange={(e) => setImageUrl(e.target.value)}
-                        placeholder="https://…"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Collez une URL (hébergeur public) pour insérer l’image dans votre Markdown.
-                      </p>
+                      <Label>Image</Label>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            inlineImageInputRef.current?.click();
+                          }
+                        }}
+                        onClick={() => inlineImageInputRef.current?.click()}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const file = e.dataTransfer.files?.[0] || null;
+                          if (file) {
+                            void handleInlineImageFile(file);
+                          }
+                        }}
+                        className="flex flex-col items-center justify-center rounded-xl border border-dashed border-muted-foreground/40 px-4 py-6 text-center cursor-pointer hover:border-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-muted-foreground/60"
+                      >
+                        <input
+                          ref={inlineImageInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            if (file) {
+                              void handleInlineImageFile(file);
+                            }
+                            e.target.value = "";
+                          }}
+                        />
+                        <p className="text-sm font-medium">Glissez-déposez une image ou cliquez pour choisir un fichier</p>
+                        <p className="text-xs text-muted-foreground">
+                          L’image sera intégrée directement dans l’article via une data URL.
+                        </p>
+                        {isImageReading && <p className="mt-2 text-xs text-muted-foreground">Traitement de l’image…</p>}
+                        {imageDataUrl && !isImageReading && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={imageDataUrl} alt={imageAlt || "Aperçu de l’image"} className="mt-4 max-h-40 rounded-lg object-contain" />
+                        )}
+                      </div>
                     </div>
                         <div className="space-y-2">
                           <Label>Alignement</Label>
@@ -1231,7 +1293,7 @@ const handleClearAll = useCallback(() => {
                       </div>
                       <DialogFooter>
                         <Button type="button" variant="secondary" onClick={() => setImageDialogOpen(false)}>Annuler</Button>
-                        <Button type="button" onClick={handleInsertImage}>Insérer</Button>
+                        <Button type="button" onClick={handleInsertImage} disabled={!imageDataUrl || isImageReading}>Insérer</Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
