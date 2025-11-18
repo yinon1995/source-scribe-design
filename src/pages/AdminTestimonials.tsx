@@ -12,7 +12,8 @@ import { formatLeadMessagePreview } from "@/lib/leadFormatting";
 import type { Lead } from "@/lib/inboxTypes";
 import { clampRating, formatTestimonialLocation, type Testimonial, type TestimonialCreateInput } from "@/lib/testimonials";
 import { createTestimonial, deleteTestimonial, fetchTestimonials } from "@/lib/testimonialsClient";
-import { Instagram, Star } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Star } from "lucide-react";
 
 const formatter = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "medium",
@@ -79,15 +80,18 @@ const AdminTestimonials = () => {
       return;
     }
     const meta = lead.meta || {};
+    const metaClientType = firstString(meta, ["clientType"]);
+    const metaCompany = firstString(meta, ["company", "organisation", "organization"]);
     const payload: TestimonialCreateInput = {
       name: lead.name?.trim() || "Anonyme",
-      company: firstString(meta, ["company", "organisation", "organization"]),
+      clientType: metaClientType || undefined,
+      company: metaCompany || undefined,
       role: firstString(meta, ["role", "fonction", "fonction_entreprise"]),
       city: firstString(meta, ["city", "ville"]),
       rating: clampRating(meta.rating, 5),
       body: (lead.message || "").trim(),
+      avatarDataUrl: firstString(meta, ["avatarDataUrl"]),
       avatarUrl: firstString(meta, ["avatarUrl", "logoUrl"]),
-      instagramUrl: firstString(meta, ["instagramUrl"]),
       sourceLeadId: lead.id,
     };
     if (!payload.body) {
@@ -241,8 +245,20 @@ const AdminTestimonials = () => {
                         {formatter.format(new Date(testimonial.createdAt))}
                       </TableCell>
                       <TableCell className="align-top text-sm">
-                        <div className="font-semibold text-foreground">{testimonial.name}</div>
-                        <p className="text-xs text-muted-foreground">{formatTestimonialLocation(testimonial)}</p>
+                        <div className="flex items-center gap-3">
+                          <Avatar>
+                            {getAvatarSource(testimonial) && (
+                              <AvatarImage src={getAvatarSource(testimonial)!} alt={testimonial.name} />
+                            )}
+                            <AvatarFallback>{initials(testimonial.name)}</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-semibold text-foreground">{testimonial.name}</div>
+                            <p className="text-xs text-muted-foreground">
+                              {formatTestimonialLocation(testimonial) ?? "—"}
+                            </p>
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell className="align-top">{renderStars(testimonial.rating)}</TableCell>
                       <TableCell className="align-top text-sm text-muted-foreground">
@@ -386,18 +402,37 @@ function PublishedTestimonialDialog({ testimonial, onClose }: PublishedTestimoni
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 text-sm">
-              <div>
-                <div className="font-medium">Nom</div>
-                <div>{testimonial.name}</div>
-              </div>
-              <div className="flex items-center gap-2">
-                {renderStars(testimonial.rating)}
-                <span className="text-muted-foreground text-xs">({testimonial.rating}/5)</span>
-              </div>
-              {formatTestimonialLocation(testimonial) && (
+              <div className="flex items-center gap-3">
+                <Avatar className="h-12 w-12">
+                  {getAvatarSource(testimonial) && (
+                    <AvatarImage src={getAvatarSource(testimonial)!} alt={testimonial.name} />
+                  )}
+                  <AvatarFallback>{initials(testimonial.name)}</AvatarFallback>
+                </Avatar>
                 <div>
-                  <div className="font-medium">Informations</div>
-                  <div className="text-muted-foreground">{formatTestimonialLocation(testimonial)}</div>
+                  <div className="font-medium">Nom</div>
+                  <div>{testimonial.name}</div>
+                </div>
+              </div>
+              <div>
+                <div className="font-medium">Note</div>
+                <div className="flex items-center gap-2">
+                  {renderStars(testimonial.rating)}
+                  <span className="text-muted-foreground text-xs">({testimonial.rating}/5)</span>
+                </div>
+              </div>
+              {(testimonial.clientType || testimonial.role || testimonial.city) && (
+                <div>
+                  <div className="font-medium">Profil</div>
+                  <div className="text-muted-foreground">
+                    {[
+                      testimonial.clientType ?? testimonial.company,
+                      testimonial.role,
+                      testimonial.city,
+                    ]
+                      .filter((part) => part && part.trim().length > 0)
+                      .join(" • ")}
+                  </div>
                 </div>
               )}
               <div>
@@ -406,16 +441,15 @@ function PublishedTestimonialDialog({ testimonial, onClose }: PublishedTestimoni
                   {testimonial.body}
                 </div>
               </div>
-              {testimonial.instagramUrl && (
-                <a
-                  href={testimonial.instagramUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-primary underline"
-                >
-                  <Instagram className="h-4 w-4" />
-                  Voir sur Instagram
-                </a>
+              {testimonial.avatar && (
+                <div>
+                  <div className="font-medium">Avatar</div>
+                  <img
+                    src={testimonial.avatar}
+                    alt={`Avatar de ${testimonial.name}`}
+                    className="mt-2 h-20 w-20 rounded-full object-cover"
+                  />
+                </div>
               )}
             </div>
             <DialogFooter>
@@ -426,6 +460,21 @@ function PublishedTestimonialDialog({ testimonial, onClose }: PublishedTestimoni
       </DialogContent>
     </Dialog>
   );
+}
+
+function getAvatarSource(testimonial: Testimonial) {
+  return testimonial.avatar ?? testimonial.avatarUrl ?? undefined;
+}
+
+function initials(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "?";
+  return trimmed
+    .split(/\s+/)
+    .map((part) => part[0] || "")
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 }
 
 

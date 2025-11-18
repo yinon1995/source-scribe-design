@@ -1,18 +1,30 @@
 export type Testimonial = {
   id: string;
   name: string;
-  company?: string;
-  role?: string;
-  city?: string;
-  rating: number;
   body: string;
-  avatarUrl?: string;
-  instagramUrl?: string;
-  sourceLeadId?: string;
+  rating: number;
   createdAt: string;
+  clientType?: string | null;
+  company?: string | null;
+  role?: string | null;
+  city?: string | null;
+  avatar?: string | null;
+  avatarUrl?: string | null;
+  sourceLeadId?: string | null;
 };
 
-export type TestimonialCreateInput = Omit<Testimonial, "id" | "createdAt">;
+export type TestimonialCreateInput = {
+  name: string;
+  body: string;
+  rating: number;
+  clientType?: string | null;
+  company?: string | null;
+  role?: string | null;
+  city?: string | null;
+  avatarDataUrl?: string | null;
+  avatarUrl?: string | null;
+  sourceLeadId?: string | null;
+};
 
 export function clampRating(value: unknown, fallback = 5): number {
   const num = typeof value === "string" ? Number(value) : typeof value === "number" ? value : Number.NaN;

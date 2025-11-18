@@ -166,12 +166,20 @@ async function readTestimonials(config: GithubConfig): Promise<Testimonial[]> {
     const decoded = Buffer.from(String((existing as any).content), "base64").toString("utf8");
     const parsed = JSON.parse(decoded);
     if (Array.isArray(parsed)) {
-      return parsed as Testimonial[];
+      return (parsed as Testimonial[]).map(ensureTestimonialShape);
     }
     return [];
   } catch {
     return [];
   }
+}
+
+function ensureTestimonialShape(testimonial: Testimonial): Testimonial {
+  return {
+    ...testimonial,
+    clientType: testimonial.clientType ?? testimonial.company ?? null,
+    avatar: testimonial.avatar ?? testimonial.avatarUrl ?? null,
+  };
 }
 
 async function writeTestimonials(testimonials: Testimonial[], config: GithubConfig) {
@@ -183,6 +191,13 @@ function optionalString(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   return trimmed.length ? trimmed : undefined;
+}
+
+function optionalDataUrl(value: unknown): string | undefined {
+  const str = optionalString(value);
+  if (!str) return undefined;
+  if (!str.startsWith("data:image/")) return undefined;
+  return str;
 }
 
 function normalizeTestimonialPayload(input: unknown): { ok: true; value: TestimonialCreateInput } | { ok: false; error: string } {
@@ -204,13 +219,14 @@ function normalizeTestimonialPayload(input: unknown): { ok: true; value: Testimo
   }
   const value: TestimonialCreateInput = {
     name,
+    body,
+    clientType: optionalString(data.clientType),
     company: optionalString(data.company),
     role: optionalString(data.role),
     city: optionalString(data.city),
     rating,
-    body,
+    avatarDataUrl: optionalDataUrl(data.avatarDataUrl),
     avatarUrl: optionalString(data.avatarUrl),
-    instagramUrl: optionalString(data.instagramUrl),
     sourceLeadId: optionalString(data.sourceLeadId),
   };
   return { ok: true, value };
@@ -262,8 +278,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return;
       }
       const testimonial: Testimonial = {
-        ...normalized.value,
         id: randomUUID(),
+        name: normalized.value.name,
+        body: normalized.value.body,
+        rating: normalized.value.rating,
+        clientType: normalized.value.clientType ?? normalized.value.company ?? null,
+        company: normalized.value.company ?? null,
+        role: normalized.value.role ?? null,
+        city: normalized.value.city ?? null,
+        avatar: normalized.value.avatarDataUrl ?? normalized.value.avatarUrl ?? null,
+        avatarUrl: normalized.value.avatarUrl ?? null,
+        sourceLeadId: normalized.value.sourceLeadId ?? null,
         createdAt: new Date().toISOString(),
       };
       const current = await readTestimonials(config);

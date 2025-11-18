@@ -13,7 +13,11 @@ export function safeString(value: unknown): string | undefined {
 }
 
 export function formatTestimonialLocation(testimonial: Testimonial): string | undefined {
-  const parts = [testimonial.company, testimonial.role, testimonial.city].filter((part) => part && part.trim().length > 0);
+  const parts = [
+    testimonial.clientType ?? testimonial.company,
+    testimonial.role,
+    testimonial.city,
+  ].filter((part) => part && part.trim().length > 0);
   if (parts.length === 0) return undefined;
   return parts.join(" • ");
 }

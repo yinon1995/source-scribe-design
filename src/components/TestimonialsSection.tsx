@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Instagram, Star, StarOff, ChevronLeft, ChevronRight } from "lucide-react";
+import { Star, StarOff, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchTestimonials } from "@/lib/testimonialsClient";
 import type { Testimonial } from "@/lib/testimonials";
@@ -128,16 +128,18 @@ const TestimonialsSection = ({
                 <CardContent className="flex flex-col gap-4 p-0">
                   <div className="flex items-center gap-3">
                     <Avatar>
-                      {testimonial.avatarUrl && (
-                        <AvatarImage src={testimonial.avatarUrl} alt={testimonial.name} />
+                      {getAvatarSource(testimonial) && (
+                        <AvatarImage src={getAvatarSource(testimonial)!} alt={testimonial.name} />
                       )}
                       <AvatarFallback>{initials(testimonial.name)}</AvatarFallback>
                     </Avatar>
                     <div>
                       <p className="font-semibold">{testimonial.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatTestimonialLocation(testimonial)}
-                      </p>
+                      {formatTestimonialLocation(testimonial) && (
+                        <p className="text-sm text-muted-foreground">
+                          {formatTestimonialLocation(testimonial)}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 text-primary">
@@ -146,17 +148,6 @@ const TestimonialsSection = ({
                   <p className="text-base text-muted-foreground leading-relaxed">“{testimonial.body}”</p>
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <span>{new Date(testimonial.createdAt).toLocaleDateString("fr-FR")}</span>
-                    {testimonial.instagramUrl && (
-                      <a
-                        href={testimonial.instagramUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-primary hover:underline"
-                      >
-                        <Instagram className="h-4 w-4" />
-                        Instagram
-                      </a>
-                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -169,9 +160,11 @@ const TestimonialsSection = ({
 };
 
 function initials(value: string) {
-  return value
-    .split(" ")
-    .map((part) => part[0])
+  const trimmed = value.trim();
+  if (!trimmed) return "?";
+  return trimmed
+    .split(/\s+/)
+    .map((part) => part[0] || "")
     .join("")
     .toUpperCase()
     .slice(0, 2);
@@ -188,6 +181,10 @@ function renderStars(rating: number) {
 function formatAverageRating(average: number) {
   const rounded = Math.round(average * 10) / 10;
   return Number.isInteger(rounded) ? `${rounded}/5` : `${rounded.toFixed(1)}/5`;
+}
+
+function getAvatarSource(testimonial: Testimonial) {
+  return testimonial.avatar ?? testimonial.avatarUrl ?? undefined;
 }
 
 export default TestimonialsSection;

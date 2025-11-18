@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,6 +7,7 @@ import { toast } from "@/hooks/use-toast";
 import { createLead } from "@/lib/inboxClient";
 import { cn } from "@/lib/utils";
 import { Star } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type ReviewFormProps = {
   source: string;
@@ -25,15 +26,15 @@ export const ReviewForm = ({
 }: ReviewFormProps) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [company, setCompany] = useState("");
+  const [clientType, setClientType] = useState("");
   const [role, setRole] = useState("");
   const [city, setCity] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [instagramUrl, setInstagramUrl] = useState("");
+  const [avatarDataUrl, setAvatarDataUrl] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [rating, setRating] = useState(5);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const nameValid = Boolean(name.trim());
   const messageValid = Boolean(message.trim());
@@ -53,12 +54,11 @@ export const ReviewForm = ({
       email: email || undefined,
       message,
       meta: {
-        company: company || undefined,
+        clientType: clientType || undefined,
         role: role || undefined,
         city: city || undefined,
         rating,
-        avatarUrl: avatarUrl || undefined,
-        instagramUrl: instagramUrl || undefined,
+        avatarDataUrl: avatarDataUrl || undefined,
       },
     });
     setLoading(false);
@@ -66,14 +66,16 @@ export const ReviewForm = ({
       toast({ title: successMessage });
       setName("");
       setEmail("");
-      setCompany("");
+      setClientType("");
       setRole("");
       setCity("");
-      setAvatarUrl("");
-      setInstagramUrl("");
+      setAvatarDataUrl(null);
       setMessage("");
       setRating(5);
       setSubmitted(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
       onSubmitted?.();
       return;
     }
@@ -81,6 +83,17 @@ export const ReviewForm = ({
       title: "Impossible d’enregistrer votre témoignage",
       description: result.error || "Veuillez réessayer dans quelques instants.",
     });
+  }
+
+  function handleAvatarFile(file: File) {
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setAvatarDataUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
   }
 
   return (
@@ -113,20 +126,34 @@ export const ReviewForm = ({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="review-company">Entreprise</Label>
-          <Input
-            id="review-company"
-            value={company}
-            onChange={(e) => setCompany(e.target.value)}
-          />
+          <Label htmlFor="review-client-type">Type de client</Label>
+          <Select value={clientType || undefined} onValueChange={setClientType}>
+            <SelectTrigger id="review-client-type">
+              <SelectValue placeholder="Sélectionnez un type de client" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Client particulier">Client particulier</SelectItem>
+              <SelectItem value="Artisan / commerçant">Artisan / commerçant</SelectItem>
+              <SelectItem value="Entreprise">Entreprise</SelectItem>
+              <SelectItem value="Association">Association</SelectItem>
+              <SelectItem value="Autre">Autre</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-2">
           <Label htmlFor="review-role">Rôle / poste</Label>
-          <Input
-            id="review-role"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-          />
+          <Select value={role || undefined} onValueChange={setRole}>
+            <SelectTrigger id="review-role">
+              <SelectValue placeholder="Sélectionnez un rôle / poste" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Fondateur / dirigeant">Fondateur / dirigeant</SelectItem>
+              <SelectItem value="Responsable communication / marketing">Responsable communication / marketing</SelectItem>
+              <SelectItem value="Chef(fe) de projet">Chef(fe) de projet</SelectItem>
+              <SelectItem value="Client particulier">Client particulier</SelectItem>
+              <SelectItem value="Autre">Autre</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-2">
           <Label htmlFor="review-city">Ville</Label>
@@ -134,6 +161,7 @@ export const ReviewForm = ({
             id="review-city"
             value={city}
             onChange={(e) => setCity(e.target.value)}
+            placeholder="Ex : Brest, Finistère…"
           />
         </div>
         <div className="space-y-2">
@@ -154,24 +182,50 @@ export const ReviewForm = ({
           </div>
         </div>
         <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="review-avatar">Photo / avatar (URL)</Label>
-          <Input
-            id="review-avatar"
-            type="url"
-            value={avatarUrl}
-            onChange={(e) => setAvatarUrl(e.target.value)}
-            placeholder="https://..."
-          />
-        </div>
-        <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="review-instagram">Lien Instagram</Label>
-          <Input
-            id="review-instagram"
-            type="url"
-            value={instagramUrl}
-            onChange={(e) => setInstagramUrl(e.target.value)}
-            placeholder="https://instagram.com/..."
-          />
+          <Label className="text-sm font-medium">Photo / avatar</Label>
+          <div
+            role="button"
+            tabIndex={0}
+            className="mt-1 flex flex-col items-center justify-center rounded-xl border border-dashed border-muted-foreground/40 px-4 py-6 text-center cursor-pointer hover:border-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2"
+            onClick={() => fileInputRef.current?.click()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                fileInputRef.current?.click();
+              }
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const file = e.dataTransfer.files?.[0];
+              if (file) handleAvatarFile(file);
+            }}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleAvatarFile(file);
+              }}
+            />
+            <p className="text-sm font-medium">Glissez-déposez une image ou cliquez pour choisir un fichier</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              L’image servira uniquement d’avatar pour votre avis.
+            </p>
+            {avatarDataUrl && (
+              <img
+                src={avatarDataUrl}
+                alt="Aperçu de l’avatar"
+                className="mt-3 h-16 w-16 rounded-full object-cover"
+              />
+            )}
+          </div>
         </div>
         <div className="space-y-2 md:col-span-2">
           <Label htmlFor="review-message">Message *</Label>
