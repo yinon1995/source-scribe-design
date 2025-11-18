@@ -30,7 +30,7 @@ import {
   type JsonArticle,
   type NormalizedCategory,
 } from "@/lib/content";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Clock } from "lucide-react";
 import { getAdminToken, setAdminToken } from "@/lib/adminSession";
@@ -72,6 +72,22 @@ function slugify(input: string): string {
     .replace(/(^-|-$)+/g, "");
 }
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Impossible de lire le fichier sélectionné."));
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === "string") {
+        resolve(result);
+        return;
+      }
+      reject(new Error("Format de fichier non pris en charge."));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // Estimate reading time helper
 function estimateMinutes(text: string, wpm = 200) {
   const words = text
@@ -109,7 +125,6 @@ const AdminNew = () => {
   const [featured, setFeatured] = useState(false);
   const [tagsInput, setTagsInput] = useState("");
   const [cover, setCover] = useState("");
-  const [coverMode, setCoverMode] = useState<"url" | "local">("url");
   const [excerpt, setExcerpt] = useState("");
   const [body, setBody] = useState("");
   const [author, setAuthor] = useState("À la Brestoise");
@@ -123,12 +138,8 @@ const AdminNew = () => {
   const [lastRequest, setLastRequest] = useState<any>(null);
   const [lastResponse, setLastResponse] = useState<any>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
-  const [localCoverPreview, setLocalCoverPreview] = useState<string | null>(null);
+  const coverFileInputRef = useRef<HTMLInputElement | null>(null);
   const saveDraftTimerRef = useRef<number | null>(null);
-  // Local images for preview-only rendering
-  const [localImages, setLocalImages] = useState<Record<string, string>>({});
-  const nextLocalIdRef = useRef<number>(1);
-  const blobUrlsRef = useRef<Set<string>>(new Set());
   const manualReadingOverrideRef = useRef(false);
   const [readingMinutes, setReadingMinutes] = useState<number>(() => estimateMinutes(`${excerpt}\n\n${body}`));
   const [sourcesText, setSourcesText] = useState("");
@@ -156,70 +167,7 @@ const AdminNew = () => {
   const [imageUrl, setImageUrl] = useState("");
   const [imageAlignment, setImageAlignment] = useState<"left" | "right" | "full">("full");
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imageMode, setImageMode] = useState<"url" | "local">("url");
-
-  const registerBlobUrl = useCallback((url: string | null) => {
-    if (!url || !url.startsWith("blob:")) return;
-    blobUrlsRef.current.add(url);
-  }, []);
-
-  const revokeBlobUrl = useCallback((url?: string | null) => {
-    if (!url || !url.startsWith("blob:")) return;
-    try {
-      URL.revokeObjectURL(url);
-    } catch {
-      // ignore
-    }
-    blobUrlsRef.current.delete(url);
-  }, []);
-
-  const clearLocalPreviews = useCallback(() => {
-    setLocalCoverPreview((prev) => {
-      if (prev) revokeBlobUrl(prev);
-      return null;
-    });
-    setLocalImages((prev) => {
-      Object.values(prev).forEach((src) => revokeBlobUrl(src));
-      return {};
-    });
-    setCoverMode("url");
-  }, [revokeBlobUrl]);
-
-  const addLocalImages = (list: FileList | null) => {
-    if (!list || list.length === 0) return;
-    const updates: Record<string, string> = {};
-    Array.from(list).forEach((file) => {
-      const id = `local:${Date.now().toString(36)}-${nextLocalIdRef.current++}`;
-      const objectUrl = URL.createObjectURL(file);
-      registerBlobUrl(objectUrl);
-      updates[id] = objectUrl;
-    });
-    if (Object.keys(updates).length > 0) {
-      setLocalImages((prev) => ({ ...prev, ...updates }));
-    }
-  };
-
-  const removeLocalImage = (id: string) => {
-    setLocalImages((prev) => {
-      if (!(id in prev)) return prev;
-      const { [id]: removed, ...rest } = prev;
-      revokeBlobUrl(removed);
-      return rest;
-    });
-  };
-
-  useEffect(() => {
-    return () => {
-      blobUrlsRef.current.forEach((url) => {
-        try {
-          URL.revokeObjectURL(url);
-        } catch {
-          // ignore
-        }
-      });
-      blobUrlsRef.current.clear();
-    };
-  }, []);
+  const [imageMode, setImageMode] = useState<"url" | "upload">("url");
 
   useEffect(() => {
     if (imageMode === "url") {
@@ -283,7 +231,6 @@ const AdminNew = () => {
       setSchemaType(snapshot?.schemaType ?? "Article");
       setSourcesText(Array.isArray(snapshot?.sources) ? snapshot.sources.join("\n") : "");
       setSearchAliasesText(Array.isArray(snapshot?.searchAliases) ? snapshot.searchAliases.join("\n") : "");
-      clearLocalPreviews();
       setImageDialogOpen(false);
       setImageAlt("");
       setImageUrl("");
@@ -291,7 +238,7 @@ const AdminNew = () => {
       setImageFile(null);
       manualReadingOverrideRef.current = false;
     },
-    [clearLocalPreviews],
+    [],
   );
 
   const snapshotFromPost = useCallback(
@@ -870,27 +817,28 @@ const AdminNew = () => {
     setImageDialogOpen(true);
   }
 
-  function handleInsertImage() {
+  async function handleInsertImage() {
     let resolvedSrc: string | null = null;
 
-    if (imageMode === "local") {
-      if (!imageFile) {
-        toast.error("Sélectionnez un fichier local ou passez en mode URL.");
-        return;
-      }
-      const sanitizedName = imageFile.name ? imageFile.name.replace(/\s+/g, "-") : `image-${nextLocalIdRef.current}`;
-      const id = `local:${Date.now().toString(36)}-${nextLocalIdRef.current++}-${sanitizedName}`;
-      const objectUrl = URL.createObjectURL(imageFile);
-      registerBlobUrl(objectUrl);
-      setLocalImages((prev) => ({ ...prev, [id]: objectUrl }));
-      resolvedSrc = id;
-    } else {
+    if (imageMode === "url") {
       const trimmedUrl = imageUrl.trim();
       if (!trimmedUrl) {
         toast.error("Indiquez une URL d’image.");
         return;
       }
       resolvedSrc = trimmedUrl;
+    } else {
+      if (!imageFile) {
+        toast.error("Sélectionnez un fichier ou passez en mode URL.");
+        return;
+      }
+      try {
+        resolvedSrc = await fileToDataUrl(imageFile);
+      } catch (error) {
+        console.error(error);
+        toast.error("Impossible de convertir cette image.");
+        return;
+      }
     }
 
     const safeAlt = imageAlt.trim().replace(/[\[\]]/g, "") || "Image";
@@ -1014,17 +962,65 @@ const handleClearAll = useCallback(() => {
   toast.success("Le formulaire a été réinitialisé.");
 }, [applySnapshot, removeDraft]);
 
-  const coverValue = cover.trim();
-  const coverPreview = coverMode === "local" ? localCoverPreview : coverValue || null;
-  const coverPreviewCaption =
-    coverMode === "local"
-      ? localCoverPreview
-        ? "Aperçu local — cette image n’est pas publiée."
-        : null
-      : coverValue
-        ? "Image publique (URL)"
-        : null;
-  const localImageEntries = Object.entries(localImages);
+  const handleCoverFile = useCallback(
+    async (file: File) => {
+      if (!file.type.startsWith("image/")) {
+        toast.error("Veuillez sélectionner un fichier image.");
+        return;
+      }
+      try {
+        const dataUrl = await fileToDataUrl(file);
+        setCover(dataUrl);
+      } catch (error) {
+        console.error(error);
+        toast.error("Impossible de convertir cette image.");
+      }
+    },
+    [setCover],
+  );
+
+  const handleBodyDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const fileList = Array.from(e.dataTransfer?.files || []);
+    if (fileList.length === 0) return;
+    const imageFiles = fileList.filter((file) => file.type.startsWith("image/"));
+    if (imageFiles.length === 0) {
+      toast.error("Déposez uniquement des images.");
+      return;
+    }
+    pushBodySnapshot();
+    let nextBody = bodyRef.current?.value ?? body ?? "";
+    for (const file of imageFiles) {
+      try {
+        const dataUrl = await fileToDataUrl(file);
+        const fileName = file.name.replace(/\.[a-zA-Z0-9]+$/, "");
+        const safeAlt = (fileName || "Image").replace(/[\[\]]/g, "").trim() || "Image";
+        const hasContent = nextBody.trim().length > 0;
+        let spacer = "";
+        if (hasContent) {
+          spacer = /\n\n$/.test(nextBody) ? "" : /\n$/.test(nextBody) ? "\n" : "\n\n";
+        }
+        nextBody = `${nextBody}${spacer}![${safeAlt}](${dataUrl})\n`;
+      } catch (error) {
+        console.error(error);
+        toast.error(`Impossible d'insérer ${file.name || "cette image"}.`);
+      }
+    }
+    setBody(nextBody);
+    scheduleDebouncedSnapshot();
+    requestAnimationFrame(() => {
+      const ta = bodyRef.current;
+      if (!ta) return;
+      ta.focus();
+      const cursor = nextBody.length;
+      ta.selectionStart = cursor;
+      ta.selectionEnd = cursor;
+      ta.scrollTop = ta.scrollHeight;
+    });
+  };
+
+  const coverPreview = cover.trim() || null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -1105,130 +1101,67 @@ const handleClearAll = useCallback(() => {
 
                   <div className="space-y-3">
                     <div className="space-y-1">
-                      <Label htmlFor="cover">Image de couverture (optionnelle)</Label>
+                      <Label htmlFor="coverUpload">Image de couverture (optionnelle)</Label>
                       <p className="text-xs text-muted-foreground">
-                        Utilisez un lien public pour qu’elle s’affiche sur le site, ou choisissez un fichier local pour l’aperçu
-                        dans l’éditeur (sans impact sur la publication).
+                        Téléversez une image depuis votre ordinateur : elle sera directement intégrée à l’article sous forme de data
+                        URL et s’affichera telle quelle sur le site public.
                       </p>
                     </div>
-                    <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={coverMode === "url" ? "default" : "ghost"}
-                        className="rounded-full px-3"
-                        onClick={() => setCoverMode("url")}
-                      >
-                        Lien (URL)
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={coverMode === "local" ? "default" : "ghost"}
-                        className="rounded-full px-3"
-                        onClick={() => setCoverMode("local")}
-                      >
-                        Fichier local (aperçu)
-                      </Button>
-                    </div>
-                    {coverMode === "url" ? (
-                      <Input
-                        id="cover"
-                        type="url"
-                        value={cover}
-                        onChange={(e) => {
-                          setCover(e.target.value);
-                          if (localCoverPreview) {
-                            revokeBlobUrl(localCoverPreview);
-                            setLocalCoverPreview(null);
-                          }
-                        }}
-                        placeholder="https://…"
-                      />
-                    ) : (
-                      <div className="space-y-2">
-                        <Input
-                          id="coverFile"
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0] || null;
-                            if (!file) return;
-                            if (localCoverPreview) {
-                              revokeBlobUrl(localCoverPreview);
-                            }
-                            const objectUrl = URL.createObjectURL(file);
-                            registerBlobUrl(objectUrl);
-                            setLocalCoverPreview(objectUrl);
-                            e.target.value = "";
-                          }}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Cette image reste locale à l’éditeur. Pour qu’elle apparaisse sur le site, vous pourrez plus tard
-                          renseigner une URL publique (optionnel).
-                        </p>
-                      </div>
-                    )}
-                    {errors.cover && <p className="text-sm text-red-600 mt-1">{errors.cover}</p>}
-                    {coverPreview && (
-                      <div className="mt-3 rounded-xl overflow-hidden border bg-muted/40">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={coverPreview}
-                          alt={`Prévisualisation de l'image de couverture pour ${title || "l'article"}`}
-                          loading="lazy"
-                          className="w-full h-48 object-cover"
-                        />
-                        {coverPreviewCaption && (
-                          <p className="px-3 py-2 text-xs text-muted-foreground bg-background/60 border-t">{coverPreviewCaption}</p>
-                        )}
-                      </div>
-                    )}
-                    <div className="pt-4">
-                      <Label htmlFor="localImagesInput">Images locales (aperçu uniquement)</Label>
-                      <Input
-                        id="localImagesInput"
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => coverFileInputRef.current?.click()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          coverFileInputRef.current?.click();
+                        }
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) {
+                          void handleCoverFile(file);
+                        }
+                      }}
+                      className="rounded-xl border border-dashed border-muted-foreground/30 p-4 text-center cursor-pointer hover:border-muted-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-muted-foreground/60"
+                    >
+                      <input
+                        id="coverUpload"
                         type="file"
                         accept="image/*"
-                        multiple
+                        className="hidden"
+                        ref={coverFileInputRef}
                         onChange={(e) => {
-                          addLocalImages(e.target.files);
-                          e.currentTarget.value = "";
+                          const file = e.target.files?.[0] || null;
+                          if (file) {
+                            void handleCoverFile(file);
+                          }
+                          e.target.value = "";
                         }}
                       />
-                      {localImageEntries.length > 0 && (
-                        <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-3">
-                          {localImageEntries.map(([id, src]) => (
-                            <div key={id} className="rounded-xl border bg-muted/40 p-2 space-y-2">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={src} alt={id} className="w-full h-24 object-cover rounded-lg" />
-                              <div className="flex flex-wrap gap-2">
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="secondary"
-                                  onClick={() => insertIntoBodyAtCursor(`\n\n![Image locale](${id})\n\n`)}
-                                >
-                                  Insérer dans le corps
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => removeLocalImage(id)}
-                                >
-                                  Retirer
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
+                      <p className="text-sm font-medium">Image de couverture</p>
+                      <p className="text-xs text-muted-foreground">
+                        Glissez-déposez une image ici ou cliquez pour choisir un fichier.
+                      </p>
+                      {coverPreview && (
+                        <div className="mt-3">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={coverPreview}
+                            alt={`Prévisualisation de l'image de couverture pour ${title || "l'article"}`}
+                            loading="lazy"
+                            className="mx-auto max-h-48 rounded-lg object-cover"
+                          />
                         </div>
                       )}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Ces images servent uniquement à l’aperçu dans l’éditeur. Pour les afficher sur le site public, vous pourrez,
-                        si vous le souhaitez, les remplacer par des URLs publiques avant publication.
-                      </p>
                     </div>
+                    {errors.cover && <p className="text-sm text-red-600 mt-1">{errors.cover}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -1281,31 +1214,41 @@ const handleClearAll = useCallback(() => {
                       <Button type="button" variant="secondary" size="sm" onClick={openImageDialog}>Insérer image</Button>
                       <Button type="button" variant="secondary" size="sm" onClick={insertRefMark}>Ref</Button>
                     </div>
-                    <Textarea
-                      id="body"
-                      ref={bodyRef}
-                      value={body}
-                      onChange={(e) => { setBody(e.target.value); scheduleDebouncedSnapshot(); }}
-                      onBlur={() => pushBodySnapshot()}
-                      onScroll={handleBodyScroll}
-                      onKeyDown={(e) => {
-                        const isMeta = e.ctrlKey || e.metaKey;
-                        if (isMeta && (e.key === "z" || e.key === "Z")) { e.preventDefault(); restoreUndo(); }
-                        else if (isMeta && (e.key === "b" || e.key === "B")) { e.preventDefault(); toggleWrap("**", true); }
-                        else if (isMeta && (e.key === "i" || e.key === "I")) { e.preventDefault(); toggleWrap("*", true); }
-                        else if (e.altKey && e.key === "1") { e.preventDefault(); toggleHeading(1); }
-                        else if (e.altKey && e.key === "2") { e.preventDefault(); toggleHeading(2); }
-                        else if (e.altKey && e.key === "3") { e.preventDefault(); toggleHeading(3); }
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                       }}
-                      placeholder="# Titre\n\nVotre article en Markdown"
-                      rows={12}
-                      className="resize-none"
-                    />
+                      onDrop={handleBodyDrop}
+                      className="space-y-2"
+                    >
+                      <Textarea
+                        id="body"
+                        ref={bodyRef}
+                        value={body}
+                        onChange={(e) => { setBody(e.target.value); scheduleDebouncedSnapshot(); }}
+                        onBlur={() => pushBodySnapshot()}
+                        onScroll={handleBodyScroll}
+                        onKeyDown={(e) => {
+                          const isMeta = e.ctrlKey || e.metaKey;
+                          if (isMeta && (e.key === "z" || e.key === "Z")) { e.preventDefault(); restoreUndo(); }
+                          else if (isMeta && (e.key === "b" || e.key === "B")) { e.preventDefault(); toggleWrap("**", true); }
+                          else if (isMeta && (e.key === "i" || e.key === "I")) { e.preventDefault(); toggleWrap("*", true); }
+                          else if (e.altKey && e.key === "1") { e.preventDefault(); toggleHeading(1); }
+                          else if (e.altKey && e.key === "2") { e.preventDefault(); toggleHeading(2); }
+                          else if (e.altKey && e.key === "3") { e.preventDefault(); toggleHeading(3); }
+                        }}
+                        placeholder="# Titre\n\nVotre article en Markdown"
+                        rows={12}
+                        className="resize-none"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Astuce&nbsp;: glissez-déposez une image ici pour l’insérer automatiquement au format Markdown avec une data URL.
+                      </p>
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      Vous pouvez insérer des images avec la syntaxe Markdown&nbsp;
-                      <code>![Texte alternatif](/images/mon-image.jpg)</code> ou <code>![Texte alternatif](https://exemple.com/image.jpg)</code>.
-                      Les fichiers locaux insérés via l’éditeur apparaissent sous la forme <code>![Texte](local:…)</code> pour l’aperçu;
-                      remplacez ces marqueurs par des URLs publiques avant publication afin qu’elles s’affichent sur le site.
+                      Vous pouvez aussi écrire manuellement <code>![Texte alternatif](https://exemple.com/image.jpg)</code> ou coller une
+                      data URL si besoin.
                     </p>
                     <p className="text-xs text-muted-foreground text-right">{body.length} caractères</p>
                     {errors.body && <p className="text-sm text-red-600 mt-1">{errors.body}</p>}
@@ -1326,27 +1269,27 @@ const handleClearAll = useCallback(() => {
                             placeholder="Description de l’image"
                           />
                         </div>
-                        <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={imageMode === "url" ? "default" : "ghost"}
-                            className="rounded-full px-3"
-                            onClick={() => setImageMode("url")}
-                          >
-                            Lien (URL)
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={imageMode === "local" ? "default" : "ghost"}
-                            className="rounded-full px-3"
-                            onClick={() => setImageMode("local")}
-                          >
-                            Image locale (aperçu)
-                          </Button>
-                        </div>
-                        {imageMode === "url" ? (
+                    <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={imageMode === "url" ? "default" : "ghost"}
+                        className="rounded-full px-3"
+                        onClick={() => setImageMode("url")}
+                      >
+                        Lien (URL)
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={imageMode === "upload" ? "default" : "ghost"}
+                        className="rounded-full px-3"
+                        onClick={() => setImageMode("upload")}
+                      >
+                        Fichier (data URL)
+                      </Button>
+                    </div>
+                    {imageMode === "url" ? (
                           <div className="space-y-2">
                             <Label htmlFor="imgUrl">URL de l’image</Label>
                             <Input
@@ -1360,9 +1303,9 @@ const handleClearAll = useCallback(() => {
                               L’image sera visible sur le site public tant que ce lien reste valide.
                             </p>
                           </div>
-                        ) : (
+                    ) : (
                           <div className="space-y-2">
-                            <Label htmlFor="imgFile">Image locale (aperçu uniquement)</Label>
+                        <Label htmlFor="imgFile">Depuis un fichier (converti en data URL)</Label>
                             <Input
                               id="imgFile"
                               type="file"
@@ -1370,8 +1313,7 @@ const handleClearAll = useCallback(() => {
                               onChange={(e) => setImageFile(e.target.files?.[0] || null)}
                             />
                             <p className="text-xs text-muted-foreground">
-                              Cette image apparaît uniquement dans l’aperçu de l’éditeur. Vous pourrez la remplacer par un lien public
-                              si vous souhaitez qu’elle soit publiée.
+                          L’image est intégrée directement dans le Markdown via une data URL et sera publiée telle quelle.
                             </p>
                           </div>
                         )}
@@ -1674,7 +1616,6 @@ const handleClearAll = useCallback(() => {
                     <ArticleContent
                       body={body || ""}
                       sources={sources}
-                      localMap={localImages}
                     />
                   </div>
                 </div>
