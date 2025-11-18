@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { fetchLeads, deleteLead } from "@/lib/inboxClient";
 import { getAdminToken } from "@/lib/adminSession";
@@ -24,11 +25,54 @@ const formatter = new Intl.DateTimeFormat("fr-FR", {
   timeStyle: "short",
 });
 
+const META_KEY_LABELS: Record<string, string> = {
+  company: "Entreprise",
+  city: "Ville",
+  projectType: "Type de projet",
+  budget: "Budget",
+  deadline: "Délai",
+  phone: "Téléphone",
+  service: "Service",
+  services: "Services",
+};
+
+const MESSAGE_PREVIEW_MAX = 110;
+
+function formatMetaKey(key: string) {
+  if (META_KEY_LABELS[key]) return META_KEY_LABELS[key];
+  return key
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function truncateText(value: string, max = MESSAGE_PREVIEW_MAX) {
+  if (value.length <= max) return value;
+  return `${value.slice(0, max).trimEnd()}…`;
+}
+
+function formatMessagePreview(lead: Lead): string {
+  const trimmedMessage = lead.message?.trim();
+  if (trimmedMessage) {
+    return truncateText(trimmedMessage);
+  }
+  const metaEntries = lead.meta && typeof lead.meta === "object"
+    ? Object.entries(lead.meta)
+        .filter(([, val]) => val !== undefined && val !== null && String(val).trim().length > 0)
+        .map(([key, val]) => `${formatMetaKey(key)}: ${String(val)}`)
+    : [];
+  if (metaEntries.length > 0) {
+    return truncateText(metaEntries.slice(0, 3).join(" • "));
+  }
+  return "(Aucun message)";
+}
+
 const AdminInbox = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filter, setFilter] = useState<LeadFilter>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
   const adminToken = getAdminToken();
 
@@ -147,15 +191,15 @@ const AdminInbox = () => {
                           </a>
                         )}
                       </TableCell>
-                      <TableCell className="align-top text-sm text-muted-foreground">
-                        <p className="whitespace-pre-wrap break-words">
-                          {lead.message || "—"}
-                        </p>
-                        {lead.meta && (
-                          <p className="mt-2 text-xs text-muted-foreground break-words">
-                            {JSON.stringify(lead.meta)}
-                          </p>
-                        )}
+                      <TableCell className="align-top">
+                        <div className="flex items-start gap-3">
+                          <span className="line-clamp-2 text-sm text-muted-foreground">
+                            {formatMessagePreview(lead)}
+                          </span>
+                          <Button variant="outline" size="sm" onClick={() => setSelectedLead(lead)}>
+                            Voir
+                          </Button>
+                        </div>
                       </TableCell>
                       <TableCell className="align-top text-right">
                         <Button variant="ghost" size="sm" onClick={() => handleDelete(lead.id)}>
@@ -171,6 +215,8 @@ const AdminInbox = () => {
         </CardContent>
       </Card>
 
+      <LeadDetailsDialog lead={selectedLead} onClose={() => setSelectedLead(null)} />
+
       <div className="text-sm text-muted-foreground">
         Les demandes sont stockées dans <code>content/inbox/leads.json</code>. Supprimer une ligne la retire
         également de cette archive.
@@ -181,4 +227,86 @@ const AdminInbox = () => {
 
 export default AdminInbox;
 
+type LeadDetailsDialogProps = {
+  lead: Lead | null;
+  onClose: () => void;
+};
 
+function LeadDetailsDialog({ lead, onClose }: LeadDetailsDialogProps) {
+  return (
+    <Dialog open={!!lead} onOpenChange={(open) => {
+      if (!open) onClose();
+    }}>
+      <DialogContent className="max-w-xl">
+        {lead && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Détails de la demande</DialogTitle>
+              <DialogDescription>
+                {LEAD_CATEGORY_LABELS[lead.category]} • {formatter.format(new Date(lead.createdAt))}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 text-sm">
+              <DetailRow label="Nom complet" value={lead.name || "—"} />
+              <DetailRow
+                label="Email"
+                value={
+                  lead.email
+                    ? <a href={`mailto:${lead.email}`} className="text-primary underline">{lead.email}</a>
+                    : "—"
+                }
+              />
+              <DetailRow label="Source" value={<span className="text-muted-foreground">{lead.source}</span>} />
+              <div>
+                <div className="font-medium">Message</div>
+                <div className="mt-1 whitespace-pre-wrap rounded-md border bg-muted/50 px-3 py-2 text-sm">
+                  {lead.message?.trim() || "—"}
+                </div>
+              </div>
+              <LeadMetaBlock meta={lead.meta} />
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={onClose}>
+                Fermer
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <div className="font-medium">{label}</div>
+      <div>{value}</div>
+    </div>
+  );
+}
+
+function LeadMetaBlock({ meta }: { meta?: Record<string, unknown> }) {
+  if (!meta || Object.keys(meta).length === 0) {
+    return null;
+  }
+  return (
+    <div>
+      <div className="font-medium">Détails supplémentaires</div>
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {Object.entries(meta).map(([key, value]) => (
+          <div key={key} className="rounded-md border bg-muted/30 px-3 py-2">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {formatMetaKey(key)}
+            </div>
+            <div className="mt-1 break-words whitespace-pre-wrap text-sm font-medium">
+              {typeof value === "object" && value !== null ? JSON.stringify(value, null, 2) : String(value)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
