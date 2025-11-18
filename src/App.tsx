@@ -21,6 +21,7 @@ import NotFound from "./pages/NotFound";
 import LegalMentions from "./pages/LegalMentions";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
+import ReviewsPage from "./pages/ReviewsPage";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ const App = () => (
             <Route path="/a-propos" element={<About />} />
             <Route path="/services" element={<Services />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/avis" element={<ReviewsPage />} />
             <Route path="/mentions-legales" element={<LegalMentions />} />
             <Route path="/politique-de-confidentialite" element={<Privacy />} />
             <Route path="/conditions-dutilisation" element={<Terms />} />

@@ -15,6 +15,7 @@ export const site = {
     aPropos: "À propos",
     services: "Services & Partenariats",
     contact: "Contact",
+    avis: "Avis",
     thematiques: "Thématiques",
   },
   categories: {

@@ -44,6 +44,12 @@ const Navigation = () => {
               {site.nav.services}
             </Link>
             <Link
+              to="/avis"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {site.nav.avis}
+            </Link>
+            <Link
               to="/contact"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
@@ -81,6 +87,12 @@ const Navigation = () => {
                 </Link>
                 <Link to="/services" className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2">
                   {site.nav.services}
+                </Link>
+                <Link
+                  to="/avis"
+                  className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2"
+                >
+                  {site.nav.avis}
                 </Link>
                 <Link
                   to="/contact"
