@@ -121,11 +121,12 @@ const AdminNew = () => {
   const [lastRequest, setLastRequest] = useState<any>(null);
   const [lastResponse, setLastResponse] = useState<any>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
-  const [coverFileUrl, setCoverFileUrl] = useState<string | null>(null);
+  const [localCoverPreview, setLocalCoverPreview] = useState<string | null>(null);
   const saveDraftTimerRef = useRef<number | null>(null);
-  // Multiple local images for preview only
-  const [localAssets, setLocalAssets] = useState<{ id: number; file: File; url: string; alt?: string }[]>([]);
+  // Local images for preview-only rendering
+  const [localImages, setLocalImages] = useState<Record<string, string>>({});
   const nextLocalIdRef = useRef<number>(1);
+  const blobUrlsRef = useRef<Set<string>>(new Set());
   const manualReadingOverrideRef = useRef(false);
   const [readingMinutes, setReadingMinutes] = useState<number>(() => estimateMinutes(`${excerpt}\n\n${body}`));
   const [sourcesText, setSourcesText] = useState("");
@@ -153,8 +154,68 @@ const AdminNew = () => {
   const [imgUrl, setImgUrl] = useState("");
   const [imgAlign, setImgAlign] = useState<"left" | "right" | "full">("full");
   const [imgFile, setImgFile] = useState<File | null>(null);
-  // Map of image src -> blob url for immediate preview
-  const [previewImageMap, setPreviewImageMap] = useState<Record<string, string>>({});
+
+  const registerBlobUrl = useCallback((url: string | null) => {
+    if (!url || !url.startsWith("blob:")) return;
+    blobUrlsRef.current.add(url);
+  }, []);
+
+  const revokeBlobUrl = useCallback((url?: string | null) => {
+    if (!url || !url.startsWith("blob:")) return;
+    try {
+      URL.revokeObjectURL(url);
+    } catch {
+      // ignore
+    }
+    blobUrlsRef.current.delete(url);
+  }, []);
+
+  const clearLocalPreviews = useCallback(() => {
+    setLocalCoverPreview((prev) => {
+      if (prev) revokeBlobUrl(prev);
+      return null;
+    });
+    setLocalImages((prev) => {
+      Object.values(prev).forEach((src) => revokeBlobUrl(src));
+      return {};
+    });
+  }, [revokeBlobUrl]);
+
+  const addLocalImages = (list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    const updates: Record<string, string> = {};
+    Array.from(list).forEach((file) => {
+      const id = `local:${Date.now().toString(36)}-${nextLocalIdRef.current++}`;
+      const objectUrl = URL.createObjectURL(file);
+      registerBlobUrl(objectUrl);
+      updates[id] = objectUrl;
+    });
+    if (Object.keys(updates).length > 0) {
+      setLocalImages((prev) => ({ ...prev, ...updates }));
+    }
+  };
+
+  const removeLocalImage = (id: string) => {
+    setLocalImages((prev) => {
+      if (!(id in prev)) return prev;
+      const { [id]: removed, ...rest } = prev;
+      revokeBlobUrl(removed);
+      return rest;
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      blobUrlsRef.current.forEach((url) => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {
+          // ignore
+        }
+      });
+      blobUrlsRef.current.clear();
+    };
+  }, []);
 
   // Centralized helper to apply either a clean slate, a saved draft, or an existing article.
   const applySnapshot = useCallback(
@@ -210,17 +271,15 @@ const AdminNew = () => {
       setSchemaType(snapshot?.schemaType ?? "Article");
       setSourcesText(Array.isArray(snapshot?.sources) ? snapshot.sources.join("\n") : "");
       setSearchAliasesText(Array.isArray(snapshot?.searchAliases) ? snapshot.searchAliases.join("\n") : "");
-      setCoverFileUrl(null);
+      clearLocalPreviews();
       setImageDialogOpen(false);
       setImgAlt("");
       setImgUrl("");
       setImgAlign("full");
       setImgFile(null);
-      setPreviewImageMap({});
-      setLocalAssets([]);
       manualReadingOverrideRef.current = false;
     },
-    [],
+    [clearLocalPreviews],
   );
 
   const snapshotFromPost = useCallback(
@@ -272,12 +331,6 @@ const AdminNew = () => {
     bodyRef.current.style.height = "auto";
     bodyRef.current.style.height = bodyRef.current.scrollHeight + "px";
   }, [body]);
-
-  useEffect(() => {
-    return () => {
-      if (coverFileUrl) URL.revokeObjectURL(coverFileUrl);
-    };
-  }, [coverFileUrl]);
 
   // Reset or hydrate when switching modes / slug changes
   useEffect(() => {
@@ -770,23 +823,24 @@ const AdminNew = () => {
     });
   }
 
-  function insertAtCaret(snippet: string) {
-    const ta = bodyRef.current;
-    if (!ta) {
-      setBody((prev) => `${prev ?? ""}${snippet}`);
+  function insertIntoBodyAtCursor(snippet: string) {
+    const textarea = bodyRef.current;
+    if (!textarea) {
+      setBody((prev) => `${prev}${snippet}`);
       return;
     }
     pushBodySnapshot();
-    const value = body;
-    const a = ta.selectionStart ?? value.length;
-    const b = ta.selectionEnd ?? value.length;
-    const next = value.slice(0, a) + snippet + value.slice(b);
+    const value = textarea.value ?? body;
+    const start = textarea.selectionStart ?? value.length;
+    const end = textarea.selectionEnd ?? value.length;
+    const next = value.slice(0, start) + snippet + value.slice(end);
     setBody(next);
     requestAnimationFrame(() => {
-      if (!bodyRef.current) return;
-      const pos = a + snippet.length;
-      bodyRef.current.focus();
-      bodyRef.current.setSelectionRange(pos, pos);
+      const ta = bodyRef.current;
+      if (!ta) return;
+      const cursor = start + snippet.length;
+      ta.focus();
+      ta.setSelectionRange(cursor, cursor);
     });
   }
 
@@ -798,46 +852,44 @@ const AdminNew = () => {
     setImageDialogOpen(true);
   }
 
-  async function confirmInsertImage() {
-    try {
-      let resolvedSrc = imgUrl.trim();
-      let previewBlobUrl: string | undefined;
+  function confirmInsertImage() {
+    const trimmedUrl = imgUrl.trim();
+    let resolvedSrc: string | null = null;
 
-      if (!resolvedSrc && imgFile) {
-        previewBlobUrl = URL.createObjectURL(imgFile);
-        const targetSlug = slug || slugify(title) || "article";
-        resolvedSrc = await doUploadImage(targetSlug, imgFile);
-        if (previewBlobUrl && resolvedSrc) {
-          const blob = previewBlobUrl;
-          const finalPath = resolvedSrc;
-          setPreviewImageMap((prev) => ({ ...prev, [finalPath]: blob }));
-        }
-      }
-
-      if (!resolvedSrc) {
-        toast.error("Fournissez une URL ou un fichier.");
-        return;
-      }
-
-      const safeAlt = imgAlt.trim().replace(/[\[\]]/g, "") || "Image";
-      const alignmentHint =
-        imgAlign === "left" ? " <!-- align:left -->" : imgAlign === "right" ? " <!-- align:right -->" : "";
-      const markdown = `![${safeAlt}](${resolvedSrc})${alignmentHint}`;
-
-      insertAtCaret(`\n\n${markdown}\n\n`);
-      setImageDialogOpen(false);
-      setImgAlt("");
-      setImgUrl("");
-      setImgFile(null);
-      setImgAlign("full");
-    } catch (e: any) {
-      toast.error(String(e?.message || e));
+    if (imgFile) {
+      const id = `local:${Date.now().toString(36)}-${nextLocalIdRef.current++}`;
+      const objectUrl = URL.createObjectURL(imgFile);
+      registerBlobUrl(objectUrl);
+      setLocalImages((prev) => ({ ...prev, [id]: objectUrl }));
+      resolvedSrc = id;
+    } else if (trimmedUrl.length > 0) {
+      resolvedSrc = trimmedUrl;
     }
+
+    if (!resolvedSrc) {
+      toast.error("Fournissez une URL ou un fichier.");
+      return;
+    }
+
+    const safeAlt = imgAlt.trim().replace(/[\[\]]/g, "") || "Image";
+    let markdown = `![${safeAlt}](${resolvedSrc})`;
+    if (imgAlign === "left") {
+      markdown = `${markdown}{.align-left}`;
+    } else if (imgAlign === "right") {
+      markdown = `${markdown}{.align-right}`;
+    }
+
+    insertIntoBodyAtCursor(`\n\n${markdown}\n\n`);
+    setImageDialogOpen(false);
+    setImgAlt("");
+    setImgUrl("");
+    setImgFile(null);
+    setImgAlign("full");
   }
 
   function insertRefMark() {
     const n = refCounter.current++;
-    insertAtCaret(`[^${n}]`);
+    insertIntoBodyAtCursor(`[^${n}]`);
     if (!new RegExp(`^\\[\\^?${n}\\]`, "m").test(sourcesText)) {
       const extra = window.prompt("Source text (optionnel)", "") || "";
       setSourcesText((prev) => `${prev}${prev ? "\n" : ""}[${n}] ${extra}`);
@@ -938,6 +990,10 @@ const handleClearAll = useCallback(() => {
   toast.success("Le formulaire a été réinitialisé.");
 }, [applySnapshot, removeDraft]);
 
+  const normalizedCover = cover.trim();
+  const coverPreview = normalizedCover.length > 0 ? normalizedCover : localCoverPreview;
+  const localImageEntries = Object.entries(localImages);
+
   return (
     <div className="min-h-screen bg-background">
       <section className="py-10 md:py-16">
@@ -1023,13 +1079,24 @@ const handleClearAll = useCallback(() => {
 
                   <div className="space-y-2">
                     <Label htmlFor="cover">Image de couverture (URL)</Label>
-                    <Input id="cover" value={cover} onChange={(e) => setCover(e.target.value)} placeholder="https://…" />
+                    <Input
+                      id="cover"
+                      value={cover}
+                      onChange={(e) => {
+                        setCover(e.target.value);
+                        if (localCoverPreview) {
+                          revokeBlobUrl(localCoverPreview);
+                          setLocalCoverPreview(null);
+                        }
+                      }}
+                      placeholder="https://…"
+                    />
                     {errors.cover && <p className="text-sm text-red-600 mt-1">{errors.cover}</p>}
-                    {cover && (
+                    {coverPreview && (
                       <div className="mt-3 rounded-xl overflow-hidden border bg-muted/40">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={cover}
+                          src={coverPreview}
                           alt={`Prévisualisation de l'image de couverture pour ${title || "l'article"}`}
                           loading="lazy"
                           className="w-full h-48 object-cover"
@@ -1038,66 +1105,69 @@ const handleClearAll = useCallback(() => {
                     )}
                     <div className="pt-2">
                       <Label htmlFor="coverFile">ou Fichier local (aperçu uniquement)</Label>
-                      <Input id="coverFile" type="file" accept="image/*" onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (!f) { setCoverFileUrl(null); return; }
-                        const url = URL.createObjectURL(f);
-                        setCoverFileUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return url; });
-                      }} />
-                      <p className="text-sm text-muted-foreground mt-1">Aperçu local uniquement. Pour publier, fournissez une URL d’image accessible.</p>
-                    </div>
-                    {/* Multiple local images for preview only */}
-                    <div className="pt-4">
-                      <Label htmlFor="localAssets">Images locales (aperçu uniquement)</Label>
                       <Input
-                        id="localAssets"
+                        id="coverFile"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          if (!file) return;
+                          if (localCoverPreview) {
+                            revokeBlobUrl(localCoverPreview);
+                          }
+                          const objectUrl = URL.createObjectURL(file);
+                          registerBlobUrl(objectUrl);
+                          setLocalCoverPreview(objectUrl);
+                          e.target.value = "";
+                        }}
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Aperçu local uniquement. Pour publier, fournissez une URL d’image accessible.
+                      </p>
+                    </div>
+                    <div className="pt-4">
+                      <Label htmlFor="localImagesInput">Images locales (aperçu uniquement)</Label>
+                      <Input
+                        id="localImagesInput"
                         type="file"
                         accept="image/*"
                         multiple
                         onChange={(e) => {
-                          const files = Array.from(e.target.files || []);
-                          if (files.length === 0) return;
-                          const items = files.map((file) => {
-                            const id = nextLocalIdRef.current++;
-                            const url = URL.createObjectURL(file);
-                            return { id, file, url };
-                          });
-                          setLocalAssets((prev) => [...prev, ...items]);
+                          addLocalImages(e.target.files);
                           e.currentTarget.value = "";
                         }}
                       />
-                      {localAssets.length > 0 && (
-                        <div className="mt-2 grid grid-cols-3 gap-2">
-                          {localAssets.map((a) => (
-                            <div key={a.id} className="border rounded p-2 flex flex-col gap-2 items-stretch">
+                      {localImageEntries.length > 0 && (
+                        <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {localImageEntries.map(([id, src]) => (
+                            <div key={id} className="rounded-xl border bg-muted/40 p-2 space-y-2">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={a.url} alt={a.alt || "image locale"} className="w-full h-20 object-cover rounded" />
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => {
-                                  const ta = bodyRef.current;
-                                  if (!ta) return;
-                                  pushBodySnapshot();
-                                  const start = ta.selectionStart ?? 0;
-                                  const end = ta.selectionEnd ?? start;
-                                  const token = `![${a.alt || ""}](local:${a.id})`;
-                                  const next = body.slice(0, start) + token + body.slice(end);
-                                  setBody(next);
-                                  requestAnimationFrame(() => {
-                                    ta.focus();
-                                    ta.setSelectionRange(start + token.length, start + token.length);
-                                  });
-                                }}
-                              >
-                                Insérer
-                              </Button>
+                              <img src={src} alt={id} className="w-full h-24 object-cover rounded-lg" />
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => insertIntoBodyAtCursor(`\n\n![Image locale](${id})\n\n`)}
+                                >
+                                  Insérer dans le corps
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => removeLocalImage(id)}
+                                >
+                                  Retirer
+                                </Button>
+                              </div>
                             </div>
                           ))}
                         </div>
                       )}
-                      <p className="text-xs text-muted-foreground mt-1">Utilisez le bouton « Insérer » pour référencer l’image dans le corps avec <code>local:&lt;id&gt;</code>.</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Ces images restent locales à l’éditeur et servent uniquement à la prévisualisation.
+                      </p>
                     </div>
                   </div>
 
@@ -1466,20 +1536,16 @@ const handleClearAll = useCallback(() => {
                       </div>
                     )}
                     {excerpt && <p className="mb-4 text-foreground">{excerpt}</p>}
-                    {(coverFileUrl || cover) && (
+                    {coverPreview && (
                       <div className="aspect-[16/9] rounded-2xl overflow-hidden bg-muted mb-6">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={coverFileUrl || cover} alt="Couverture" className="w-full h-full object-cover" />
+                        <img src={coverPreview} alt="Couverture" className="w-full h-full object-cover" />
                       </div>
                     )}
                     <ArticleContent
                       body={body || ""}
                       sources={sources}
-                      localMap={useMemo(() => {
-                        const m: Record<string, string> = { ...previewImageMap };
-                        for (const a of localAssets) m[`local:${a.id}`] = a.url;
-                        return m;
-                      }, [localAssets, previewImageMap])}
+                      localMap={localImages}
                     />
                   </div>
                 </div>
