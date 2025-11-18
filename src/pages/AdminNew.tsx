@@ -166,16 +166,6 @@ const AdminNew = () => {
   const [imageAlt, setImageAlt] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [imageAlignment, setImageAlignment] = useState<"left" | "right" | "full">("full");
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imageMode, setImageMode] = useState<"url" | "upload">("url");
-
-  useEffect(() => {
-    if (imageMode === "url") {
-      setImageFile(null);
-    } else {
-      setImageUrl("");
-    }
-  }, [imageMode]);
 
   // Centralized helper to apply either a clean slate, a saved draft, or an existing article.
   const applySnapshot = useCallback(
@@ -235,7 +225,6 @@ const AdminNew = () => {
       setImageAlt("");
       setImageUrl("");
       setImageAlignment("full");
-      setImageFile(null);
       manualReadingOverrideRef.current = false;
     },
     [],
@@ -811,35 +800,19 @@ const AdminNew = () => {
   function openImageDialog() {
     setImageAlt("");
     setImageUrl("");
-    setImageFile(null);
     setImageAlignment("full");
-    setImageMode("url");
     setImageDialogOpen(true);
   }
 
   async function handleInsertImage() {
     let resolvedSrc: string | null = null;
 
-    if (imageMode === "url") {
-      const trimmedUrl = imageUrl.trim();
-      if (!trimmedUrl) {
-        toast.error("Indiquez une URL d’image.");
-        return;
-      }
-      resolvedSrc = trimmedUrl;
-    } else {
-      if (!imageFile) {
-        toast.error("Sélectionnez un fichier ou passez en mode URL.");
-        return;
-      }
-      try {
-        resolvedSrc = await fileToDataUrl(imageFile);
-      } catch (error) {
-        console.error(error);
-        toast.error("Impossible de convertir cette image.");
-        return;
-      }
+    const trimmedUrl = imageUrl.trim();
+    if (!trimmedUrl) {
+      toast.error("Indiquez une URL d’image.");
+      return;
     }
+    resolvedSrc = trimmedUrl;
 
     const safeAlt = imageAlt.trim().replace(/[\[\]]/g, "") || "Image";
     let markdown = `![${safeAlt}](${resolvedSrc})`;
@@ -854,9 +827,7 @@ const AdminNew = () => {
     setImageDialogOpen(false);
     setImageAlt("");
     setImageUrl("");
-    setImageFile(null);
     setImageAlignment("full");
-    setImageMode("url");
   }
 
   function insertRefMark() {
@@ -1215,54 +1186,19 @@ const handleClearAll = useCallback(() => {
                             placeholder="Description de l’image"
                           />
                         </div>
-                    <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={imageMode === "url" ? "default" : "ghost"}
-                        className="rounded-full px-3"
-                        onClick={() => setImageMode("url")}
-                      >
-                        Lien (URL)
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={imageMode === "upload" ? "default" : "ghost"}
-                        className="rounded-full px-3"
-                        onClick={() => setImageMode("upload")}
-                      >
-                        Fichier (data URL)
-                      </Button>
+                    <div className="space-y-2">
+                      <Label htmlFor="imgUrl">URL de l’image</Label>
+                      <Input
+                        id="imgUrl"
+                        type="url"
+                        value={imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                        placeholder="https://…"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Collez une URL (hébergeur public) pour insérer l’image dans votre Markdown.
+                      </p>
                     </div>
-                    {imageMode === "url" ? (
-                          <div className="space-y-2">
-                            <Label htmlFor="imgUrl">URL de l’image</Label>
-                            <Input
-                              id="imgUrl"
-                              type="url"
-                              value={imageUrl}
-                              onChange={(e) => setImageUrl(e.target.value)}
-                              placeholder="https://…"
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              L’image sera visible sur le site public tant que ce lien reste valide.
-                            </p>
-                          </div>
-                    ) : (
-                          <div className="space-y-2">
-                        <Label htmlFor="imgFile">Depuis un fichier (converti en data URL)</Label>
-                            <Input
-                              id="imgFile"
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                          L’image est intégrée directement dans le Markdown via une data URL et sera publiée telle quelle.
-                            </p>
-                          </div>
-                        )}
                         <div className="space-y-2">
                           <Label>Alignement</Label>
                           <div className="flex gap-2">

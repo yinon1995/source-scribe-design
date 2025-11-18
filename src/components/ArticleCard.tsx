@@ -38,7 +38,7 @@ const ArticleCard = ({ title, excerpt, image, category, readTime, slug, tags, fe
               {featured && (
                 <span className="inline-flex items-center gap-1 text-amber-500 text-xs font-semibold uppercase tracking-wide">
                   <Star className="h-3.5 w-3.5 fill-current" aria-hidden />
-                  <span>En avant</span>
+                  <span>Recommandé</span>
                 </span>
               )}
               <Badge variant="secondary" className="rounded-full px-3 py-1">
