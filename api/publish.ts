@@ -44,6 +44,8 @@ type Article = {
   featured?: boolean;
 };
 
+const MAX_ARTICLE_BODY_LENGTH = 2_000_000;
+
 function normalizeImageUrl(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
@@ -422,7 +424,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         article.category = normalizedCategory;
       }
     }
-    if (!article.body || String(article.body).trim().length < 50) fieldErrors.body = "Le contenu est trop court.";
+    const bodyValue = typeof article.body === "string" ? article.body : "";
+    const trimmedBodyValue = bodyValue.trim();
+    if (!trimmedBodyValue || trimmedBodyValue.length < 50) {
+      fieldErrors.body = "Le contenu est trop court.";
+    } else if (bodyValue.length > MAX_ARTICLE_BODY_LENGTH) {
+      fieldErrors.body = `Le contenu est trop long (max ${MAX_ARTICLE_BODY_LENGTH} caractères).`;
+    } else {
+      article.body = bodyValue;
+    }
     if (article.date) {
       const d = new Date(article.date);
       if (isNaN(d.getTime())) fieldErrors.date = "La date n’est pas valide.";

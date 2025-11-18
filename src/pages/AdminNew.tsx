@@ -814,7 +814,8 @@ const AdminNew = () => {
       return;
     }
 
-    const safeAlt = imageAlt.trim().replace(/[\[\]]/g, "") || "Image";
+    const trimmedAlt = imageAlt.trim();
+    const safeAlt = trimmedAlt.replace(/[\[\]]/g, "") || "Image";
     let markdown = `![${safeAlt}](${imageDataUrl})`;
     if (imageAlignment === "left") {
       markdown = `${markdown}{.align-left}`;
@@ -822,10 +823,11 @@ const AdminNew = () => {
       markdown = `${markdown}{.align-right}`;
     }
 
-    const captionText = imageAlt.trim();
-    const captionBlock = captionText ? `\n\n_${captionText}_` : "";
-    const insertText = `\n\n${markdown}${captionBlock}\n\n`;
-    insertIntoBodyAtCursor(insertText);
+    if (trimmedAlt) {
+      markdown = `${markdown}\n\n_${trimmedAlt}_`;
+    }
+
+    insertIntoBodyAtCursor(markdown);
     setImageDialogOpen(false);
     setImageAlt("");
     setImageDataUrl(null);
