@@ -1,14 +1,14 @@
 import Footer from "@/components/Footer";
+import TestimonialsSection from "@/components/TestimonialsSection";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Camera, Sparkles, Mail } from "lucide-react";
+import { FileText, Camera, Sparkles, Mail, Star } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { createLead } from "@/lib/inboxClient";
 
 const Services = () => {
@@ -67,8 +67,6 @@ const Services = () => {
     }
   ];
 
-  const [testimonials, setTestimonials] = useState<{ message: string; nom: string; fonction_entreprise?: string }[]>([]);
-
   return (
     <div className="min-h-screen bg-background">
       <section className="py-20">
@@ -124,28 +122,11 @@ const Services = () => {
             </div>
           </div>
 
-          {/* Testimonials */}
-          <div className="mt-20 space-y-8">
-            <h2 className="text-3xl font-display font-bold text-foreground text-center">
-              Ils m'ont fait confiance
-            </h2>
-            {testimonials.length > 0 && (
-              <div className="grid md:grid-cols-3 gap-8">
-                {testimonials.map((t, i) => (
-                  <Card key={i} className="bg-card rounded-2xl border-border">
-                    <CardContent className="pt-6">
-                      <p className="text-muted-foreground italic mb-4">“{t.message}”</p>
-                      <p className="font-semibold text-foreground">— {t.nom}{t.fonction_entreprise ? `, ${t.fonction_entreprise}` : ""}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            <div className="max-w-2xl mx-auto">
-              <TestimonialDialog />
-            </div>
-          </div>
+          <TestimonialsSection
+            className="mt-20"
+            subtitle="Avis authentiques de commerces, artisans et partenaires."
+            ctaSlot={<TestimonialDialog />}
+          />
         </div>
       </section>
 
@@ -367,11 +348,14 @@ function QuoteDialog() {
 function TestimonialDialog() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [organisation, setOrganisation] = useState("");
+  const [company, setCompany] = useState("");
+  const [role, setRole] = useState("");
+  const [city, setCity] = useState("");
   const [email, setEmail] = useState("");
-  const [logoUrl, setLogoUrl] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
   const [message, setMessage] = useState("");
-  const [consent, setConsent] = useState(false);
+  const [rating, setRating] = useState(5);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -393,20 +377,26 @@ function TestimonialDialog() {
       email: email || undefined,
       message,
       meta: {
-        organisation: organisation || undefined,
-        logoUrl: logoUrl || undefined,
-        consent,
+        company: company || undefined,
+        role: role || undefined,
+        city: city || undefined,
+        rating,
+        avatarUrl: avatarUrl || undefined,
+        instagramUrl: instagramUrl || undefined,
       },
     });
     setLoading(false);
     if (result.success) {
-      toast({ title: "Merci pour votre témoignage !" });
+      toast({ title: "Merci ! Votre avis sera publié après validation." });
       setName("");
-      setOrganisation("");
+      setCompany("");
+      setRole("");
+      setCity("");
       setEmail("");
-      setLogoUrl("");
+      setAvatarUrl("");
+      setInstagramUrl("");
       setMessage("");
-      setConsent(false);
+      setRating(5);
       setSubmitted(false);
       setOpen(false);
       return;
@@ -429,7 +419,7 @@ function TestimonialDialog() {
           <DialogTitle>Proposer un témoignage</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="testi-name">Nom *</Label>
               <Input
@@ -451,28 +441,72 @@ function TestimonialDialog() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Facultatif mais utile pour répondre"
+                placeholder="Facultatif mais utile pour vous répondre"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="testi-org">Organisation</Label>
+              <Label htmlFor="testi-company">Entreprise</Label>
               <Input
-                id="testi-org"
-                value={organisation}
-                onChange={(e) => setOrganisation(e.target.value)}
+                id="testi-company"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
               />
             </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="testi-logo">URL (logo)</Label>
+            <div className="space-y-2">
+              <Label htmlFor="testi-role">Rôle / poste</Label>
               <Input
-                id="testi-logo"
+                id="testi-role"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="testi-city">Ville</Label>
+              <Input
+                id="testi-city"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Note *</Label>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <Button
+                    type="button"
+                    key={value}
+                    variant={value <= rating ? "default" : "outline"}
+                    size="icon"
+                    onClick={() => setRating(value)}
+                    aria-label={`${value} étoile${value > 1 ? "s" : ""}`}
+                  >
+                    <Star className={value <= rating ? "h-4 w-4 fill-background" : "h-4 w-4"} />
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="testi-avatar">Photo / avatar (URL)</Label>
+              <Input
+                id="testi-avatar"
                 type="url"
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
+                value={avatarUrl}
+                onChange={(e) => setAvatarUrl(e.target.value)}
+                placeholder="https://..."
               />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="testi-message">Message</Label>
+              <Label htmlFor="testi-insta">Lien Instagram</Label>
+              <Input
+                id="testi-insta"
+                type="url"
+                value={instagramUrl}
+                onChange={(e) => setInstagramUrl(e.target.value)}
+                placeholder="https://instagram.com/..."
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="testi-message">Message *</Label>
               <Textarea
                 id="testi-message"
                 required
@@ -485,12 +519,6 @@ function TestimonialDialog() {
                 <p id="testi-message-error" className="text-sm text-red-600">Message requis</p>
               )}
             </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <Checkbox id="testi-consent" checked={consent} onCheckedChange={(v) => setConsent(!!v)} />
-            <Label htmlFor="testi-consent" className="text-sm text-muted-foreground cursor-pointer">
-              autoriser la publication pour tous (visible)
-            </Label>
           </div>
           <DialogFooter>
             <Button type="submit" disabled={loading} className="rounded-full">

@@ -5,9 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import LeadMetaGrid from "@/components/admin/LeadMetaGrid";
 import { toast } from "@/hooks/use-toast";
 import { fetchLeads, deleteLead } from "@/lib/inboxClient";
 import { getAdminToken } from "@/lib/adminSession";
+import { formatLeadMessagePreview } from "@/lib/leadFormatting";
 import { ALL_LEAD_CATEGORIES, LEAD_CATEGORY_LABELS, type Lead, type LeadCategory } from "@/lib/inboxTypes";
 
 type LeadFilter = LeadCategory | "all";
@@ -24,48 +26,6 @@ const formatter = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "medium",
   timeStyle: "short",
 });
-
-const META_KEY_LABELS: Record<string, string> = {
-  company: "Entreprise",
-  city: "Ville",
-  projectType: "Type de projet",
-  budget: "Budget",
-  deadline: "Délai",
-  phone: "Téléphone",
-  service: "Service",
-  services: "Services",
-};
-
-const MESSAGE_PREVIEW_MAX = 110;
-
-function formatMetaKey(key: string) {
-  if (META_KEY_LABELS[key]) return META_KEY_LABELS[key];
-  return key
-    .replace(/[_-]+/g, " ")
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function truncateText(value: string, max = MESSAGE_PREVIEW_MAX) {
-  if (value.length <= max) return value;
-  return `${value.slice(0, max).trimEnd()}…`;
-}
-
-function formatMessagePreview(lead: Lead): string {
-  const trimmedMessage = lead.message?.trim();
-  if (trimmedMessage) {
-    return truncateText(trimmedMessage);
-  }
-  const metaEntries = lead.meta && typeof lead.meta === "object"
-    ? Object.entries(lead.meta)
-        .filter(([, val]) => val !== undefined && val !== null && String(val).trim().length > 0)
-        .map(([key, val]) => `${formatMetaKey(key)}: ${String(val)}`)
-    : [];
-  if (metaEntries.length > 0) {
-    return truncateText(metaEntries.slice(0, 3).join(" • "));
-  }
-  return "(Aucun message)";
-}
 
 const AdminInbox = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -194,7 +154,7 @@ const AdminInbox = () => {
                       <TableCell className="align-top">
                         <div className="flex items-start gap-3">
                           <span className="line-clamp-2 text-sm text-muted-foreground">
-                            {formatMessagePreview(lead)}
+                            {formatLeadMessagePreview(lead)}
                           </span>
                           <Button variant="outline" size="sm" onClick={() => setSelectedLead(lead)}>
                             Voir
@@ -264,7 +224,7 @@ function LeadDetailsDialog({ lead, onClose }: LeadDetailsDialogProps) {
                   {lead.message?.trim() || "—"}
                 </div>
               </div>
-              <LeadMetaBlock meta={lead.meta} />
+              <LeadMetaGrid meta={lead.meta} />
             </div>
 
             <DialogFooter>
@@ -284,29 +244,6 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
     <div className="space-y-1">
       <div className="font-medium">{label}</div>
       <div>{value}</div>
-    </div>
-  );
-}
-
-function LeadMetaBlock({ meta }: { meta?: Record<string, unknown> }) {
-  if (!meta || Object.keys(meta).length === 0) {
-    return null;
-  }
-  return (
-    <div>
-      <div className="font-medium">Détails supplémentaires</div>
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {Object.entries(meta).map(([key, value]) => (
-          <div key={key} className="rounded-md border bg-muted/30 px-3 py-2">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {formatMetaKey(key)}
-            </div>
-            <div className="mt-1 break-words whitespace-pre-wrap text-sm font-medium">
-              {typeof value === "object" && value !== null ? JSON.stringify(value, null, 2) : String(value)}
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

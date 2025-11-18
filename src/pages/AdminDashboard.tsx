@@ -62,6 +62,20 @@ const AdminDashboard = () => {
 								</Button>
 							</CardContent>
 						</Card>
+
+						<Card className="flex flex-col justify-between">
+							<CardHeader>
+								<CardTitle>Gérer les avis</CardTitle>
+							</CardHeader>
+							<CardContent className="flex flex-col gap-3">
+								<p className="text-sm text-muted-foreground">
+									Modérer les témoignages reçus et publier ceux approuvés.
+								</p>
+								<Button variant="outline" className="self-start" onClick={() => navigate("/admin/temoignages")}>
+									Accéder aux avis
+								</Button>
+							</CardContent>
+						</Card>
 					</div>
 				</div>
 			</main>

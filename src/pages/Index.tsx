@@ -4,6 +4,7 @@ import Hero from "@/components/Hero";
 import ArticleCard from "@/components/ArticleCard";
 import CategoryFilter from "@/components/CategoryFilter";
 import Footer from "@/components/Footer";
+import TestimonialsSection from "@/components/TestimonialsSection";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
@@ -135,6 +136,11 @@ const Index = () => {
           </div>
         </div>
       </section>
+
+      <TestimonialsSection
+        className="py-16 container mx-auto px-4"
+        subtitle="Retours d’expérience après nos collaborations éditoriales."
+      />
 
       <Footer />
     </div>
