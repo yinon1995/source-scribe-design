@@ -1,5 +1,15 @@
 [
   {
+    "category": "newsletter",
+    "source": "home-newsletter",
+    "email": "Yinoncoscas1995@gmail.com",
+    "meta": {
+      "path": "/"
+    },
+    "id": "551930fa-bd12-419a-bd72-777e92b4a7dd",
+    "createdAt": "2025-11-18T22:05:50.540Z"
+  },
+  {
     "category": "suggestion",
     "source": "hero-proposer-sujet",
     "email": "Yinoncoscas1995@gmail.com",
