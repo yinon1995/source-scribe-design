@@ -107,21 +107,21 @@ const AdminInbox = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <Tabs value={filter} onValueChange={(value) => setFilter(value as LeadFilter)}>
-              <TabsList className="flex flex-wrap justify-start gap-2">
-                {categoryFilters.map((option) => {
-                  const count = option.value === "all"
-                    ? leads.length
-                    : leads.filter((lead) => lead.category === option.value).length;
-                  return (
-                    <TabsTrigger key={option.value} value={option.value} className="text-sm">
-                      {option.label}
-                      <span className="ml-2 text-xs text-muted-foreground">({count})</span>
-                    </TabsTrigger>
-                  );
-                })}
-              </TabsList>
-            </Tabs>
+          <Tabs value={filter} onValueChange={(value) => setFilter(value as LeadFilter)}>
+            <TabsList className="flex flex-wrap justify-start gap-2">
+              {categoryFilters.map((option) => {
+                const count = option.value === "all"
+                  ? leads.length
+                  : leads.filter((lead) => lead.category === option.value).length;
+                return (
+                  <TabsTrigger key={option.value} value={option.value} className="text-sm">
+                    {option.label}
+                    <span className="ml-2 text-xs text-muted-foreground">({count})</span>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Tabs>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Période :</span>
               <Select value={timeFilter} onValueChange={(value) => setTimeFilter(value as TimeFilter)}>
