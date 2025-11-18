@@ -510,7 +510,7 @@ const AdminNew = () => {
     const allowed = new Set<NormalizedCategory>(CATEGORY_OPTIONS);
     if (!article.category || !allowed.has(article.category)) nextErrors.category = "La thématique est obligatoire.";
     if (!sanitizedSlug) nextErrors.slug = "Le slug ne peut contenir que des lettres, chiffres et tirets.";
-    if (!article.body || article.body.trim().length < 50) nextErrors.body = "Le contenu est trop court.";
+    if (!article.body || !article.body.trim()) nextErrors.body = "Le contenu de l’article est obligatoire.";
     if (!article.readingMinutes || article.readingMinutes < 1) nextErrors.readingMinutes = "Temps de lecture invalide.";
     // Block publish if body still contains preview-only local assets
     if (/\]\(local:[^)]+\)/.test(article.body)) {
@@ -629,21 +629,25 @@ const AdminNew = () => {
       setLastResponse({ status: res.status, body });
       const errorMessage = typeof body?.error === "string" ? body.error : undefined;
       if (res.status === 401) {
-        setServerError({ message: errorMessage || "Accès refusé — mot de passe administrateur invalide." });
+        const message401 = errorMessage || "Accès refusé — mot de passe administrateur invalide.";
+        setServerError({ message: message401 });
         if (!isEditing) {
           persistDraft(snapshotForPersist);
         }
-        console.error("[admin] Publication non autorisée", res.status, errorMessage || "Accès refusé — mot de passe administrateur invalide.", body);
+        toast.error(message401);
+        console.error("[admin] Publication non autorisée", res.status, message401, body);
         return;
       }
       if (res.status === 422) {
-        const fieldErrors = body?.errors || {};
+        const fieldErrors = body?.fieldErrors || body?.errors || {};
         setErrors((prev) => ({ ...prev, ...fieldErrors }));
-        setServerError({ message: errorMessage || "Champs invalides." });
+        const message422 = errorMessage || "Champs invalides.";
+        setServerError({ message: message422 });
         if (!isEditing) {
           persistDraft(snapshotForPersist);
         }
-        console.error("[admin] Erreur de validation publication", res.status, errorMessage || "Champs invalides.", body);
+        toast.error(message422);
+        console.error("[admin] Erreur de validation publication", res.status, message422, body);
         return;
       }
       if (!res.ok || !body?.success) {
@@ -659,6 +663,7 @@ const AdminNew = () => {
         if (!isEditing) {
           persistDraft(snapshotForPersist);
         }
+        toast.error(message);
         console.error("[admin] Publication échouée", res.status, message, body);
         return;
       }
@@ -678,10 +683,12 @@ const AdminNew = () => {
       window.setTimeout(() => navigate("/articles"), 75000);
       return;
     } catch (err: any) {
-      setServerError({ message: "Erreur réseau — réessayez." });
+      const networkMessage = "Erreur réseau — réessayez.";
+      setServerError({ message: networkMessage });
       if (!isEditing) {
         persistDraft(snapshotForPersist);
       }
+      toast.error(networkMessage);
       console.error("[admin] Erreur réseau publication", err);
     } finally {
       setSubmitting(false);

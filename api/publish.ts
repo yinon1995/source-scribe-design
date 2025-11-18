@@ -240,6 +240,15 @@ async function readJsonBody<T = Record<string, unknown>>(req: VercelRequest): Pr
   return parsed as T;
 }
 
+function sendValidationError(res: VercelResponse, fieldErrors: Record<string, string>) {
+  respond(res, 422, {
+    success: false,
+    error: "Certains champs sont invalides.",
+    fieldErrors,
+    errors: fieldErrors,
+  });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log("[publish] handler invoked", req.method);
 
@@ -397,18 +406,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Payload validation → 422 with structured field errors
-    const fieldErrors: { title?: string; slug?: string; category?: string; body?: string; date?: string } = {};
+    const fieldErrors: Record<string, string> = {};
     const allowedCategories = new Set(CATEGORY_OPTIONS);
     if (!article || typeof article !== "object") {
       console.warn("[publish] Invalid payload (not an object)");
-      respond(res, 422, {
-        success: false,
-        error: "Champs invalides.",
-        errors: {
-          title: "Le titre est obligatoire.",
-          slug: "Le slug ne peut contenir que des lettres, chiffres et tirets.",
-          body: "Le contenu est trop court.",
-        },
+      sendValidationError(res, {
+        title: "Le titre est obligatoire.",
+        slug: "Le slug ne peut contenir que des lettres, chiffres et tirets.",
+        body: "Le contenu de l’article est obligatoire.",
       });
       return;
     }
@@ -426,8 +431,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     const bodyValue = typeof article.body === "string" ? article.body : "";
     const trimmedBodyValue = bodyValue.trim();
-    if (!trimmedBodyValue || trimmedBodyValue.length < 50) {
-      fieldErrors.body = "Le contenu est trop court.";
+    if (!trimmedBodyValue) {
+      fieldErrors.body = "Le contenu de l’article est obligatoire.";
     } else if (bodyValue.length > MAX_ARTICLE_BODY_LENGTH) {
       fieldErrors.body = `Le contenu est trop long (max ${MAX_ARTICLE_BODY_LENGTH} caractères).`;
     } else {
@@ -438,7 +443,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (isNaN(d.getTime())) fieldErrors.date = "La date n’est pas valide.";
     }
     if (Object.keys(fieldErrors).length > 0) {
-      respond(res, 422, { success: false, error: "Champs invalides.", errors: fieldErrors });
+      sendValidationError(res, fieldErrors);
       return;
     }
 
@@ -446,11 +451,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const normalizedSlugInput = slugify(String(article.slug || article.title || ""));
     if (!normalizedSlugInput) {
-      respond(res, 422, {
-        success: false,
-        error: "Champs invalides.",
-        errors: { slug: "Slug manquant" },
-      });
+      sendValidationError(res, { slug: "Slug manquant" });
       return;
     }
     article.slug = normalizedSlugInput;
