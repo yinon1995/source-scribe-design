@@ -27,22 +27,24 @@ const About = () => {
             </div>
 
             <div className="space-y-6">
-            <div className="space-y-4">
-              <p className="text-muted-foreground leading-relaxed">
+              <div className="space-y-6 text-center">
+                <div className="space-y-4">
+                  <p className="text-muted-foreground leading-relaxed">
 Nolwenn, brestoise 100% beurre salé et rédactrice spécialisée en contenus pour l’événementiel, les différents lieux et commerces et l’univers de la beauté.
 Passionnée par la valorisation des expériences et des savoir-faire, j’aide les entreprises locales à mettre en lumière leur univers à travers des textes justes, vivants et modernes. Cela me tient à cœur de partager mon univers, ici à Brest, « À la Brestoise ».
-              </p>
-            </div>
+                  </p>
+                </div>
 
-              <div className="space-y-4">
-                <h3 className="text-xl font-display font-semibold text-foreground">
-                  Une approche exigeante
-                </h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Chaque article publié ici repose sur une recherche approfondie, des sources 
-                  vérifiées et une écriture claire. Mon objectif : vous offrir des contenus 
-                  informatifs qui vous aident vraiment dans vos choix.
-                </p>
+                <div className="space-y-4">
+                  <h3 className="text-xl font-display font-semibold text-foreground">
+                    Une approche exigeante
+                  </h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Chaque article publié ici repose sur une recherche approfondie, des sources 
+                    vérifiées et une écriture claire. Mon objectif : vous offrir des contenus 
+                    informatifs qui vous aident vraiment dans vos choix.
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-4">
