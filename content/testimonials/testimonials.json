@@ -1,19 +1,5 @@
 [
   {
-    "id": "2e2f9606-ca28-4fc6-8e2d-46ac2ef8c590",
-    "name": "yinon coscas",
-    "body": "hii you pretty girl",
-    "rating": 5,
-    "clientType": "Association",
-    "company": null,
-    "role": "Client particulier",
-    "city": "Even Yehuda",
-    "avatar": null,
-    "avatarUrl": null,
-    "sourceLeadId": "ede47f62-d85e-4635-b70d-20903cac79e7",
-    "createdAt": "2025-11-18T22:21:14.920Z"
-  },
-  {
     "name": "Yinon",
     "company": "Client particulier",
     "role": "Professeur particulier de mathématiques et de physique",
