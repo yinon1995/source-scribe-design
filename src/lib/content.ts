@@ -100,6 +100,19 @@ const jsonModules = import.meta.glob("/content/articles/*.json", {
   eager: true,
 }) as Record<string, any>;
 
+type ArticleIndexEntry = {
+  title?: string;
+  slug?: string;
+  category?: JsonArticleCategory | string;
+  tags?: string[];
+  cover?: string;
+  heroImage?: string;
+  excerpt?: string;
+  date?: string;
+  readingMinutes?: number;
+  featured?: boolean;
+};
+
 type FrontmatterParseResult = {
   data: Record<string, unknown>;
   content: string;
@@ -223,15 +236,78 @@ const markdownPosts: Post[] = Object.entries(markdownModules).map(([path, source
   };
 });
 
-const jsonArticles: JsonArticle[] = Object.values(jsonModules)
-  .map((mod) => (mod && typeof mod === "object" && "default" in mod ? mod.default : mod))
-  .filter((value): value is JsonArticle => Boolean(value && typeof value === "object"));
+function unwrapModuleValue(value: any) {
+  if (value && typeof value === "object" && "default" in value) {
+    return (value as { default: unknown }).default;
+  }
+  return value;
+}
+
+function isJsonArticle(value: any): value is JsonArticle {
+  return (
+    value &&
+    typeof value === "object" &&
+    typeof value.title === "string" &&
+    typeof value.slug === "string" &&
+    typeof value.body === "string"
+  );
+}
+
+const jsonArticles: JsonArticle[] = [];
+let articleIndexEntries: ArticleIndexEntry[] = [];
+
+for (const [path, mod] of Object.entries(jsonModules)) {
+  const value = unwrapModuleValue(mod);
+  if (path.endsWith("index.json")) {
+    if (Array.isArray(value)) {
+      articleIndexEntries = value as ArticleIndexEntry[];
+    }
+    continue;
+  }
+  if (isJsonArticle(value)) {
+    jsonArticles.push(value);
+  }
+}
 
 function normalizeImageSrc(value?: string | null): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
 }
+
+function mapIndexEntryToFrontmatter(entry: ArticleIndexEntry): PostFrontmatter | null {
+  if (!entry || typeof entry !== "object") return null;
+  const title = typeof entry.title === "string" ? entry.title.trim() : "";
+  const slug = typeof entry.slug === "string" ? entry.slug.trim() : "";
+  if (!title || !slug) return null;
+  const category = normalizeCategory(entry.category || DEFAULT_CATEGORY);
+  const tags = Array.isArray(entry.tags) ? entry.tags.map((tag) => String(tag)) : [];
+  const summary = typeof entry.excerpt === "string" ? entry.excerpt : "";
+  const heroImage = normalizeImageSrc(entry.cover) ?? normalizeImageSrc(entry.heroImage);
+  const date =
+    typeof entry.date === "string" && entry.date.trim().length > 0
+      ? entry.date.slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+  const readingMinutes =
+    typeof entry.readingMinutes === "number" && entry.readingMinutes > 0 ? entry.readingMinutes : undefined;
+
+  return {
+    title,
+    slug,
+    date,
+    category,
+    summary,
+    tags,
+    heroImage,
+    readingMinutes,
+    featured: entry.featured === true,
+    isJson: true,
+  };
+}
+
+const jsonIndexFrontmatters: PostFrontmatter[] = articleIndexEntries
+  .map((entry) => mapIndexEntryToFrontmatter(entry))
+  .filter((entry): entry is PostFrontmatter => Boolean(entry));
 
 const jsonPosts: Post[] = jsonArticles.map((ja) => {
   const date = ja.date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
@@ -277,9 +353,14 @@ const jsonPosts: Post[] = jsonArticles.map((ja) => {
 
 const posts: Post[] = [...markdownPosts, ...jsonPosts];
 
-export const postsIndex: PostFrontmatter[] = posts
-  .map(({ body, ...frontmatter }) => frontmatter)
-  .sort((a, b) => (a.date < b.date ? 1 : -1));
+const markdownFrontmatters = markdownPosts.map(({ body, ...frontmatter }) => frontmatter);
+const jsonFrontmatters = jsonPosts.map(({ body, ...frontmatter }) => frontmatter);
+const indexedSlugs = new Set(jsonIndexFrontmatters.map((fm) => fm.slug));
+const fallbackJsonFrontmatters = jsonFrontmatters.filter((fm) => !indexedSlugs.has(fm.slug));
+
+export const postsIndex: PostFrontmatter[] = [...markdownFrontmatters, ...jsonIndexFrontmatters, ...fallbackJsonFrontmatters].sort(
+  (a, b) => (a.date < b.date ? 1 : -1),
+);
 
 export function getPostBySlug(slug: string): Post | undefined {
   return posts.find((post) => post.slug === slug);

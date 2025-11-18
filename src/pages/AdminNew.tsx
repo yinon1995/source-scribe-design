@@ -836,19 +836,20 @@ const AdminNew = () => {
 
   function insertIntoBodyAtCursor(insertText: string) {
     const textarea = bodyRef.current;
-    const currentBody = body ?? "";
     if (!textarea) {
-      setBody(`${currentBody}${insertText}`);
+      setBody((prev) => `${prev}${insertText}`);
+      scheduleDebouncedSnapshot();
       return;
     }
     pushBodySnapshot();
-    const value = textarea.value ?? currentBody;
+    const value = textarea.value ?? body ?? "";
     const start = textarea.selectionStart ?? value.length;
     const end = textarea.selectionEnd ?? value.length;
     const before = value.slice(0, start);
     const after = value.slice(end);
     const next = before + insertText + after;
     setBody(next);
+    scheduleDebouncedSnapshot();
     requestAnimationFrame(() => {
       const ta = bodyRef.current;
       if (!ta) return;

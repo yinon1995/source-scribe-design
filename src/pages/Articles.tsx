@@ -10,7 +10,6 @@ import {
   normalizeCategory,
   postsIndex,
 } from "@/lib/content";
-import { FALLBACK_ARTICLE_IMAGE } from "@/lib/images";
 
 type ArticleCardData = {
   title: string;
@@ -57,7 +56,7 @@ const Articles = () => {
         const category = normalizeCategory(post.category);
         const featured = post.featured === true;
         const excerpt = post.summary ?? "";
-        const heroImage = post.heroImage ?? FALLBACK_ARTICLE_IMAGE;
+        const heroImage = post.heroImage;
 
         const joinedFields = [
           post.title,

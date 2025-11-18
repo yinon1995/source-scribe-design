@@ -11,39 +11,36 @@ import { site } from "@/lib/siteContent";
 import { subscribe } from "@/lib/subscribe";
 import { openMailto } from "@/lib/subscribe";
 import { CATEGORY_OPTIONS, postsIndex } from "@/lib/content";
-import { FALLBACK_ARTICLE_IMAGE } from "@/lib/images";
 
 const Index = () => {
   const categories = useMemo(() => ["Tous", ...CATEGORY_OPTIONS], []);
 
   const [activeCategory, setActiveCategory] = useState("Tous");
 
-  const latestArticles = useMemo(() => {
-    const eligible = postsIndex
+  const featuredArticles = useMemo(() => {
+    return postsIndex
       .filter(
         (post) =>
           Boolean(post.title?.trim()) &&
-          Boolean(post.slug?.trim()),
+          Boolean(post.slug?.trim()) &&
+          post.featured === true,
       )
-      .sort((a, b) => (a.date < b.date ? 1 : -1));
-
-    const featuredPool = eligible.filter((post) => post.featured === true);
-    const source = featuredPool.length > 0 ? featuredPool : eligible;
-
-    return source.slice(0, 3).map((post) => ({
-      title: post.title,
-      excerpt: (post.summary ?? "").trim() || `Découvrez ${post.title}`,
-      image: post.heroImage || FALLBACK_ARTICLE_IMAGE,
-      category: post.category || site.categories.beaute,
-      readTime: `${post.readingMinutes ?? 1} min`,
-      slug: post.slug,
-      tags: post.tags ?? [],
-    }));
+      .sort((a, b) => (a.date < b.date ? 1 : -1))
+      .map((post) => ({
+        title: post.title,
+        excerpt: (post.summary ?? "").trim() || `Découvrez ${post.title}`,
+        image: post.heroImage,
+        category: post.category || site.categories.beaute,
+        readTime: `${post.readingMinutes ?? 1} min`,
+        slug: post.slug as string,
+        tags: post.tags ?? [],
+        featured: true,
+      }));
   }, []);
 
   const filteredArticles = activeCategory === "Tous"
-    ? latestArticles
-    : latestArticles.filter(article => article.category === activeCategory);
+    ? featuredArticles
+    : featuredArticles.filter((article) => article.category === activeCategory);
 
   const [email, setEmail] = useState("");
   const emailValid = /\S+@\S+\.\S+/.test(email);
@@ -88,11 +85,17 @@ const Index = () => {
             onCategoryChange={setActiveCategory}
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">
-            {filteredArticles.map((article, index) => (
-              <ArticleCard key={index} {...article} />
-            ))}
-          </div>
+          {filteredArticles.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center mt-12">
+              Aucun article mis en avant pour le moment.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">
+              {filteredArticles.map((article) => (
+                <ArticleCard key={article.slug} {...article} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

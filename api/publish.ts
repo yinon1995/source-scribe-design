@@ -530,26 +530,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // start fresh if anything goes wrong reading
       }
 
-      const existingIndex = list.findIndex((item) => item.slug === slug);
-      const existedBefore = existingIndex >= 0;
-      if (existedBefore) {
-        const prev = list[existingIndex];
-        list[existingIndex] = {
-          ...prev,
-          title: meta.title,
-          category: meta.category,
-          tags: meta.tags,
-          cover: meta.cover,
-          heroImage: meta.heroImage,
-          excerpt: meta.excerpt,
-          date: meta.date,
-          readingMinutes: meta.readingMinutes,
-          featured: meta.featured,
-        };
-      } else {
-        list.push(meta);
-      }
-      const nextList = [...list].sort((a, b) => (a.date < b.date ? 1 : -1));
+      const existedBefore = list.some((item) => item.slug === slug);
+      const nextList = list
+        .filter((item) => item.slug !== meta.slug)
+        .concat(meta)
+        .sort((a, b) => {
+          const left = b.date || "";
+          const right = a.date || "";
+          return left.localeCompare(right);
+        });
       const commitMessage = existedBefore
         ? `chore(cms): update article ${slug}`
         : `feat(article): publish ${slug} from admin`;
