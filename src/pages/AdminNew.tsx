@@ -979,47 +979,6 @@ const handleClearAll = useCallback(() => {
     [setCover],
   );
 
-  const handleBodyDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const fileList = Array.from(e.dataTransfer?.files || []);
-    if (fileList.length === 0) return;
-    const imageFiles = fileList.filter((file) => file.type.startsWith("image/"));
-    if (imageFiles.length === 0) {
-      toast.error("Déposez uniquement des images.");
-      return;
-    }
-    pushBodySnapshot();
-    let nextBody = bodyRef.current?.value ?? body ?? "";
-    for (const file of imageFiles) {
-      try {
-        const dataUrl = await fileToDataUrl(file);
-        const fileName = file.name.replace(/\.[a-zA-Z0-9]+$/, "");
-        const safeAlt = (fileName || "Image").replace(/[\[\]]/g, "").trim() || "Image";
-        const hasContent = nextBody.trim().length > 0;
-        let spacer = "";
-        if (hasContent) {
-          spacer = /\n\n$/.test(nextBody) ? "" : /\n$/.test(nextBody) ? "\n" : "\n\n";
-        }
-        nextBody = `${nextBody}${spacer}![${safeAlt}](${dataUrl})\n`;
-      } catch (error) {
-        console.error(error);
-        toast.error(`Impossible d'insérer ${file.name || "cette image"}.`);
-      }
-    }
-    setBody(nextBody);
-    scheduleDebouncedSnapshot();
-    requestAnimationFrame(() => {
-      const ta = bodyRef.current;
-      if (!ta) return;
-      ta.focus();
-      const cursor = nextBody.length;
-      ta.selectionStart = cursor;
-      ta.selectionEnd = cursor;
-      ta.scrollTop = ta.scrollHeight;
-    });
-  };
-
   const coverPreview = cover.trim() || null;
 
   return (
@@ -1214,41 +1173,28 @@ const handleClearAll = useCallback(() => {
                       <Button type="button" variant="secondary" size="sm" onClick={openImageDialog}>Insérer image</Button>
                       <Button type="button" variant="secondary" size="sm" onClick={insertRefMark}>Ref</Button>
                     </div>
-                    <div
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
+                    <Textarea
+                      id="body"
+                      ref={bodyRef}
+                      value={body}
+                      onChange={(e) => { setBody(e.target.value); scheduleDebouncedSnapshot(); }}
+                      onBlur={() => pushBodySnapshot()}
+                      onScroll={handleBodyScroll}
+                      onKeyDown={(e) => {
+                        const isMeta = e.ctrlKey || e.metaKey;
+                        if (isMeta && (e.key === "z" || e.key === "Z")) { e.preventDefault(); restoreUndo(); }
+                        else if (isMeta && (e.key === "b" || e.key === "B")) { e.preventDefault(); toggleWrap("**", true); }
+                        else if (isMeta && (e.key === "i" || e.key === "I")) { e.preventDefault(); toggleWrap("*", true); }
+                        else if (e.altKey && e.key === "1") { e.preventDefault(); toggleHeading(1); }
+                        else if (e.altKey && e.key === "2") { e.preventDefault(); toggleHeading(2); }
+                        else if (e.altKey && e.key === "3") { e.preventDefault(); toggleHeading(3); }
                       }}
-                      onDrop={handleBodyDrop}
-                      className="space-y-2"
-                    >
-                      <Textarea
-                        id="body"
-                        ref={bodyRef}
-                        value={body}
-                        onChange={(e) => { setBody(e.target.value); scheduleDebouncedSnapshot(); }}
-                        onBlur={() => pushBodySnapshot()}
-                        onScroll={handleBodyScroll}
-                        onKeyDown={(e) => {
-                          const isMeta = e.ctrlKey || e.metaKey;
-                          if (isMeta && (e.key === "z" || e.key === "Z")) { e.preventDefault(); restoreUndo(); }
-                          else if (isMeta && (e.key === "b" || e.key === "B")) { e.preventDefault(); toggleWrap("**", true); }
-                          else if (isMeta && (e.key === "i" || e.key === "I")) { e.preventDefault(); toggleWrap("*", true); }
-                          else if (e.altKey && e.key === "1") { e.preventDefault(); toggleHeading(1); }
-                          else if (e.altKey && e.key === "2") { e.preventDefault(); toggleHeading(2); }
-                          else if (e.altKey && e.key === "3") { e.preventDefault(); toggleHeading(3); }
-                        }}
-                        placeholder="# Titre\n\nVotre article en Markdown"
-                        rows={12}
-                        className="resize-none"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Astuce&nbsp;: glissez-déposez une image ici pour l’insérer automatiquement au format Markdown avec une data URL.
-                      </p>
-                    </div>
+                      placeholder="# Titre\n\nVotre article en Markdown"
+                      rows={12}
+                      className="resize-none"
+                    />
                     <p className="text-xs text-muted-foreground">
-                      Vous pouvez aussi écrire manuellement <code>![Texte alternatif](https://exemple.com/image.jpg)</code> ou coller une
-                      data URL si besoin.
+                      Rédigez ici le contenu complet de l’article (titres, paragraphes, listes, etc.) en Markdown.
                     </p>
                     <p className="text-xs text-muted-foreground text-right">{body.length} caractères</p>
                     {errors.body && <p className="text-sm text-red-600 mt-1">{errors.body}</p>}
