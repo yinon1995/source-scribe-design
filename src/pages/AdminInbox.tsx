@@ -19,10 +19,10 @@ type TimeFilter = "all" | "last-30-days" | "last-90-days";
 
 const categoryFilters: { value: LeadFilter; label: string }[] = [
   { value: "all", label: "Tous" },
-  ...ALL_LEAD_CATEGORIES.map((category) => ({
-    value: category,
-    label: LEAD_CATEGORY_LABELS[category],
-  })),
+  { value: "newsletter", label: LEAD_CATEGORY_LABELS.newsletter },
+  { value: "services", label: LEAD_CATEGORY_LABELS.services },
+  { value: "quote", label: LEAD_CATEGORY_LABELS.quote },
+  { value: "contact", label: LEAD_CATEGORY_LABELS.contact },
 ];
 
 const formatter = new Intl.DateTimeFormat("fr-FR", {
@@ -106,23 +106,23 @@ const AdminInbox = () => {
           <CardTitle>Demandes reçues</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-          <Tabs value={filter} onValueChange={(value) => setFilter(value as LeadFilter)}>
-            <TabsList className="flex flex-wrap justify-start gap-2">
-              {categoryFilters.map((option) => {
-                const count = option.value === "all"
-                  ? leads.length
-                  : leads.filter((lead) => lead.category === option.value).length;
-                return (
-                  <TabsTrigger key={option.value} value={option.value} className="text-sm">
-                    {option.label}
-                    <span className="ml-2 text-xs text-muted-foreground">({count})</span>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-          </Tabs>
-            <div className="flex items-center gap-2">
+          <div className="space-y-4">
+            <Tabs value={filter} onValueChange={(value) => setFilter(value as LeadFilter)}>
+              <TabsList className="flex flex-wrap gap-2">
+                {categoryFilters.map((option) => {
+                  const count = option.value === "all"
+                    ? leads.length
+                    : leads.filter((lead) => lead.category === option.value).length;
+                  return (
+                    <TabsTrigger key={option.value} value={option.value} className="text-sm">
+                      {option.label}
+                      <span className="ml-2 text-xs text-muted-foreground">({count})</span>
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </Tabs>
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <span className="text-sm text-muted-foreground">Période :</span>
               <Select value={timeFilter} onValueChange={(value) => setTimeFilter(value as TimeFilter)}>
                 <SelectTrigger className="w-[200px]">
@@ -130,7 +130,7 @@ const AdminInbox = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Toutes les périodes</SelectItem>
-                  <SelectItem value="last-30-days">Derniers 30 jours</SelectItem>
+                  <SelectItem value="last-30-days">Dernier mois</SelectItem>
                   <SelectItem value="last-90-days">3 derniers mois</SelectItem>
                 </SelectContent>
               </Select>
