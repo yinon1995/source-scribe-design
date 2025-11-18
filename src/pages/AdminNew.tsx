@@ -151,10 +151,10 @@ const AdminNew = () => {
   const [schemaType, setSchemaType] = useState<Article["schemaType"]>("Article");
   const refCounter = useRef(1);
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
-  const [imgAlt, setImgAlt] = useState("");
-  const [imgUrl, setImgUrl] = useState("");
-  const [imgAlign, setImgAlign] = useState<"left" | "right" | "full">("full");
-  const [imgFile, setImgFile] = useState<File | null>(null);
+  const [imageAlt, setImageAlt] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageAlignment, setImageAlignment] = useState<"left" | "right" | "full">("full");
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageMode, setImageMode] = useState<"url" | "local">("url");
 
   const registerBlobUrl = useCallback((url: string | null) => {
@@ -222,9 +222,9 @@ const AdminNew = () => {
 
   useEffect(() => {
     if (imageMode === "url") {
-      setImgFile(null);
+      setImageFile(null);
     } else {
-      setImgUrl("");
+      setImageUrl("");
     }
   }, [imageMode]);
 
@@ -284,10 +284,10 @@ const AdminNew = () => {
       setSearchAliasesText(Array.isArray(snapshot?.searchAliases) ? snapshot.searchAliases.join("\n") : "");
       clearLocalPreviews();
       setImageDialogOpen(false);
-      setImgAlt("");
-      setImgUrl("");
-      setImgAlign("full");
-      setImgFile(null);
+      setImageAlt("");
+      setImageUrl("");
+      setImageAlignment("full");
+      setImageFile(null);
       manualReadingOverrideRef.current = false;
     },
     [clearLocalPreviews],
@@ -834,51 +834,56 @@ const AdminNew = () => {
     });
   }
 
-  function insertIntoBodyAtCursor(snippet: string) {
+  function insertIntoBodyAtCursor(insertText: string) {
     const textarea = bodyRef.current;
+    const currentBody = body ?? "";
     if (!textarea) {
-      setBody((prev) => `${prev}${snippet}`);
+      setBody(`${currentBody}${insertText}`);
       return;
     }
     pushBodySnapshot();
-    const value = textarea.value ?? body;
+    const value = textarea.value ?? currentBody;
     const start = textarea.selectionStart ?? value.length;
     const end = textarea.selectionEnd ?? value.length;
-    const next = value.slice(0, start) + snippet + value.slice(end);
+    const before = value.slice(0, start);
+    const after = value.slice(end);
+    const next = before + insertText + after;
     setBody(next);
     requestAnimationFrame(() => {
       const ta = bodyRef.current;
       if (!ta) return;
-      const cursor = start + snippet.length;
       ta.focus();
-      ta.setSelectionRange(cursor, cursor);
+      const cursor = start + insertText.length;
+      ta.selectionStart = cursor;
+      ta.selectionEnd = cursor;
     });
   }
 
   function openImageDialog() {
-    setImgAlt("");
-    setImgUrl("");
-    setImgFile(null);
-    setImgAlign("full");
+    setImageAlt("");
+    setImageUrl("");
+    setImageFile(null);
+    setImageAlignment("full");
     setImageMode("url");
     setImageDialogOpen(true);
   }
 
-  function confirmInsertImage() {
+  function handleInsertImage() {
     let resolvedSrc: string | null = null;
 
     if (imageMode === "local") {
-      if (!imgFile) {
+      if (!imageFile) {
         toast.error("Sélectionnez un fichier local ou passez en mode URL.");
         return;
       }
-      const id = `local:${Date.now().toString(36)}-${nextLocalIdRef.current++}`;
-      const objectUrl = URL.createObjectURL(imgFile);
+      const sanitizedName = imageFile.name ? imageFile.name.replace(/\s+/g, "-") : `image-${nextLocalIdRef.current}`;
+      const id = `local:${Date.now().toString(36)}-${nextLocalIdRef.current++}-${sanitizedName}`;
+      const objectUrl = URL.createObjectURL(imageFile);
       registerBlobUrl(objectUrl);
       setLocalImages((prev) => ({ ...prev, [id]: objectUrl }));
       resolvedSrc = id;
     } else {
-      const trimmedUrl = imgUrl.trim();
+      const trimmedUrl = imageUrl.trim();
       if (!trimmedUrl) {
         toast.error("Indiquez une URL d’image.");
         return;
@@ -886,20 +891,21 @@ const AdminNew = () => {
       resolvedSrc = trimmedUrl;
     }
 
-    const safeAlt = imgAlt.trim().replace(/[\[\]]/g, "") || "Image";
+    const safeAlt = imageAlt.trim().replace(/[\[\]]/g, "") || "Image";
     let markdown = `![${safeAlt}](${resolvedSrc})`;
-    if (imgAlign === "left") {
+    if (imageAlignment === "left") {
       markdown = `${markdown}{.align-left}`;
-    } else if (imgAlign === "right") {
+    } else if (imageAlignment === "right") {
       markdown = `${markdown}{.align-right}`;
     }
 
-    insertIntoBodyAtCursor(`\n\n${markdown}\n\n`);
+    const insertText = `\n\n${markdown}\n\n`;
+    insertIntoBodyAtCursor(insertText);
     setImageDialogOpen(false);
-    setImgAlt("");
-    setImgUrl("");
-    setImgFile(null);
-    setImgAlign("full");
+    setImageAlt("");
+    setImageUrl("");
+    setImageFile(null);
+    setImageAlignment("full");
     setImageMode("url");
   }
 
@@ -1302,8 +1308,8 @@ const handleClearAll = useCallback(() => {
                     <p className="text-xs text-muted-foreground">
                       Vous pouvez insérer des images avec la syntaxe Markdown&nbsp;
                       <code>![Texte alternatif](/images/mon-image.jpg)</code> ou <code>![Texte alternatif](https://exemple.com/image.jpg)</code>.
-                      Les fichiers locaux servent uniquement à l’aperçu dans l’éditeur; si vous souhaitez qu’une image apparaisse sur
-                      le site public, remplacez-la plus tard par une URL publique (optionnel).
+                      Les fichiers locaux insérés via l’éditeur apparaissent sous la forme <code>![Texte](local:…)</code> pour l’aperçu;
+                      remplacez ces marqueurs par des URLs publiques avant publication afin qu’elles s’affichent sur le site.
                     </p>
                     <p className="text-xs text-muted-foreground text-right">{body.length} caractères</p>
                     {errors.body && <p className="text-sm text-red-600 mt-1">{errors.body}</p>}
@@ -1317,7 +1323,12 @@ const handleClearAll = useCallback(() => {
                       <div className="space-y-3 pt-2">
                         <div className="space-y-2">
                           <Label htmlFor="imgAlt">Texte alternatif</Label>
-                          <Input id="imgAlt" value={imgAlt} onChange={(e) => setImgAlt(e.target.value)} placeholder="Description de l’image" />
+                          <Input
+                            id="imgAlt"
+                            value={imageAlt}
+                            onChange={(e) => setImageAlt(e.target.value)}
+                            placeholder="Description de l’image"
+                          />
                         </div>
                         <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs">
                           <Button
@@ -1345,8 +1356,8 @@ const handleClearAll = useCallback(() => {
                             <Input
                               id="imgUrl"
                               type="url"
-                              value={imgUrl}
-                              onChange={(e) => setImgUrl(e.target.value)}
+                              value={imageUrl}
+                              onChange={(e) => setImageUrl(e.target.value)}
                               placeholder="https://…"
                             />
                             <p className="text-xs text-muted-foreground">
@@ -1360,7 +1371,7 @@ const handleClearAll = useCallback(() => {
                               id="imgFile"
                               type="file"
                               accept="image/*"
-                              onChange={(e) => setImgFile(e.target.files?.[0] || null)}
+                              onChange={(e) => setImageFile(e.target.files?.[0] || null)}
                             />
                             <p className="text-xs text-muted-foreground">
                               Cette image apparaît uniquement dans l’aperçu de l’éditeur. Vous pourrez la remplacer par un lien public
@@ -1371,15 +1382,36 @@ const handleClearAll = useCallback(() => {
                         <div className="space-y-2">
                           <Label>Alignement</Label>
                           <div className="flex gap-2">
-                            <Button type="button" variant={imgAlign === "left" ? "default" : "secondary"} size="sm" onClick={() => setImgAlign("left")}>Gauche</Button>
-                            <Button type="button" variant={imgAlign === "right" ? "default" : "secondary"} size="sm" onClick={() => setImgAlign("right")}>Droite</Button>
-                            <Button type="button" variant={imgAlign === "full" ? "default" : "secondary"} size="sm" onClick={() => setImgAlign("full")}>Pleine largeur</Button>
+                            <Button
+                              type="button"
+                              variant={imageAlignment === "left" ? "default" : "secondary"}
+                              size="sm"
+                              onClick={() => setImageAlignment("left")}
+                            >
+                              Gauche
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={imageAlignment === "right" ? "default" : "secondary"}
+                              size="sm"
+                              onClick={() => setImageAlignment("right")}
+                            >
+                              Droite
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={imageAlignment === "full" ? "default" : "secondary"}
+                              size="sm"
+                              onClick={() => setImageAlignment("full")}
+                            >
+                              Pleine largeur
+                            </Button>
                           </div>
                         </div>
                       </div>
                       <DialogFooter>
                         <Button type="button" variant="secondary" onClick={() => setImageDialogOpen(false)}>Annuler</Button>
-                        <Button type="button" onClick={confirmInsertImage}>Insérer</Button>
+                        <Button type="button" onClick={handleInsertImage}>Insérer</Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
