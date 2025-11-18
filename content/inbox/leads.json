@@ -16,18 +16,6 @@
     "createdAt": "2025-11-18T16:13:37.683Z"
   },
   {
-    "category": "services",
-    "source": "services-section:Ouverture de commerce",
-    "email": "Yinoncoscas1995@gmail.com",
-    "name": "coco",
-    "message": "hi",
-    "meta": {
-      "service": "Ouverture de commerce"
-    },
-    "id": "a455bea3-7bd9-43be-a300-01efd80746b4",
-    "createdAt": "2025-11-18T16:12:48.650Z"
-  },
-  {
     "category": "newsletter",
     "source": "footer-newsletter",
     "email": "Yinoncoscas1995@gmail.com",
