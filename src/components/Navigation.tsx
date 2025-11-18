@@ -7,16 +7,10 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { site } from "@/lib/siteContent";
-import { openGmailCompose } from "@/config/contact";
 
 const Navigation = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-
-  function handleContactClick(e: React.MouseEvent<HTMLAnchorElement>) {
-    e.preventDefault();
-    openGmailCompose({ subject: "Contact À la Brestoise" });
-  }
 
   function handleSearchClick() {
     const currentSearch = searchParams.get("search") ?? "";
@@ -52,7 +46,6 @@ const Navigation = () => {
             <Link
               to="/contact"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              onClick={handleContactClick}
             >
               {site.nav.contact}
             </Link>
@@ -92,7 +85,6 @@ const Navigation = () => {
                 <Link
                   to="/contact"
                   className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2"
-                  onClick={handleContactClick}
                 >
                   {site.nav.contact}
                 </Link>
