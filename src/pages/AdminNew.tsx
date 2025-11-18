@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import ArticleContent from "@/components/ArticleContent";
 import { Checkbox } from "@/components/ui/checkbox";
+import { AdminBackButton } from "@/components/AdminBackButton";
 import {
   CATEGORY_OPTIONS,
   DEFAULT_CATEGORY,
@@ -1029,13 +1030,7 @@ const handleClearAll = useCallback(() => {
     <div className="min-h-screen bg-background">
       <section className="py-10 md:py-16">
         <div className="container mx-auto px-4">
-          <button
-            type="button"
-            onClick={() => navigate("/admin")}
-            className="mb-4 text-sm text-muted-foreground hover:underline"
-          >
-            ← Retour au tableau de bord
-          </button>
+          <AdminBackButton />
           <h1 className="text-3xl md:text-4xl font-display font-bold mb-6">{isEditing ? "Modifier l’article" : "Nouvel article"}</h1>
           <Card>
             <CardHeader>

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { AdminBackButton } from "@/components/AdminBackButton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import LeadMetaGrid from "@/components/admin/LeadMetaGrid";
 import { toast } from "@/hooks/use-toast";
@@ -146,13 +146,7 @@ const AdminTestimonials = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <Link to="/admin">
-          <Button variant="outline" size="sm">
-            ← Retour à l’espace rédaction
-          </Button>
-        </Link>
-      </div>
+      <AdminBackButton />
       <Card>
         <CardHeader>
           <CardTitle>Avis en attente ({pendingCount})</CardTitle>

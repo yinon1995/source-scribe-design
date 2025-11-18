@@ -22,6 +22,7 @@ const TestimonialsSection = ({
   ctaSlot,
 }: TestimonialsSectionProps) => {
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -51,12 +52,21 @@ const TestimonialsSection = ({
     };
   }, []);
 
+  const hasMany = testimonials.length > 1;
   const showSection = testimonials.length > 0 || !!ctaSlot || loading;
   const averageRating = useMemo(() => {
     if (!testimonials.length) return null;
     const sum = testimonials.reduce((acc, item) => acc + item.rating, 0);
     return sum / testimonials.length;
   }, [testimonials]);
+
+  useEffect(() => {
+    if (!hasMany) return;
+    const interval = window.setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1 >= testimonials.length ? 0 : prev + 1));
+    }, 6000);
+    return () => window.clearInterval(interval);
+  }, [hasMany, testimonials.length]);
 
   if (!showSection) {
     return null;
@@ -99,10 +109,10 @@ const TestimonialsSection = ({
       {testimonials.length > 0 && (
         <div className="space-y-4">
           <div className="flex justify-end gap-2">
-            <Button variant="outline" size="icon" onClick={() => scrollByCard(-1)} aria-label="Témoignage précédent">
+            <Button variant="outline" size="icon" onClick={() => scrollByCard(-1)} aria-label="Témoignage précédent" disabled={!hasMany}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={() => scrollByCard(1)} aria-label="Témoignage suivant">
+            <Button variant="outline" size="icon" onClick={() => scrollByCard(1)} aria-label="Témoignage suivant" disabled={!hasMany}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

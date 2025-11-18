@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import { getAllArticlesForAdmin, type AdminArticleListItem } from "@/lib/articlesIndex";
 import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { AdminBackButton } from "@/components/AdminBackButton";
 import { toast } from "sonner";
 import { getAdminToken } from "@/lib/adminSession";
 import { Star } from "lucide-react";
@@ -66,12 +67,7 @@ const AdminArticles = () => {
 		<div className="min-h-screen bg-background flex flex-col">
 			<main className="flex-1 py-8 md:py-12">
 				<div className="container mx-auto px-4 space-y-6">
-					<button
-						className="text-sm text-muted-foreground hover:underline"
-						onClick={() => navigate("/admin")}
-					>
-						← Retour au tableau de bord
-					</button>
+					<AdminBackButton />
 
 					<h1 className="text-2xl md:text-3xl font-display font-bold">
 						Modifier les articles existants
