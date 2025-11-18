@@ -1,18 +1,6 @@
 [
   {
     "category": "services",
-    "source": "services-section:Couverture d'événement",
-    "email": "Yinoncoscas1995@gmail.com",
-    "name": "coco",
-    "message": "100",
-    "meta": {
-      "service": "Couverture d'événement"
-    },
-    "id": "97f8d7da-6a29-4c31-adab-66c3a7d6442d",
-    "createdAt": "2025-11-18T22:13:25.209Z"
-  },
-  {
-    "category": "services",
     "source": "services-section:Ouverture de commerce",
     "email": "Yinoncoscas1995@gmail.com",
     "name": "coco",
