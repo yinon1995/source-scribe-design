@@ -46,6 +46,12 @@ function respond<T extends Record<string, unknown>>(res: VercelResponse, status:
   res.status(status).send(JSON.stringify(body));
 }
 
+type GithubConfig = {
+  repo: string;
+  token: string;
+  branch: string;
+};
+
 function encodeGitHubPath(path: string) {
   return path.split("/").map(encodeURIComponent).join("/");
 }
@@ -54,13 +60,12 @@ function toBase64(content: string | Uint8Array) {
   return Buffer.from(content).toString("base64");
 }
 
-async function githubGet(path: string) {
-  if (!GITHUB_REPO || !GITHUB_TOKEN) return undefined;
-  const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${encodeGitHubPath(path)}?ref=${encodeURIComponent(PUBLISH_BRANCH)}`;
+async function githubGet(path: string, config: GithubConfig) {
+  const url = `https://api.github.com/repos/${config.repo}/contents/${encodeGitHubPath(path)}?ref=${encodeURIComponent(config.branch)}`;
   const res = await fetch(url, {
     headers: {
       Accept: "application/vnd.github+json",
-      Authorization: `token ${GITHUB_TOKEN}`,
+      Authorization: `token ${config.token}`,
     },
   });
   if (res.status === 404) return undefined;
@@ -71,25 +76,24 @@ async function githubGet(path: string) {
   return res.json();
 }
 
-async function githubPut(path: string, content: string, message: string) {
-  if (!GITHUB_REPO || !GITHUB_TOKEN) throw new Error("Missing GitHub credentials");
+async function githubPut(path: string, content: string, message: string, config: GithubConfig) {
   let sha: string | undefined;
-  const existing = await githubGet(path);
+  const existing = await githubGet(path, config);
   if (existing && typeof existing.sha === "string") {
     sha = existing.sha;
   }
-  const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${encodeGitHubPath(path)}`;
+  const url = `https://api.github.com/repos/${config.repo}/contents/${encodeGitHubPath(path)}`;
   const res = await fetch(url, {
     method: "PUT",
     headers: {
       Accept: "application/vnd.github+json",
-      Authorization: `token ${GITHUB_TOKEN}`,
+      Authorization: `token ${config.token}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
       message,
       content: toBase64(content),
-      branch: PUBLISH_BRANCH,
+      branch: config.branch,
       sha,
       committer: { name: "A la Brestoise bot", email: "bot@alabrestoise.local" },
     }),
@@ -136,9 +140,9 @@ async function readJsonBody<T>(req: VercelRequest): Promise<T> {
   return parsed as T;
 }
 
-async function readLeads(): Promise<Lead[]> {
+async function readLeads(config: GithubConfig): Promise<Lead[]> {
   try {
-    const existing = await githubGet(INBOX_PATH);
+    const existing = await githubGet(INBOX_PATH, config);
     if (!existing || !existing.content) return [];
     const decoded = Buffer.from(String(existing.content), "base64").toString("utf8");
     const parsed = JSON.parse(decoded);
@@ -151,9 +155,9 @@ async function readLeads(): Promise<Lead[]> {
   }
 }
 
-async function writeLeads(leads: Lead[], message: string) {
+async function writeLeads(leads: Lead[], message: string, config: GithubConfig) {
   const sorted = [...leads].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  await githubPut(INBOX_PATH, JSON.stringify(sorted, null, 2), message);
+  await githubPut(INBOX_PATH, JSON.stringify(sorted, null, 2), message, config);
 }
 
 function missingGithubEnv(): string[] {
@@ -164,17 +168,32 @@ function missingGithubEnv(): string[] {
   ].filter(Boolean) as string[];
 }
 
-function requireGithub(res: VercelResponse): boolean {
+function getGithubConfig(): { ok: true; config: GithubConfig } | { ok: false; missing: string[] } {
   const missing = missingGithubEnv();
   if (missing.length) {
+    return { ok: false, missing };
+  }
+  return {
+    ok: true,
+    config: {
+      repo: GITHUB_REPO as string,
+      token: GITHUB_TOKEN as string,
+      branch: PUBLISH_BRANCH,
+    },
+  };
+}
+
+function ensureGithubConfig(res: VercelResponse): GithubConfig | null {
+  const result = getGithubConfig();
+  if (!result.ok) {
     respond(res, 503, {
       success: false,
       error: "Configuration GitHub manquante.",
-      missingEnv: missing,
+      missingEnv: result.missing,
     });
-    return false;
+    return null;
   }
-  return true;
+  return result.config;
 }
 
 function isLeadCategory(value: string): value is LeadCategory {
@@ -203,7 +222,10 @@ function normalizeLeadPayload(payload: LeadPayload): { ok: true; value: Omit<Lea
   const email = typeof payload.email === "string" ? payload.email.trim() : undefined;
   const name = typeof payload.name === "string" ? payload.name.trim() : undefined;
   const message = typeof payload.message === "string" ? payload.message.trim() : undefined;
-  const meta = typeof payload.meta === "object" && payload.meta !== null ? payload.meta : undefined;
+  const meta =
+    typeof payload.meta === "object" && payload.meta !== null
+      ? (payload.meta as Record<string, unknown>)
+      : undefined;
 
   const categoryNeedsEmail = category !== "testimonial";
   const categoryNeedsMessage = category === "services" || category === "quote" || category === "testimonial" || category === "contact";
@@ -251,14 +273,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (req.method === "GET") {
       if (!authorizeAdmin(req, res)) return;
-      if (!requireGithub(res)) return;
-      const leads = await readLeads();
+      const config = ensureGithubConfig(res);
+      if (!config) return;
+      const leads = await readLeads(config);
       respond(res, 200, { success: true, leads });
       return;
     }
 
     if (req.method === "POST") {
-      if (!requireGithub(res)) return;
+      const config = ensureGithubConfig(res);
+      if (!config) return;
       let payload: LeadPayload = {};
       try {
         payload = await readJsonBody<LeadPayload>(req);
@@ -271,14 +295,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         respond(res, 422, { success: false, error: normalized.error });
         return;
       }
+      const normalizedLead = normalized.value;
       const lead: Lead = {
-        ...normalized.value,
+        ...normalizedLead,
         id: randomUUID(),
         createdAt: new Date().toISOString(),
       };
       try {
-        const current = await readLeads();
-        await writeLeads([lead, ...current], `feat(inbox): add lead ${lead.id}`);
+        const current = await readLeads(config);
+        await writeLeads([lead, ...current], `feat(inbox): add lead ${lead.id}`, config);
         respond(res, 201, { success: true, lead });
       } catch (err: any) {
         respond(res, 502, {
@@ -292,20 +317,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === "DELETE") {
       if (!authorizeAdmin(req, res)) return;
-      if (!requireGithub(res)) return;
+      const config = ensureGithubConfig(res);
+      if (!config) return;
       const id = typeof req.query?.id === "string" ? req.query.id.trim() : "";
       if (!id) {
         respond(res, 400, { success: false, error: "Identifiant manquant" });
         return;
       }
       try {
-        const leads = await readLeads();
+        const leads = await readLeads(config);
         const next = leads.filter((lead) => lead.id !== id);
         if (next.length === leads.length) {
           respond(res, 404, { success: false, error: "Demande introuvable" });
           return;
         }
-        await writeLeads(next, `chore(inbox): delete lead ${id}`);
+        await writeLeads(next, `chore(inbox): delete lead ${id}`, config);
         respond(res, 200, { success: true });
       } catch (err: any) {
         respond(res, 502, {
