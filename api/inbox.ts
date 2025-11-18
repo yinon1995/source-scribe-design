@@ -23,8 +23,7 @@ type ApiResponse<T extends Record<string, unknown> = Record<string, never>> = {
 
 const GITHUB_REPO = process.env.GITHUB_REPO;
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const RAW_PUBLISH_BRANCH = process.env.PUBLISH_BRANCH;
-const PUBLISH_BRANCH = RAW_PUBLISH_BRANCH?.trim() || "main";
+const PUBLISH_BRANCH = process.env.PUBLISH_BRANCH?.trim() || "main";
 const PUBLISH_TOKEN = process.env.PUBLISH_TOKEN;
 const INBOX_PATH = "content/inbox/leads.json";
 const INCLUDE_ERROR_DETAILS = process.env.NODE_ENV !== "production";
@@ -51,6 +50,10 @@ type GithubConfig = {
   token: string;
   branch: string;
 };
+
+type GithubConfigCheck =
+  | { ok: true; config: GithubConfig }
+  | { ok: false; missing: string[] };
 
 function encodeGitHubPath(path: string) {
   return path.split("/").map(encodeURIComponent).join("/");
@@ -160,40 +163,21 @@ async function writeLeads(leads: Lead[], message: string, config: GithubConfig) 
   await githubPut(INBOX_PATH, JSON.stringify(sorted, null, 2), message, config);
 }
 
-function missingGithubEnv(): string[] {
-  return [
-    !GITHUB_REPO ? "GITHUB_REPO" : null,
-    !RAW_PUBLISH_BRANCH ? "PUBLISH_BRANCH" : null,
-    !GITHUB_TOKEN ? "GITHUB_TOKEN" : null,
-  ].filter(Boolean) as string[];
-}
-
-function getGithubConfig(): { ok: true; config: GithubConfig } | { ok: false; missing: string[] } {
-  const missing = missingGithubEnv();
-  if (missing.length) {
+function ensureGithubConfig(): GithubConfigCheck {
+  const missing: string[] = [];
+  if (!GITHUB_REPO) missing.push("GITHUB_REPO");
+  if (!GITHUB_TOKEN) missing.push("GITHUB_TOKEN");
+  if (missing.length > 0) {
     return { ok: false, missing };
   }
   return {
     ok: true,
     config: {
-      repo: GITHUB_REPO as string,
-      token: GITHUB_TOKEN as string,
+      repo: GITHUB_REPO!,
+      token: GITHUB_TOKEN!,
       branch: PUBLISH_BRANCH,
     },
   };
-}
-
-function ensureGithubConfig(res: VercelResponse): GithubConfig | null {
-  const result = getGithubConfig();
-  if (!result.ok) {
-    respond(res, 503, {
-      success: false,
-      error: "Configuration GitHub manquante.",
-      missingEnv: result.missing,
-    });
-    return null;
-  }
-  return result.config;
 }
 
 function isLeadCategory(value: string): value is LeadCategory {
@@ -273,16 +257,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (req.method === "GET") {
       if (!authorizeAdmin(req, res)) return;
-      const config = ensureGithubConfig(res);
-      if (!config) return;
+      const check = ensureGithubConfig();
+      if (!check.ok) {
+        respond(res, 503, {
+          success: false,
+          error: "Configuration GitHub manquante.",
+          missingEnv: check.missing,
+        });
+        return;
+      }
+      const { config } = check;
       const leads = await readLeads(config);
       respond(res, 200, { success: true, leads });
       return;
     }
 
     if (req.method === "POST") {
-      const config = ensureGithubConfig(res);
-      if (!config) return;
+      const check = ensureGithubConfig();
+      if (!check.ok) {
+        respond(res, 503, {
+          success: false,
+          error: "Configuration GitHub manquante.",
+          missingEnv: check.missing,
+        });
+        return;
+      }
+      const { config } = check;
       let payload: LeadPayload = {};
       try {
         payload = await readJsonBody<LeadPayload>(req);
@@ -317,8 +317,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === "DELETE") {
       if (!authorizeAdmin(req, res)) return;
-      const config = ensureGithubConfig(res);
-      if (!config) return;
+      const check = ensureGithubConfig();
+      if (!check.ok) {
+        respond(res, 503, {
+          success: false,
+          error: "Configuration GitHub manquante.",
+          missingEnv: check.missing,
+        });
+        return;
+      }
+      const { config } = check;
       const id = typeof req.query?.id === "string" ? req.query.id.trim() : "";
       if (!id) {
         respond(res, 400, { success: false, error: "Identifiant manquant" });
