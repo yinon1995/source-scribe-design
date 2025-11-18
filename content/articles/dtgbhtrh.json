@@ -12,6 +12,6 @@
   "showTitleInHero": true,
   "footerType": "default",
   "schemaType": "Article",
-  "featured": false,
+  "featured": true,
   "sources": []
 }
