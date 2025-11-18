@@ -258,7 +258,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "GET") {
       if (!authorizeAdmin(req, res)) return;
       const check = ensureGithubConfig();
-      if (!check.ok) {
+      if (check.ok === false) {
         respond(res, 503, {
           success: false,
           error: "Configuration GitHub manquante.",
@@ -274,7 +274,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === "POST") {
       const check = ensureGithubConfig();
-      if (!check.ok) {
+      if (check.ok === false) {
         respond(res, 503, {
           success: false,
           error: "Configuration GitHub manquante.",
@@ -318,7 +318,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "DELETE") {
       if (!authorizeAdmin(req, res)) return;
       const check = ensureGithubConfig();
-      if (!check.ok) {
+      if (check.ok === false) {
         respond(res, 503, {
           success: false,
           error: "Configuration GitHub manquante.",

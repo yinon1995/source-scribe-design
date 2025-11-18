@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomUUID } from "crypto";
-import type { Testimonial, TestimonialCreateInput } from "../shared/testimonials";
-import { clampRating } from "../shared/testimonials";
+import type { Testimonial, TestimonialCreateInput } from "../shared/testimonials.js";
+import { clampRating } from "../shared/testimonials.js";
 
 type GithubConfig = {
   repo: string;
@@ -224,7 +224,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   try {
     const check = ensureGithubConfig();
-    if (!check.ok) {
+    if (check.ok === false) {
       respond(res, 503, {
         success: false,
         error: "Configuration GitHub manquante.",
