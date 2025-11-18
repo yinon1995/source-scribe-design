@@ -43,6 +43,9 @@ const ArticleContent: React.FC<Props> = (props) => {
               components={{
                 img: ({ node: _node, ...imgProps }) => {
                   const rawSrc = imgProps.src || "";
+                  if (rawSrc.startsWith("local:") && !localMap) {
+                    return null;
+                  }
                   const resolved =
                     rawSrc.startsWith("local:") && localMap ? localMap[rawSrc] || rawSrc : localMap?.[rawSrc] || rawSrc;
                   const baseClass = "my-6 w-full max-w-full rounded-2xl border border-border/60 shadow-sm";
