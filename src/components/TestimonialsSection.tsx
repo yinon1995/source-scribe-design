@@ -55,7 +55,7 @@ const TestimonialsSection = ({
   const averageRating = useMemo(() => {
     if (!testimonials.length) return null;
     const sum = testimonials.reduce((acc, item) => acc + item.rating, 0);
-    return (sum / testimonials.length).toFixed(1);
+    return sum / testimonials.length;
   }, [testimonials]);
 
   if (!showSection) {
@@ -75,9 +75,9 @@ const TestimonialsSection = ({
         <div className="space-y-1">
           <h2 className="text-3xl font-display font-bold">{title}</h2>
           {subtitle && <p className="text-muted-foreground">{subtitle}</p>}
-          {averageRating && (
+          {averageRating !== null && (
             <p className="text-sm text-muted-foreground">
-              Note moyenne : <span className="font-semibold text-foreground">{averageRating}/5</span>
+              Note moyenne : <span className="font-semibold text-foreground">{formatAverageRating(averageRating)}</span>
             </p>
           )}
         </div>
@@ -173,6 +173,11 @@ function renderStars(rating: number) {
     const Icon = filled ? Star : StarOff;
     return <Icon key={index} className={cn("h-4 w-4", filled ? "fill-primary text-primary" : "text-muted-foreground")} />;
   });
+}
+
+function formatAverageRating(average: number) {
+  const rounded = Math.round(average * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded}/5` : `${rounded.toFixed(1)}/5`;
 }
 
 export default TestimonialsSection;

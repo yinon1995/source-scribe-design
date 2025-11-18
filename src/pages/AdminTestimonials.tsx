@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -145,6 +146,13 @@ const AdminTestimonials = () => {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <Link to="/admin">
+          <Button variant="outline" size="sm">
+            ← Retour à l’espace rédaction
+          </Button>
+        </Link>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>Avis en attente ({pendingCount})</CardTitle>
@@ -250,8 +258,8 @@ const AdminTestimonials = () => {
                         <Button variant="outline" size="sm" onClick={() => setSelectedTestimonial(testimonial)}>
                           Voir
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteTestimonial(testimonial.id)}>
-                          Supprimer
+                        <Button variant="destructive" size="sm" onClick={() => handleDeleteTestimonial(testimonial.id)}>
+                          Supprimer le témoignage
                         </Button>
                       </TableCell>
                     </TableRow>

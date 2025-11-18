@@ -7,9 +7,10 @@ const ReviewsPage = () => {
     <div className="min-h-screen bg-background">
       <section className="py-20">
         <div className="container mx-auto px-4">
-          <div className="mx-auto max-w-3xl text-center space-y-4">
-            <p className="text-sm uppercase tracking-wide text-primary">Avis</p>
-            <h1 className="text-4xl font-display font-bold text-foreground">Ils m&apos;ont fait confiance</h1>
+          <div className="mx-auto max-w-3xl space-y-6 text-center md:text-left">
+            <h1 className="text-4xl md:text-5xl font-display font-bold text-foreground">
+              Avis clients
+            </h1>
             <p className="text-lg text-muted-foreground">
               Partagez votre expérience pour aider d’autres commerces, artisans et partenaires à connaître le studio.
               Chaque avis est vérifié avant publication.

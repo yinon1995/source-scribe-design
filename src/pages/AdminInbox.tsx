@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -87,6 +88,13 @@ const AdminInbox = () => {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <Link to="/admin">
+          <Button variant="outline" size="sm">
+            ← Retour à l’espace rédaction
+          </Button>
+        </Link>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>Demandes reçues</CardTitle>

@@ -1,6 +1,6 @@
 // Admin home page (hub)
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Footer from "@/components/Footer";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,13 @@ const AdminDashboard = () => {
 		<div className="min-h-screen bg-background flex flex-col">
 			<main className="flex-1 py-10 md:py-16">
 				<div className="container mx-auto px-4 space-y-8">
+					<div className="flex justify-end">
+						<Link to="/admin">
+							<Button variant="outline" size="sm">
+								← Retour à l’espace rédaction
+							</Button>
+						</Link>
+					</div>
 					{/* Headline provided by AdminGuard; this section focuses on quick actions */}
 					<h2 className="text-xl md:text-2xl font-display font-semibold">
 						Que souhaitez-vous faire ?
