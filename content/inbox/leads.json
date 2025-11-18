@@ -1,2 +1,12 @@
-[]
-
+[
+  {
+    "category": "newsletter",
+    "source": "footer-newsletter",
+    "email": "Yinoncoscas1995@gmail.com",
+    "meta": {
+      "path": "/"
+    },
+    "id": "fba89233-17f9-4d80-b117-317575df82c8",
+    "createdAt": "2025-11-18T16:12:06.201Z"
+  }
+]
