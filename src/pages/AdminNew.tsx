@@ -108,6 +108,7 @@ const AdminNew = () => {
   const [featured, setFeatured] = useState(false);
   const [tagsInput, setTagsInput] = useState("");
   const [cover, setCover] = useState("");
+  const [coverMode, setCoverMode] = useState<"url" | "local">("url");
   const [excerpt, setExcerpt] = useState("");
   const [body, setBody] = useState("");
   const [author, setAuthor] = useState("À la Brestoise");
@@ -154,6 +155,7 @@ const AdminNew = () => {
   const [imgUrl, setImgUrl] = useState("");
   const [imgAlign, setImgAlign] = useState<"left" | "right" | "full">("full");
   const [imgFile, setImgFile] = useState<File | null>(null);
+  const [imageMode, setImageMode] = useState<"url" | "local">("url");
 
   const registerBlobUrl = useCallback((url: string | null) => {
     if (!url || !url.startsWith("blob:")) return;
@@ -179,6 +181,7 @@ const AdminNew = () => {
       Object.values(prev).forEach((src) => revokeBlobUrl(src));
       return {};
     });
+    setCoverMode("url");
   }, [revokeBlobUrl]);
 
   const addLocalImages = (list: FileList | null) => {
@@ -216,6 +219,14 @@ const AdminNew = () => {
       blobUrlsRef.current.clear();
     };
   }, []);
+
+  useEffect(() => {
+    if (imageMode === "url") {
+      setImgFile(null);
+    } else {
+      setImgUrl("");
+    }
+  }, [imageMode]);
 
   // Centralized helper to apply either a clean slate, a saved draft, or an existing article.
   const applySnapshot = useCallback(
@@ -849,26 +860,30 @@ const AdminNew = () => {
     setImgUrl("");
     setImgFile(null);
     setImgAlign("full");
+    setImageMode("url");
     setImageDialogOpen(true);
   }
 
   function confirmInsertImage() {
-    const trimmedUrl = imgUrl.trim();
     let resolvedSrc: string | null = null;
 
-    if (imgFile) {
+    if (imageMode === "local") {
+      if (!imgFile) {
+        toast.error("Sélectionnez un fichier local ou passez en mode URL.");
+        return;
+      }
       const id = `local:${Date.now().toString(36)}-${nextLocalIdRef.current++}`;
       const objectUrl = URL.createObjectURL(imgFile);
       registerBlobUrl(objectUrl);
       setLocalImages((prev) => ({ ...prev, [id]: objectUrl }));
       resolvedSrc = id;
-    } else if (trimmedUrl.length > 0) {
+    } else {
+      const trimmedUrl = imgUrl.trim();
+      if (!trimmedUrl) {
+        toast.error("Indiquez une URL d’image.");
+        return;
+      }
       resolvedSrc = trimmedUrl;
-    }
-
-    if (!resolvedSrc) {
-      toast.error("Fournissez une URL ou un fichier.");
-      return;
     }
 
     const safeAlt = imgAlt.trim().replace(/[\[\]]/g, "") || "Image";
@@ -885,6 +900,7 @@ const AdminNew = () => {
     setImgUrl("");
     setImgFile(null);
     setImgAlign("full");
+    setImageMode("url");
   }
 
   function insertRefMark() {
@@ -990,8 +1006,16 @@ const handleClearAll = useCallback(() => {
   toast.success("Le formulaire a été réinitialisé.");
 }, [applySnapshot, removeDraft]);
 
-  const normalizedCover = cover.trim();
-  const coverPreview = normalizedCover.length > 0 ? normalizedCover : localCoverPreview;
+  const coverValue = cover.trim();
+  const coverPreview = coverMode === "local" ? localCoverPreview : coverValue || null;
+  const coverPreviewCaption =
+    coverMode === "local"
+      ? localCoverPreview
+        ? "Aperçu local — cette image n’est pas publiée."
+        : null
+      : coverValue
+        ? "Image publique (URL)"
+        : null;
   const localImageEntries = Object.entries(localImages);
 
   return (
@@ -1077,20 +1101,72 @@ const handleClearAll = useCallback(() => {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="cover">Image de couverture (URL)</Label>
-                    <Input
-                      id="cover"
-                      value={cover}
-                      onChange={(e) => {
-                        setCover(e.target.value);
-                        if (localCoverPreview) {
-                          revokeBlobUrl(localCoverPreview);
-                          setLocalCoverPreview(null);
-                        }
-                      }}
-                      placeholder="https://…"
-                    />
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="cover">Image de couverture (optionnelle)</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Utilisez un lien public pour qu’elle s’affiche sur le site, ou choisissez un fichier local pour l’aperçu
+                        dans l’éditeur (sans impact sur la publication).
+                      </p>
+                    </div>
+                    <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={coverMode === "url" ? "default" : "ghost"}
+                        className="rounded-full px-3"
+                        onClick={() => setCoverMode("url")}
+                      >
+                        Lien (URL)
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={coverMode === "local" ? "default" : "ghost"}
+                        className="rounded-full px-3"
+                        onClick={() => setCoverMode("local")}
+                      >
+                        Fichier local (aperçu)
+                      </Button>
+                    </div>
+                    {coverMode === "url" ? (
+                      <Input
+                        id="cover"
+                        type="url"
+                        value={cover}
+                        onChange={(e) => {
+                          setCover(e.target.value);
+                          if (localCoverPreview) {
+                            revokeBlobUrl(localCoverPreview);
+                            setLocalCoverPreview(null);
+                          }
+                        }}
+                        placeholder="https://…"
+                      />
+                    ) : (
+                      <div className="space-y-2">
+                        <Input
+                          id="coverFile"
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            if (!file) return;
+                            if (localCoverPreview) {
+                              revokeBlobUrl(localCoverPreview);
+                            }
+                            const objectUrl = URL.createObjectURL(file);
+                            registerBlobUrl(objectUrl);
+                            setLocalCoverPreview(objectUrl);
+                            e.target.value = "";
+                          }}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Cette image reste locale à l’éditeur. Pour qu’elle apparaisse sur le site, vous pourrez plus tard
+                          renseigner une URL publique (optionnel).
+                        </p>
+                      </div>
+                    )}
                     {errors.cover && <p className="text-sm text-red-600 mt-1">{errors.cover}</p>}
                     {coverPreview && (
                       <div className="mt-3 rounded-xl overflow-hidden border bg-muted/40">
@@ -1101,30 +1177,11 @@ const handleClearAll = useCallback(() => {
                           loading="lazy"
                           className="w-full h-48 object-cover"
                         />
+                        {coverPreviewCaption && (
+                          <p className="px-3 py-2 text-xs text-muted-foreground bg-background/60 border-t">{coverPreviewCaption}</p>
+                        )}
                       </div>
                     )}
-                    <div className="pt-2">
-                      <Label htmlFor="coverFile">ou Fichier local (aperçu uniquement)</Label>
-                      <Input
-                        id="coverFile"
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] || null;
-                          if (!file) return;
-                          if (localCoverPreview) {
-                            revokeBlobUrl(localCoverPreview);
-                          }
-                          const objectUrl = URL.createObjectURL(file);
-                          registerBlobUrl(objectUrl);
-                          setLocalCoverPreview(objectUrl);
-                          e.target.value = "";
-                        }}
-                      />
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Aperçu local uniquement. Pour publier, fournissez une URL d’image accessible.
-                      </p>
-                    </div>
                     <div className="pt-4">
                       <Label htmlFor="localImagesInput">Images locales (aperçu uniquement)</Label>
                       <Input
@@ -1166,7 +1223,8 @@ const handleClearAll = useCallback(() => {
                         </div>
                       )}
                       <p className="text-xs text-muted-foreground mt-1">
-                        Ces images restent locales à l’éditeur et servent uniquement à la prévisualisation.
+                        Ces images servent uniquement à l’aperçu dans l’éditeur. Pour les afficher sur le site public, vous pourrez,
+                        si vous le souhaitez, les remplacer par des URLs publiques avant publication.
                       </p>
                     </div>
                   </div>
@@ -1242,8 +1300,10 @@ const handleClearAll = useCallback(() => {
                       className="resize-none"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Vous pouvez insérer des images avec la syntaxe Markdown&nbsp;:{" "}
+                      Vous pouvez insérer des images avec la syntaxe Markdown&nbsp;
                       <code>![Texte alternatif](/images/mon-image.jpg)</code> ou <code>![Texte alternatif](https://exemple.com/image.jpg)</code>.
+                      Les fichiers locaux servent uniquement à l’aperçu dans l’éditeur; si vous souhaitez qu’une image apparaisse sur
+                      le site public, remplacez-la plus tard par une URL publique (optionnel).
                     </p>
                     <p className="text-xs text-muted-foreground text-right">{body.length} caractères</p>
                     {errors.body && <p className="text-sm text-red-600 mt-1">{errors.body}</p>}
@@ -1259,14 +1319,55 @@ const handleClearAll = useCallback(() => {
                           <Label htmlFor="imgAlt">Texte alternatif</Label>
                           <Input id="imgAlt" value={imgAlt} onChange={(e) => setImgAlt(e.target.value)} placeholder="Description de l’image" />
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="imgUrl">URL de l’image</Label>
-                          <Input id="imgUrl" value={imgUrl} onChange={(e) => setImgUrl(e.target.value)} placeholder="https://…" />
+                        <div className="inline-flex rounded-full border bg-muted/40 p-1 text-xs">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={imageMode === "url" ? "default" : "ghost"}
+                            className="rounded-full px-3"
+                            onClick={() => setImageMode("url")}
+                          >
+                            Lien (URL)
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={imageMode === "local" ? "default" : "ghost"}
+                            className="rounded-full px-3"
+                            onClick={() => setImageMode("local")}
+                          >
+                            Image locale (aperçu)
+                          </Button>
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="imgFile">ou Téléverser un fichier</Label>
-                          <Input id="imgFile" type="file" accept="image/*" onChange={(e) => setImgFile(e.target.files?.[0] || null)} />
-                        </div>
+                        {imageMode === "url" ? (
+                          <div className="space-y-2">
+                            <Label htmlFor="imgUrl">URL de l’image</Label>
+                            <Input
+                              id="imgUrl"
+                              type="url"
+                              value={imgUrl}
+                              onChange={(e) => setImgUrl(e.target.value)}
+                              placeholder="https://…"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              L’image sera visible sur le site public tant que ce lien reste valide.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Label htmlFor="imgFile">Image locale (aperçu uniquement)</Label>
+                            <Input
+                              id="imgFile"
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => setImgFile(e.target.files?.[0] || null)}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Cette image apparaît uniquement dans l’aperçu de l’éditeur. Vous pourrez la remplacer par un lien public
+                              si vous souhaitez qu’elle soit publiée.
+                            </p>
+                          </div>
+                        )}
                         <div className="space-y-2">
                           <Label>Alignement</Label>
                           <div className="flex gap-2">
