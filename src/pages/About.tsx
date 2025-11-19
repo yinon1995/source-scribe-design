@@ -7,13 +7,31 @@ const About = () => {
       <article className="py-20">
         <div className="container mx-auto px-4 max-w-4xl">
           {/* Header */}
-          <div className="text-center mb-16 space-y-6">
+          <div className="text-center mb-16 space-y-8">
             <h1 className="text-4xl md:text-5xl font-display font-bold text-foreground">
               À propos
             </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Une double compétence : rédaction beauté et reportages locaux
-            </p>
+            <div className="space-y-6 text-center max-w-3xl mx-auto">
+              <p className="text-xl text-muted-foreground leading-relaxed whitespace-pre-line">
+                {`« Nolwenn, plume brestois 100% beurre salé.
+
+Specializing in content for events, places, businesses and the universe of beauty, I write to give relief to local experiences and identities.
+
+« À la Brestoise », it is an editorial signature: authentic texts, précis et ancrés dans le territoire, avec une touche moderne qui fait la différence.
+
+My approach: comprendre votre univers, capter ce qui le rend unique et le traduire en mots qui résonnent, qui inspirent et qui vous ressemblent. »`}
+              </p>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-display font-semibold text-foreground">Une approche exigente</h2>
+                <p className="text-base text-muted-foreground leading-relaxed">
+                  Each article published here rests on in-depth research, verified sources et une écriture claire.
+                  <br />
+                  My goal: to offer informative content for my readers
+                  <br />
+                  And to highlight businesses and brands of professionals
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Content */}
@@ -27,26 +45,6 @@ const About = () => {
             </div>
 
             <div className="space-y-6">
-              <div className="space-y-6 text-center">
-                <div className="space-y-4">
-                  <p className="text-muted-foreground leading-relaxed">
-Nolwenn, brestoise 100% beurre salé et rédactrice spécialisée en contenus pour l’événementiel, les différents lieux et commerces et l’univers de la beauté.
-Passionnée par la valorisation des expériences et des savoir-faire, j’aide les entreprises locales à mettre en lumière leur univers à travers des textes justes, vivants et modernes. Cela me tient à cœur de partager mon univers, ici à Brest, « À la Brestoise ».
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="text-xl font-display font-semibold text-foreground">
-                    Une approche exigeante
-                  </h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    Chaque article publié ici repose sur une recherche approfondie, des sources 
-                    vérifiées et une écriture claire. Mon objectif : vous offrir des contenus 
-                    informatifs qui vous aident vraiment dans vos choix.
-                  </p>
-                </div>
-              </div>
-
               <div className="space-y-4">
                 <h3 className="text-xl font-display font-semibold text-foreground">
                   Mes valeurs

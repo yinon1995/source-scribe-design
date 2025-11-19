@@ -162,13 +162,20 @@ const Contact = () => {
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="budget">Budget indicatif</Label>
-                <Input
-                  id="budget"
-                  placeholder="Ex: 500€"
-                  className="rounded-lg"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                />
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="budget"
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step="1"
+                    placeholder="Ex : 500"
+                    className="rounded-lg"
+                    value={budget}
+                    onChange={(e) => setBudget(e.target.value)}
+                  />
+                  <span className="text-sm text-muted-foreground">€</span>
+                </div>
               </div>
 
               <div className="space-y-2">
