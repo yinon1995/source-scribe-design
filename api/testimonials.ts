@@ -21,6 +21,9 @@ const INCLUDE_ERROR_DETAILS = process.env.NODE_ENV !== "production";
 
 const TESTIMONIALS_PATH = "content/testimonials/testimonials.json";
 
+const MAX_EMBEDDED_IMAGE_LENGTH = 500_000;
+const MAX_PHOTO_COUNT = 5;
+
 export const config = {
   runtime: "nodejs",
 };
@@ -177,6 +180,7 @@ async function readTestimonials(config: GithubConfig): Promise<Testimonial[]> {
 function ensureTestimonialShape(testimonial: Testimonial): Testimonial {
   return {
     ...testimonial,
+    status: testimonial.status ?? "published",
     clientType: testimonial.clientType ?? testimonial.company ?? null,
     avatar: testimonial.avatar ?? testimonial.avatarUrl ?? null,
     photos: sanitizePhotoArray(testimonial.photos),
@@ -194,23 +198,53 @@ function optionalString(value: unknown): string | undefined {
   return trimmed.length ? trimmed : undefined;
 }
 
-function optionalDataUrl(value: unknown): string | undefined {
-  const str = optionalString(value);
-  if (!str) return undefined;
-  if (!str.startsWith("data:image/")) return undefined;
-  return str;
+function isImageDataUrl(value: string) {
+  return value.startsWith("data:image/");
 }
 
-function optionalDataUrlArray(value: unknown): string[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-  const items = value
-    .filter((entry): entry is string => typeof entry === "string" && entry.startsWith("data:image/"));
-  return items.length > 0 ? items : undefined;
+function normalizeDataUrl(value: unknown, label: string): { ok: true; value?: string } | { ok: false; error: string } {
+  const str = optionalString(value);
+  if (!str) {
+    return { ok: true, value: undefined };
+  }
+  if (!isImageDataUrl(str)) {
+    return { ok: false, error: `${label} invalide` };
+  }
+  if (str.length > MAX_EMBEDDED_IMAGE_LENGTH) {
+    return { ok: false, error: `${label} trop volumineux` };
+  }
+  return { ok: true, value: str };
+}
+
+function normalizePhotoArray(value: unknown): { ok: true; value?: string[] } | { ok: false; error: string } {
+  if (value === undefined || value === null) {
+    return { ok: true, value: undefined };
+  }
+  if (!Array.isArray(value)) {
+    return { ok: false, error: "Photos invalides" };
+  }
+  if (value.length > MAX_PHOTO_COUNT) {
+    return { ok: false, error: `Maximum ${MAX_PHOTO_COUNT} photos autorisées` };
+  }
+  const photos: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string" || !isImageDataUrl(entry)) {
+      return { ok: false, error: "Photos invalides" };
+    }
+    if (entry.length > MAX_EMBEDDED_IMAGE_LENGTH) {
+      return { ok: false, error: "Une photo est trop volumineuse" };
+    }
+    photos.push(entry);
+  }
+  return { ok: true, value: photos.length > 0 ? photos : undefined };
 }
 
 function sanitizePhotoArray(value: unknown): string[] | null {
-  const items = optionalDataUrlArray(value);
-  return items ?? null;
+  if (!Array.isArray(value)) return null;
+  const items = value
+    .filter((entry): entry is string => typeof entry === "string" && isImageDataUrl(entry))
+    .slice(0, MAX_PHOTO_COUNT);
+  return items.length > 0 ? items : null;
 }
 
 function normalizeTestimonialPayload(input: unknown): { ok: true; value: TestimonialCreateInput } | { ok: false; error: string } {
@@ -222,25 +256,37 @@ function normalizeTestimonialPayload(input: unknown): { ok: true; value: Testimo
   if (!name) {
     return { ok: false, error: "Nom requis" };
   }
-  const body = optionalString(data.body);
-  if (!body) {
-    return { ok: false, error: "Témoignage requis" };
-  }
   const rating = clampRating(data.rating, 5);
   if (Number.isNaN(rating) || rating < 1 || rating > 5) {
     return { ok: false, error: "Note invalide" };
   }
+  const body = optionalString(data.body);
+  const message = optionalString(data.message);
+  const testimonialBody = body ?? message;
+  if (!testimonialBody) {
+    return { ok: false, error: "Témoignage requis" };
+  }
+  const avatarResult = normalizeDataUrl(data.avatar ?? data.avatarDataUrl, "Avatar");
+  if (!avatarResult.ok) {
+    return { ok: false, error: avatarResult.error };
+  }
+  const photosResult = normalizePhotoArray(data.photos);
+  if (!photosResult.ok) {
+    return { ok: false, error: photosResult.error };
+  }
   const value: TestimonialCreateInput = {
     name,
-    body,
+    body: testimonialBody,
+    message: message ?? undefined,
+    email: optionalString(data.email),
     clientType: optionalString(data.clientType),
     company: optionalString(data.company),
     role: optionalString(data.role),
     city: optionalString(data.city),
     rating,
-    avatarDataUrl: optionalDataUrl(data.avatarDataUrl),
+    avatar: avatarResult.value ?? null,
     avatarUrl: optionalString(data.avatarUrl),
-    photos: optionalDataUrlArray(data.photos),
+    photos: photosResult.value ?? null,
     sourceLeadId: optionalString(data.sourceLeadId),
   };
   return { ok: true, value };
@@ -289,26 +335,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const result = normalizeTestimonialPayload(payload);
       if (!result.ok) {
         const errorMessage = "error" in result ? result.error : "Payload invalide";
-        console.error("Invalid testimonial payload", errorMessage);
+        console.error("Invalid testimonial payload", errorMessage, payload);
         respond(res, 422, { success: false, error: errorMessage });
         return;
       }
+      const input = result.value;
       const testimonial: Testimonial = {
         id: randomUUID(),
-        name: result.value.name,
-        body: result.value.body,
-        rating: result.value.rating,
-        clientType: result.value.clientType ?? result.value.company ?? null,
-        company: result.value.company ?? null,
-        role: result.value.role ?? null,
-        city: result.value.city ?? null,
-        avatar: result.value.avatarDataUrl ?? result.value.avatarUrl ?? null,
-        avatarUrl: result.value.avatarUrl ?? null,
-        photos:
-          result.value.photos && result.value.photos.length > 0
-            ? result.value.photos
-            : null,
-        sourceLeadId: result.value.sourceLeadId ?? null,
+        name: input.name,
+        body: input.message ?? input.body,
+        rating: input.rating,
+        clientType: input.clientType ?? input.company ?? null,
+        company: input.company ?? null,
+        role: input.role ?? null,
+        city: input.city ?? null,
+        avatar: input.avatar ?? input.avatarUrl ?? null,
+        avatarUrl: input.avatarUrl ?? null,
+        photos: input.photos && input.photos.length > 0 ? input.photos : null,
+        sourceLeadId: input.sourceLeadId ?? null,
         createdAt: new Date().toISOString(),
       };
       const current = await readTestimonials(config);

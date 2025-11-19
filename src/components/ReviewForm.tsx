@@ -83,7 +83,7 @@ export const ReviewForm = ({
         role: role || undefined,
         city: city || undefined,
         rating,
-        avatarDataUrl: avatarDataUrl || undefined,
+        avatar: avatarDataUrl || undefined,
         photos: eventPhotos.length ? eventPhotos : undefined,
       },
     });
@@ -106,6 +106,7 @@ export const ReviewForm = ({
       onSubmitted?.();
       return;
     }
+    console.error("Failed to submit testimonial", { source, status: "error", error: result.error });
     toast({
       title: "Impossible d’enregistrer votre témoignage",
       description: result.error || "Veuillez réessayer dans quelques instants.",
