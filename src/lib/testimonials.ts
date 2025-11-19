@@ -1,8 +1,13 @@
-import type { Testimonial as SharedTestimonial, TestimonialCreateInput as SharedTestimonialCreateInput } from "../../shared/testimonials";
+import type {
+  Testimonial as SharedTestimonial,
+  TestimonialCreateInput as SharedTestimonialCreateInput,
+  TestimonialStatus as SharedTestimonialStatus,
+} from "../../shared/testimonials";
 import { clampRating } from "../../shared/testimonials";
 
 export type Testimonial = SharedTestimonial;
 export type TestimonialCreateInput = SharedTestimonialCreateInput;
+export type TestimonialStatus = SharedTestimonialStatus;
 
 export { clampRating };
 

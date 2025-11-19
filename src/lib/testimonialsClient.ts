@@ -1,4 +1,4 @@
-import type { Testimonial, TestimonialCreateInput } from "./testimonials";
+import type { Testimonial, TestimonialCreateInput, TestimonialStatus } from "./testimonials";
 
 const API_BASE = ((import.meta as any)?.env?.VITE_API_BASE || "").replace(/\/+$/, "");
 const ENDPOINT = `${API_BASE}/api/testimonials`;
@@ -16,9 +16,15 @@ async function parseJson<T>(res: Response): Promise<T | null> {
   }
 }
 
-export async function fetchTestimonials(): Promise<Testimonial[]> {
+export async function fetchTestimonials(adminToken?: string): Promise<Testimonial[]> {
   try {
-    const res = await fetch(ENDPOINT);
+    const headers: Record<string, string> = {};
+    if (adminToken?.trim()) {
+      headers.Authorization = `Bearer ${adminToken.trim()}`;
+    }
+    const res = await fetch(ENDPOINT, {
+      headers,
+    });
     const data = await parseJson<ApiResponse<{ testimonials?: Testimonial[] }>>(res);
     if (!res.ok || !data?.success) {
       throw new Error(data?.error || "Impossible de charger les témoignages.");
@@ -77,6 +83,33 @@ export async function deleteTestimonial(
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error?.message || "Impossible de supprimer le témoignage." };
+  }
+}
+
+export async function updateTestimonialStatus(
+  id: string,
+  status: TestimonialStatus,
+  adminToken: string,
+): Promise<{ success: boolean; testimonial?: Testimonial; error?: string }> {
+  if (!adminToken?.trim()) {
+    return { success: false, error: "Jeton administrateur manquant." };
+  }
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken.trim()}`,
+      },
+      body: JSON.stringify({ id, status }),
+    });
+    const data = await parseJson<ApiResponse<{ testimonial?: Testimonial }>>(res);
+    if (!res.ok || !data?.success) {
+      return { success: false, error: data?.error || "Impossible de mettre à jour le témoignage." };
+    }
+    return { success: true, testimonial: data.testimonial };
+  } catch (error: any) {
+    return { success: false, error: error?.message || "Impossible de mettre à jour le témoignage." };
   }
 }
 
