@@ -10,6 +10,7 @@ export type Testimonial = {
   city?: string | null;
   avatar?: string | null;
   avatarUrl?: string | null;
+  photos?: string[] | null;
   sourceLeadId?: string | null;
 };
 
@@ -23,6 +24,7 @@ export type TestimonialCreateInput = {
   city?: string | null;
   avatarDataUrl?: string | null;
   avatarUrl?: string | null;
+  photos?: string[] | null;
   sourceLeadId?: string | null;
 };
 

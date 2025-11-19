@@ -18,7 +18,7 @@ const LeadMetaGrid = ({ meta }: LeadMetaGridProps) => {
               {formatMetaKey(key)}
             </div>
             <div className="mt-1 break-words whitespace-pre-wrap text-sm font-medium">
-              {typeof value === "object" && value !== null ? JSON.stringify(value, null, 2) : String(value)}
+              {renderMetaValue(key, value)}
             </div>
           </div>
         ))}
@@ -28,5 +28,44 @@ const LeadMetaGrid = ({ meta }: LeadMetaGridProps) => {
 };
 
 export default LeadMetaGrid;
+
+function renderMetaValue(key: string, value: unknown) {
+  if (isImageDataUrl(value)) {
+    return (
+      <img
+        src={value}
+        alt={`Meta ${key}`}
+        className="h-16 w-16 rounded-md object-cover border"
+      />
+    );
+  }
+  if (Array.isArray(value) && value.every(isImageDataUrl)) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {value.map((src, index) => (
+          <img
+            key={`${key}-${index}`}
+            src={src}
+            alt={`Meta ${key} ${index + 1}`}
+            className="h-16 w-16 rounded-md object-cover border"
+          />
+        ))}
+      </div>
+    );
+  }
+  if (typeof value === "object" && value !== null) {
+    return (
+      <pre className="max-h-48 overflow-auto rounded border bg-background/50 p-2 text-xs leading-tight">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    );
+  }
+  if (value === undefined || value === null) return "—";
+  return String(value);
+}
+
+function isImageDataUrl(value: unknown): value is string {
+  return typeof value === "string" && value.startsWith("data:image/");
+}
 
 

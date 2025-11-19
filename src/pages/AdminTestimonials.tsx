@@ -92,6 +92,7 @@ const AdminTestimonials = () => {
       body: (lead.message || "").trim(),
       avatarDataUrl: firstString(meta, ["avatarDataUrl"]),
       avatarUrl: firstString(meta, ["avatarUrl", "logoUrl"]),
+      photos: extractPhotoArray(meta),
       sourceLeadId: lead.id,
     };
     if (!payload.body) {
@@ -328,6 +329,14 @@ function renderStars(rating: number) {
   );
 }
 
+function extractPhotoArray(meta: Record<string, unknown> | undefined): string[] | undefined {
+  if (!meta) return undefined;
+  const value = meta.photos;
+  if (!Array.isArray(value)) return undefined;
+  const sanitized = value.filter((entry): entry is string => isImageDataUrl(entry));
+  return sanitized.length > 0 ? sanitized : undefined;
+}
+
 type LeadDetailsDialogProps = {
   lead: Lead | null;
   onClose: () => void;
@@ -441,6 +450,21 @@ function PublishedTestimonialDialog({ testimonial, onClose }: PublishedTestimoni
                   {testimonial.body}
                 </div>
               </div>
+              {testimonial.photos && testimonial.photos.length > 0 && (
+                <div>
+                  <div className="font-medium">Photos partagées</div>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    {testimonial.photos.map((src, index) => (
+                      <img
+                        key={`${testimonial.id}-photo-${index}`}
+                        src={src}
+                        alt={`Photo ${index + 1} partagée par ${testimonial.name}`}
+                        className="h-24 w-full rounded-md object-cover border"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
               {testimonial.avatar && (
                 <div>
                   <div className="font-medium">Avatar</div>
@@ -475,6 +499,10 @@ function initials(value: string) {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+}
+
+function isImageDataUrl(value: unknown): value is string {
+  return typeof value === "string" && value.startsWith("data:image/");
 }
 
 

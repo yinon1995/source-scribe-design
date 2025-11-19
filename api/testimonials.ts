@@ -179,6 +179,7 @@ function ensureTestimonialShape(testimonial: Testimonial): Testimonial {
     ...testimonial,
     clientType: testimonial.clientType ?? testimonial.company ?? null,
     avatar: testimonial.avatar ?? testimonial.avatarUrl ?? null,
+    photos: sanitizePhotoArray(testimonial.photos),
   };
 }
 
@@ -198,6 +199,18 @@ function optionalDataUrl(value: unknown): string | undefined {
   if (!str) return undefined;
   if (!str.startsWith("data:image/")) return undefined;
   return str;
+}
+
+function optionalDataUrlArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const items = value
+    .filter((entry): entry is string => typeof entry === "string" && entry.startsWith("data:image/"));
+  return items.length > 0 ? items : undefined;
+}
+
+function sanitizePhotoArray(value: unknown): string[] | null {
+  const items = optionalDataUrlArray(value);
+  return items ?? null;
 }
 
 function normalizeTestimonialPayload(input: unknown): { ok: true; value: TestimonialCreateInput } | { ok: false; error: string } {
@@ -227,6 +240,7 @@ function normalizeTestimonialPayload(input: unknown): { ok: true; value: Testimo
     rating,
     avatarDataUrl: optionalDataUrl(data.avatarDataUrl),
     avatarUrl: optionalString(data.avatarUrl),
+    photos: optionalDataUrlArray(data.photos),
     sourceLeadId: optionalString(data.sourceLeadId),
   };
   return { ok: true, value };
@@ -288,6 +302,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         city: normalized.value.city ?? null,
         avatar: normalized.value.avatarDataUrl ?? normalized.value.avatarUrl ?? null,
         avatarUrl: normalized.value.avatarUrl ?? null,
+        photos: normalized.value.photos && normalized.value.photos.length > 0 ? normalized.value.photos : null,
         sourceLeadId: normalized.value.sourceLeadId ?? null,
         createdAt: new Date().toISOString(),
       };

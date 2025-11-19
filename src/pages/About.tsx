@@ -82,7 +82,7 @@ My approach: comprendre votre univers, capter ce qui le rend unique et le tradui
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">Commerces & places</h3>
+                <h3 className="text-lg font-semibold text-foreground">Commerces & lieux</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Domaines hôteliers, boutiques & concept-stores, cafés et restaurants, ateliers créatifs, activités
                 </p>

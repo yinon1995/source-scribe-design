@@ -1,7 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Star, StarOff, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchTestimonials } from "@/lib/testimonialsClient";
@@ -127,12 +126,7 @@ const TestimonialsSection = ({
               >
                 <CardContent className="flex flex-col gap-4 p-0">
                   <div className="flex items-center gap-3">
-                    <Avatar>
-                      {getAvatarSource(testimonial) && (
-                        <AvatarImage src={getAvatarSource(testimonial)!} alt={testimonial.name} />
-                      )}
-                      <AvatarFallback>{initials(testimonial.name)}</AvatarFallback>
-                    </Avatar>
+                    {renderAvatar(testimonial)}
                     <div>
                       <p className="font-semibold">{testimonial.name}</p>
                       {formatTestimonialLocation(testimonial) && (
@@ -146,6 +140,19 @@ const TestimonialsSection = ({
                     {renderStars(testimonial.rating)}
                   </div>
                   <p className="text-base text-muted-foreground leading-relaxed">“{testimonial.body}”</p>
+                  {testimonial.photos && testimonial.photos.length > 0 && (
+                    <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                      {testimonial.photos.map((src, index) => (
+                        <img
+                          key={`${testimonial.id}-photo-${index}`}
+                          src={src}
+                          alt={`Photo ${index + 1} partagée par ${testimonial.name}`}
+                          className="h-20 w-28 flex-shrink-0 rounded-md object-cover border"
+                          loading="lazy"
+                        />
+                      ))}
+                    </div>
+                  )}
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <span>{new Date(testimonial.createdAt).toLocaleDateString("fr-FR")}</span>
                   </div>
@@ -183,8 +190,23 @@ function formatAverageRating(average: number) {
   return Number.isInteger(rounded) ? `${rounded}/5` : `${rounded.toFixed(1)}/5`;
 }
 
-function getAvatarSource(testimonial: Testimonial) {
-  return testimonial.avatar ?? testimonial.avatarUrl ?? undefined;
+function renderAvatar(testimonial: Testimonial) {
+  const source = testimonial.avatar ?? testimonial.avatarUrl ?? undefined;
+  if (source) {
+    return (
+      <img
+        src={source}
+        alt={testimonial.name}
+        className="h-12 w-12 rounded-full object-cover border"
+        loading="lazy"
+      />
+    );
+  }
+  return (
+    <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground">
+      {initials(testimonial.name)}
+    </div>
+  );
 }
 
 export default TestimonialsSection;

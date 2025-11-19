@@ -12,7 +12,7 @@ import { site } from "@/lib/siteContent";
 import { createLead } from "@/lib/inboxClient";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { CATEGORY_OPTIONS, postsIndex } from "@/lib/content";
+import { CATEGORY_OPTIONS, normalizeCategory, postsIndex } from "@/lib/content";
 
 const Index = () => {
   const categories = useMemo(() => ["Tous", ...CATEGORY_OPTIONS], []);
@@ -32,7 +32,7 @@ const Index = () => {
         title: post.title,
         excerpt: (post.summary ?? "").trim() || `Découvrez ${post.title}`,
         image: post.heroImage,
-        category: post.category || site.categories.beaute,
+        category: normalizeCategory(post.category),
         readTime: `${post.readingMinutes ?? 1} min`,
         slug: post.slug as string,
         tags: post.tags ?? [],

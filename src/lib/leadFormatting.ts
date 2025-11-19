@@ -16,6 +16,7 @@ const META_KEY_LABELS: Record<string, string> = {
   rating: "Note",
   avatarUrl: "Photo / avatar",
   avatarDataUrl: "Avatar (image)",
+  photos: "Photos partagées",
   service: "Service",
   services: "Services",
   subject: "Sujet",

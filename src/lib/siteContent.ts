@@ -19,7 +19,7 @@ export const site = {
     thematiques: "Thématiques",
   },
   categories: {
-    commercesEtLieux: "Commerces & places",
+    commercesEtLieux: "Commerces & lieux",
     experience: "Événementiel",
     beaute: "Beauté & cosmétique",
   },

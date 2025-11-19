@@ -1,5 +1,5 @@
-Nice, everything is in a good place now.
-Here’s a **clean, updated README** you can paste over your current `README.md` (it includes Search Console, GA4, GTM, and the new domain + sitemap setup).
+Here’s an updated, “future-AI friendly” README you can paste over the old one.
+I’ve baked in everything we’ve built: JSON CMS, admin, inbox leads, testimonials, inline images, etc.
 
 ````markdown
 # À la Brestoise — JSON CMS + Admin “Writing Space”
@@ -7,19 +7,19 @@ Here’s a **clean, updated README** you can paste over your current `README.md`
 This repo contains the **À la Brestoise** site, built with **Vite + React + TypeScript + Tailwind + shadcn/ui**.
 
 Editorial content (articles) now lives primarily as **JSON files** under `content/articles/`.  
-There is also legacy support for **Markdown files** under `content/posts/`, but the **admin writing space** reads/writes JSON articles and commits them to GitHub via a Vercel serverless function. A new deployment is then triggered so the updated article appears on the public pages.
+There is also legacy support for **Markdown files** under `content/posts/`, but the **admin writing space** reads/writes JSON articles and commits them to GitHub via Vercel serverless functions. When the repo updates, Vercel redeploys and the updated content appears on the public pages.
 
-This README is meant to be a “brain dump” so a future developer or AI can safely continue from here.
+This README is meant to be a **brain dump** so a future developer or AI can safely continue from here **without breaking the admin, inbox, testimonials, or publish flow**.
 
 ---
 
 ## ⚠️ CRITICAL PITFALL — WRONG VERCEL PROJECT / DOMAIN
 
-This mistake previously cost hours of debugging, so it’s called out **up front**.
+This mistake previously cost hours of debugging.
 
 **Symptoms when it’s wrong:**
 
-- `/admin/articles` shows some articles, but GitHub only has a different set of JSON files.
+- `/admin/articles` shows some articles, but GitHub has a different set of JSON files.
 - Publishing/deleting in `/admin` “works”, but the **public site** doesn’t change.
 - Two URLs behave differently (admin vs public, or GitHub vs Vercel).
 
@@ -43,7 +43,7 @@ This mistake previously cost hours of debugging, so it’s called out **up front
    - `https://source-scribe-design-xxxxx-*.vercel.app`
    - `https://source-scribe-design-git-main-*.vercel.app`
 
-   treat them as **legacy** unless you have confirmed in the Vercel dashboard that they belong to this exact project.
+   treat them as **legacy** unless you have confirmed in the Vercel dashboard that they belong to this exact project and repo.
 
 If anything looks “impossible” (admin and GitHub do not match, or publish seems to work but the public site doesn’t change), **first check the URL bar** and confirm you are on the project that is actually connected to this repo and to `a-la-brestoise.vercel.app`.
 
@@ -56,36 +56,49 @@ If anything looks “impossible” (admin and GitHub do not match, or publish se
 - Vite + React + TypeScript
 - Tailwind CSS + shadcn/ui
 - Routing via `react-router-dom` (SPA)
+- Icons: `lucide-react`
 
 ### Content
 
-- **JSON articles** under `content/articles/*.json` (main source of truth)
-- **Legacy Markdown** posts under `content/posts/*.md` (optional)
-- Some extra JSON/TS content (testimonials, home sections, etc.)
+- **JSON articles** under `content/articles/*.json` (main source of truth).
+- **Legacy Markdown** posts under `content/posts/*.md` (optional, read-only).
+- JSON/TS content for supporting pieces (testimonials, home sections, etc.).
 - All of this is loaded via `src/lib/content.ts` into:
 
-  - `posts` (full content objects)
-  - `postsIndex` (frontmatter/index for listings & SEO)
+  - `posts: Post[]` — full content.
+  - `postsIndex: PostFrontmatter[]` — for listings & SEO.
 
 ### Backend / API (Vercel serverless)
 
-- Functions under `/api`:
+Serverless functions in `/api` handle:
 
-  - `publish.ts` — creates/updates **JSON articles** and commits to GitHub
-  - `subscribe.ts` — newsletter subscriptions
-  - `contact.ts`, `testimonial.ts`, etc. — forms / emails (for future **live** mode)
+- `api/publish.ts`
+  - Creates/updates JSON articles in `content/articles/` and `content/articles/index.json` via the GitHub Contents API.
+- `api/inbox.ts`
+  - Collects **leads** from:
+    - Newsletter forms
+    - Contact forms
+    - Services / quote interest
+    - Subject suggestions
+    - (Internally) testimonial requests
+  - Stores them in a Git-tracked JSON file and exposes them to the **admin inbox UI**.
+- `api/testimonials.ts`
+  - Manages **customer testimonials/reviews** for “Ils m’ont fait confiance”:
+    - Accepts new testimonial submissions from the public form.
+    - Lets admin publish/reject/delete reviews.
+    - Updates the data used by the public testimonials carousel.
 
-- These functions use environment variables (GitHub, Resend, etc.) set in Vercel.
+All three APIs share a **GitHub config helper** (similar pattern to `api/publish.ts`) and require the same core env vars (`GITHUB_REPO`, `GITHUB_TOKEN`, `PUBLISH_BRANCH`).
 
 ### Deployment
 
-- Vercel project linked to the GitHub repo `yinon1995/source-scribe-design`.
+- Vercel project linked to `yinon1995/source-scribe-design`.
 - Main domain:
 
   - **Production:** `https://a-la-brestoise.vercel.app`
 
-- Vercel also exposes auto-generated preview URLs for branches (e.g. `*-git-main-*.vercel.app`).  
-  These are fine to use as long as they belong to the **same** project.
+- Vercel also creates preview URLs (e.g. `*-git-main-*.vercel.app`) for branches.  
+  These are fine **only if they belong to this project**.
 
 Always confirm in the Vercel dashboard which project is connected to this repo, and use that project’s domains.
 
@@ -100,7 +113,14 @@ npm run dev
 
 Then open `http://localhost:5173` (or the port shown in the terminal).
 
-For local testing of admin features, you’ll need a `.env.local` (or Vercel env) with the GitHub variables described below.
+For local testing of **admin features** (articles, inbox, reviews), you’ll need a `.env.local` file with at least:
+
+* `GITHUB_REPO`
+* `GITHUB_TOKEN`
+* `PUBLISH_BRANCH`
+* `PUBLISH_TOKEN`
+
+matching the Vercel environment.
 
 ---
 
@@ -108,22 +128,22 @@ For local testing of admin features, you’ll need a `.env.local` (or Vercel env
 
 In Vercel → Project (linked to **yinon1995/source-scribe-design**) → **Settings → Environment Variables**.
 
-### 3.1. GitHub / content publishing
+### 3.1. GitHub / content publishing (articles, inbox, testimonials)
 
-Used by `api/publish.ts` to commit changes into the repo via the GitHub Contents API:
+Used by `api/publish.ts`, `api/inbox.ts`, and `api/testimonials.ts`:
 
 * `GITHUB_REPO`
-  Full `owner/repo` string.
-  Example: `yinon1995/source-scribe-design`
+  Full `owner/repo` string. Example:
+  `yinon1995/source-scribe-design`
 
 * `GITHUB_TOKEN`
-  GitHub Personal Access Token with **contents read/write** permissions for the repo.
+  GitHub Personal Access Token with **contents read/write** permissions for this repo.
 
 * `PUBLISH_BRANCH`
   Target branch to write to (usually `main`).
   If not set, the code defaults to `main`.
 
-> Note: older docs/code may mention `GITHUB_OWNER` and `GITHUB_BRANCH`.
+> Older docs/code may mention `GITHUB_OWNER` or `GITHUB_BRANCH`.
 > The current implementation uses **only** `GITHUB_REPO` (as `owner/repo`) plus `PUBLISH_BRANCH`.
 
 ### 3.2. Admin security / publish token
@@ -132,114 +152,50 @@ Used by `api/publish.ts` to commit changes into the repo via the GitHub Contents
   Secret token used as:
 
   * The **admin password** in the writing space (admin UI).
-  * The **server-side auth token** in `api/publish.ts`
+  * The **server-side auth token** for `api/publish.ts`, `api/inbox.ts`, and `api/testimonials.ts`
     (`Authorization: Bearer <PUBLISH_TOKEN>`).
 
-Treat `PUBLISH_TOKEN` as the **single source of truth** for publishing access.
+This is the **single source of truth** for admin access.
 
 ### 3.3. Optional deploy hook
 
 * `VERCEL_DEPLOY_HOOK_URL` (optional)
-  A Vercel “Deploy Hook” URL.
-  If set, `publish.ts` can call it after writing the article so Vercel redeploys immediately.
-  If not set, deployments still happen when the branch is updated.
+  Vercel “Deploy Hook” URL for this project.
 
-### 3.4. Email / contact integrations (future live mode)
+If set, `api/publish.ts` (and possibly other APIs) can call it after writing files so Vercel redeploys immediately.
+If not set, Vercel will still deploy when the branch is updated via GitHub.
 
-For true **server-side emailing** (newsletter/contact forms), you’ll typically use:
+### 3.4. Email / external providers
 
-* `RESEND_API_KEY` — API key for Resend (email provider).
-* `RESEND_FROM` — From-address (must match a verified domain at Resend).
-* Possibly other contact-related vars (e.g. `CONTACT_TO_EMAIL`) — check `api/contact.ts`, `api/subscribe.ts`, etc.
+Right now the site does **not** send emails via Resend or other providers.
+All contact flows (newsletter, services, contact, subject suggestion, etc.) are implemented as **inbox leads** via `api/inbox.ts`.
 
-These are mostly relevant once you have a **real custom domain** configured and want the site to send emails directly.
+If you ever introduce real emailing again, you’ll likely need env vars such as:
 
-### 3.5. Contact behavior: Gmail compose (current) vs live sending (future)
+* `RESEND_API_KEY`
+* `RESEND_FROM`
+* Any other provider-specific config.
 
-Contact behavior is controlled via two config files:
-
-* `src/config/contact.ts`
-* `src/config/contactFallback.ts`
-
-**Current setup (placeholder mode):**
-
-* `src/config/contact.ts` defines:
-
-  ```ts
-  export const CONTACT_EMAIL = "…@…"; // main recipient
-
-  export type GmailComposeOptions = {
-    subject?: string;
-    body?: string;
-  };
-
-  export function getGmailComposeUrl(options?: GmailComposeOptions): string { … }
-
-  export function openGmailCompose(options?: GmailComposeOptions) { … }
-  ```
-
-* All **contact CTAs** (“Écrire un e-mail”, contact buttons, services CTAs, etc.) import and call `openGmailCompose(...)`.
-  Result: clicking those buttons opens **Gmail compose in a new tab**, with:
-
-  * `To` = `CONTACT_EMAIL`
-  * Optional `subject` and `body` pre-filled depending on context
-
-* `src/config/contactFallback.ts` defines a mode:
-
-  ```ts
-  export type ContactMode = "placeholder" | "live";
-
-  export const CONTACT_MODE: ContactMode = "placeholder";
-  ```
-
-  In **placeholder** mode, the site does **not** try to send emails via API.
-  It only opens Gmail (and WhatsApp where relevant) so users can contact manually.
-
-**Later, when you have a proper domain and want real emailing again:**
-
-1. Configure email provider env vars (Resend, etc.).
-
-2. Switch `CONTACT_MODE` in `src/config/contactFallback.ts` from:
-
-   ```ts
-   export const CONTACT_MODE: ContactMode = "placeholder";
-   ```
-
-   to:
-
-   ```ts
-   export const CONTACT_MODE: ContactMode = "live";
-   ```
-
-3. In **live** mode, components like `Contact.tsx`, `Services.tsx`, etc. can:
-
-   * Call the relevant API routes (`/api/contact`, `/api/subscribe`, …) instead of only opening Gmail.
-   * Keep the Gmail fallback if you still want it as a backup.
-
-Right now the site is in **no-custom-domain / placeholder** mode with **Gmail compose** everywhere.
-Once there is a real domain+email setup, you only need to:
-
-* Set the email env vars.
-* Flip `CONTACT_MODE` to `"live"`.
-* Ensure contact APIs (`api/contact.ts`, etc.) are wired to those env vars.
+Make sure you **do not break inbox leads** when adding email sending.
 
 ---
 
-## 4. Content model & indexing
+## 4. Content model & indexing (articles)
 
 ### 4.1. JSON articles (`content/articles/*.json`)
 
-Each article is a JSON file (type `JsonArticle` in `src/lib/content.ts`):
+Each article is a `JsonArticle` (defined in `src/lib/content.ts`, exact type may evolve).
+Conceptually:
 
 ```ts
 type JsonArticle = {
   title: string;
   slug: string;
-  category: "Beauté & cosmétique" | "Commerces & places" | "Événementiel";
+  category: "Beauté & cosmétique" | "Commerces & lieux" | "Événementiel";
   tags: string[];
-  cover: string;      // image URL
+  cover: string;      // image URL or data URL (for cover image)
   excerpt: string;    // short French summary
-  body: string;       // markdown body
+  body: string;       // markdown body (can include inline images as data URLs)
   author: string;
   date: string;       // ISO date
   readingMinutes?: number;
@@ -247,14 +203,26 @@ type JsonArticle = {
 };
 ```
 
-Legacy JSON files may still contain the older labels (`"Beauté"`, `"Commerces & lieux"`, `"Expérience"`). The runtime normalizes them automatically so the public site and admin UI only surface the new labels.
+Notes:
 
-These articles are created/updated by the admin UI via `api/publish.ts`.
-The function also maintains `content/articles/index.json` (an array of summary objects) for fast listing.
+* Legacy JSON files may still have old labels (`"Beauté"`, `"Commerces & places"`, `"Expérience"`).
+  The runtime normalizes them so the public site and admin UI only surface the new labels.
+* The **cover image** is now set via the admin UI, usually as a data URL or uploaded image.
+
+`api/publish.ts`:
+
+* Validates fields.
+* Ensures `article.body` is a non-empty string.
+* Accepts long bodies (including inline `data:image/...;base64,...` segments).
+  There is a `MAX_ARTICLE_BODY_LENGTH` guard to prevent absurdly large payloads, but it is generous enough for normal articles with a few inline images.
+* Writes:
+
+  * `content/articles/<slug>.json` — full article payload.
+  * `content/articles/index.json` — metadata index used by listings.
 
 ### 4.2. Legacy Markdown posts (`content/posts/*.md`)
 
-Older articles can still live as `.md` files with YAML frontmatter:
+Older articles may be `.md` files with frontmatter:
 
 ```yaml
 ---
@@ -274,13 +242,14 @@ sources:
 Article body in **Markdown** (French).
 ```
 
-These are primarily for backward compatibility. The admin UI does **not** edit Markdown files.
+These are **read-only** for the current admin:
+the admin UI does **not** edit Markdown files.
 
 ### 4.3. `src/lib/content.ts`
 
-This module:
+Responsibilities:
 
-* Loads Markdown posts:
+* Load Markdown posts:
 
   ```ts
   import.meta.glob("/content/posts/*.md", {
@@ -289,28 +258,32 @@ This module:
   });
   ```
 
-  and parses frontmatter + body into `Post` objects.
+  Parse frontmatter + body into `Post` objects.
 
-* Loads JSON articles:
+* Load JSON articles:
 
   ```ts
   import.meta.glob("/content/articles/*.json", { eager: true });
   ```
 
-  and maps JSON articles into the same `PostFrontmatter` shape.
+  Map them into the same `PostFrontmatter` / `Post` shape used by the rest of the site.
 
 Exports:
 
 * `posts: Post[]` — full content.
 * `postsIndex: PostFrontmatter[]` — frontmatter only, sorted by date (newest first).
-* `getPostBySlug(slug)` — finds either a Markdown or JSON article by slug.
+* `getPostBySlug(slug: string)` — finds either a Markdown or JSON article.
 
 The **public site** (`/articles`, `/articles/:slug`) reads from these helpers.
 
 ### 4.4. `src/lib/articlesIndex.ts`
 
-Admin-specific helper that reads all JSON articles and exposes a typed list for `/admin/articles`.
-It builds the list by globbing `content/articles/*.json` (excluding `index.json`), normalizing the data and sorting by date.
+Admin-specific helper that:
+
+* Reads all JSON articles (excluding `index.json`).
+* Normalizes them.
+* Sorts by date.
+* Exposes a typed list for `/admin/articles`.
 
 ---
 
@@ -318,117 +291,149 @@ It builds the list by globbing `content/articles/*.json` (excluding `index.json`
 
 ### 5.1. Main public routes
 
-From `src/App.tsx` / `src/pages`:
+Defined in `src/App.tsx` / `src/pages`:
 
 * `/` — Home
-* `/articles` — all articles
+* `/articles` — article listing
 * `/articles/:slug` — article detail
-* `/thematiques`, `/a-propos`, `/services`, `/contact`, etc. — other marketing pages
+* `/thematiques`
+* `/a-propos`
+* `/services`
+* `/contact`
+* `/avis` — testimonials / “Ils m’ont fait confiance”
 
-### 5.2. Article list page (`src/pages/Articles.tsx`)
+### 5.2. Article listing — `ArticleCard`
 
-* Imports `postsIndex`.
+The article list page (`src/pages/Articles.tsx`) uses `postsIndex` and renders `ArticleCard`:
 
-* Maps each item to a card:
+* File: `src/components/ArticleCard.tsx`
 
-  * Image (`heroImage` or fallback)
-  * Category (from `category`)
-  * Reading time (`readingMinutes` → `"x min"`)
-  * Title, excerpt, tags, etc.
+* Props (simplified):
 
-* Handles filters: category buttons, search bar, etc.
+  ```ts
+  interface ArticleCardProps {
+    title: string;
+    excerpt: string;
+    image?: string;   // cover or hero
+    category: string;
+    readTime: string; // preformatted (e.g. "5 min")
+    slug: string;     // used for /articles/:slug
+    tags?: string[];
+    featured?: boolean;
+  }
+  ```
+
+* The card is wrapped in:
+
+  ```tsx
+  <Link to={`/articles/${slug}`} className="group">
+    …
+  </Link>
+  ```
+
+If you change the article route structure, you **must** keep `ArticleCard` in sync with the router and `getPostBySlug`.
 
 ---
 
-## 6. Admin “writing space”
+## 6. Admin “Espace rédaction” (articles)
 
-The admin area is a client-side SPA section, protected by a guard that checks a token stored via `src/lib/adminSession.ts`.
+The admin area is a client-side SPA, protected by a guard that checks a token via `src/lib/adminSession.ts`.
 
-### 6.1. Admin routes
+### 6.1. Admin routes (high level)
 
 All admin routes are wrapped by `AdminGuard` in `src/App.tsx`:
 
-* `/admin` — entry point to the writing space.
+* `/admin` — **Dashboard**
+  Cards for:
 
-  * If no token is stored:
+  * “Créer un nouvel article”
+  * “Modifier les articles existants”
+  * “Voir les demandes” (inbox)
+  * “Gérer les avis” (testimonials)
 
-    * Shows a **password screen**:
+* `/admin/nouvel-article` (alias `/admin/new`) — **new/edit article**
 
-      * Title: “Accès espace rédaction”
-      * Field: “Mot de passe administrateur”
-      * On submit: stores the token via `setAdminToken()`; if valid, grants access.
+  * Form fields:
 
-  * If a token is present:
+    * Title
+    * Slug
+    * Category
+    * Tags
+    * Cover image (drag & drop / file upload)
+    * Excerpt (summary)
+    * Body (Markdown, with inline images)
+    * Sources
+    * Author
+    * Date
+    * Reading time
 
-    * Shows the **Dashboard** with cards:
+  * Admin token is read from `adminSession` and sent as:
 
-      * “Créer un nouvel article”
-      * “Modifier les articles existants”
+    * `Authorization: Bearer <PUBLISH_TOKEN>` to `api/publish.ts`.
 
-* `/admin/nouvel-article` (alias `/admin/new`) — **new/edit article**:
+  * “Publier”:
 
-  * Form fields for:
+    * Calls `POST /api/publish` with a JSON payload.
+    * Expects a JSON response (`success: true` or `success: false` with `error`).
+    * Shows a toast based on the server response.
 
-    * Title, slug, category, tags, cover image URL, summary (excerpt), body (Markdown), sources, author, date, reading time, etc.
+  * Inline images:
 
-  * Admin password/token is read from `adminSession` and sent as `Authorization: Bearer <PUBLISH_TOKEN>` to `api/publish.ts`.
+    * There is a dialog for **“Insérer une image”**:
 
-  * On **Publier**:
+      * You choose an image file (drag/drop or input).
+      * The editor converts it to a `data:image/...;base64,...` URL.
+      * The body gets a Markdown snippet:
 
-    * Calls `POST /api/publish` with JSON body.
+        ```md
+        ![Alt text](data:image/jpeg;base64,....)
+        ```
 
-  * **Edit mode**:
+        plus an optional caption.
+    * This means **body can be long** due to base64. Do not over-tighten validation.
 
-    * When opened as `/admin/nouvel-article?slug=<slug>`:
+  * Drafts:
 
-      * Uses `getPostBySlug(slug)` or the JSON index to prefill fields.
-      * Keeps the same `slug` so URLs don’t break.
-      * Publishing updates the same JSON file and index entry (no duplicate articles).
+    * New article drafts are stored in `localStorage` (e.g. `draft:article:new`).
+    * Edit mode can have its own draft behaviour.
 
-  * Drafts can be autosaved to `localStorage` so they survive refresh.
+* `/admin/articles` — **existing articles list**
 
-* `/admin/articles` — **existing articles list**:
-
-  * Uses `getAllArticlesForAdmin()` (from `src/lib/articlesIndex.ts`) to list all JSON articles.
-
-  * Table columns typically:
-
-    * `Title | Slug | Publication date | Status | Actions`
-
+  * Uses admin articles index.
+  * Shows `Title | Slug | Date | Status | Actions`.
   * Actions:
 
-    * **Modifier**: navigates to `/admin/nouvel-article?slug=<slug>`.
-    * **Supprimer**: opens a confirm dialog and calls `DELETE /api/publish?slug=<slug>`.
+    * “Modifier” → `/admin/nouvel-article?slug=<slug>`
+    * “Supprimer” → `DELETE /api/publish?slug=<slug>` (with confirmation).
 
-### 6.2. `AdminGuard` + admin session helper
+### 6.2. Admin session & guard
 
 * `src/lib/adminSession.ts`:
 
-  * `getAdminToken()` – reads the stored token.
-  * `setAdminToken(value)` – stores the token.
-  * `clearAdminToken()` – removes the token.
-
+  * `getAdminToken()`, `setAdminToken(value)`, `clearAdminToken()`.
 * `src/components/AdminGuard.tsx`:
 
-  * On mount, calls `getAdminToken()`.
-  * If no token → renders full-page admin login.
-  * If token exists → renders admin children (dashboard, editor, list…).
+  * If token is missing → shows login screen (“Accès espace rédaction”).
+  * If token is present → renders admin routes.
+* Admin sub-pages include a consistent **“← Back to dashboard”** button to return to `/admin`.
 
 ---
 
-## 7. Publishing & deleting flow (JSON articles)
+## 7. Publishing & deleting articles (JSON)
 
-### 7.1. Publishing an article
+### 7.1. Publishing (POST `/api/publish`)
 
-1. Admin opens `/admin`.
+Flow:
 
-2. Enters `PUBLISH_TOKEN`.
+1. Admin opens `/admin`, logs in with `PUBLISH_TOKEN`.
 
-3. Clicks **Créer un nouvel article**.
+2. Clicks **Créer un nouvel article**.
 
-4. Fills the form and presses **Publier**.
+3. Fills the form (including cover + body).
 
-5. Frontend calls:
+4. Clicks **Publier**.
+
+5. Frontend sends:
 
    ```http
    POST /api/publish
@@ -436,36 +441,47 @@ All admin routes are wrapped by `AdminGuard` in `src/App.tsx`:
    Content-Type: application/json
    ```
 
-   with a JSON payload matching the `Article` type in `api/publish.ts`.
+   Payload matches the `Article` shape in `api/publish.ts`.
 
 6. `api/publish.ts`:
 
-   * Verifies the token against `PUBLISH_TOKEN`.
-
-   * Normalizes the slug (lowercase, no spaces or accents).
-
+   * Checks env vars via a GitHub config helper (similar to inbox).
+   * Validates fields (title, slug, excerpt, category, body, etc.).
+   * Ensures `article.body` is non-empty and not longer than `MAX_ARTICLE_BODY_LENGTH`.
+   * Normalizes the slug (lowercase, URL-safe).
    * Writes/updates:
 
-     * `content/articles/<slug>.json` — full article.
-     * `content/articles/index.json` — list of article metadata.
+     * `content/articles/<slug>.json`
+     * `content/articles/index.json`
+   * Commits to `GITHUB_REPO` on `PUBLISH_BRANCH` using the GitHub Contents API.
+   * Optionally calls `VERCEL_DEPLOY_HOOK_URL`.
 
-   * Commits changes to `GITHUB_REPO` on branch `PUBLISH_BRANCH` via the GitHub Contents API.
+7. Response contract (simplified):
 
-   * Optionally calls `VERCEL_DEPLOY_HOOK_URL` to trigger deploy.
+   ```ts
+   type ApiResponseShape = {
+     success: boolean;
+     error?: string;
+     details?: { message?: string };
+     missingEnv?: string[];
+     [key: string]: unknown;
+   };
+   ```
 
-7. After the new deployment finishes:
+   * On success → `success: true`, plus final slug, URL, etc.
+   * On error → `success: false`, a human-readable `error`, and appropriate HTTP status (401/422/503…).
 
-   * `/articles` shows the article.
-   * `/articles/<slug>` is available.
-   * `/admin/articles` lists it.
+The admin UI **relies on this JSON contract**.
 
-### 7.2. Deleting an article
+### 7.2. Deleting (DELETE `/api/publish?slug=...`)
 
-1. Admin goes to `/admin/articles`.
+Flow:
 
-2. Clicks **Supprimer** and confirms.
+1. Admin opens `/admin/articles`.
 
-3. Frontend calls:
+2. Clicks **Supprimer** on an article, confirms.
+
+3. Frontend sends:
 
    ```http
    DELETE /api/publish?slug=<slug>
@@ -474,47 +490,224 @@ All admin routes are wrapped by `AdminGuard` in `src/App.tsx`:
 
 4. `api/publish.ts`:
 
-   * Verifies the token.
-   * Removes the article entry from `content/articles/index.json`.
-   * Deletes `content/articles/<slug>.json` via the GitHub Contents API.
-   * Commits the changes and optionally triggers a deploy hook.
+   * Verifies token and env.
+   * Removes the entry from `content/articles/index.json`.
+   * Deletes `content/articles/<slug>.json`.
+   * Commits changes and optionally triggers the deploy hook.
 
-5. After deployment, the article disappears from:
+After the next deploy:
 
-   * `/admin/articles`
-   * `/articles` and `/articles/<slug>`.
+* Article disappears from `/articles` and `/articles/:slug`.
+* It no longer appears in `/admin/articles`.
 
 ---
 
-## 8. Deployments & domains (detailed reminder)
+## 8. Inbox / “Demandes reçues” (leads)
 
-1. Go to Vercel and open the project that is connected to
-   `yinon1995/source-scribe-design`.
+All forms that previously opened Gmail now feed a **central inbox**.
 
-2. In that project’s **Domains** tab you’ll see at least:
+### 8.1. API: `api/inbox.ts`
+
+* Uses the same GitHub config pattern as `api/publish.ts`.
+
+* Validates the incoming payload using a `normalizeLeadPayload` function.
+
+* Lead shape (conceptual):
+
+  ```ts
+  type LeadCategory =
+    | "newsletter"
+    | "services"
+    | "quote"
+    | "testimonial"
+    | "contact"
+    | "subject-suggestion";
+
+  type Lead = {
+    id: string;
+    createdAt: string;
+    category: LeadCategory;
+    source: string;             // e.g. "home-newsletter", "footer-newsletter", "services-page"
+    name?: string;
+    email?: string;
+    company?: string;
+    role?: string;
+    city?: string;
+    message?: string;
+    meta?: Record<string, unknown>;
+  };
+  ```
+
+* The API reads and writes leads to a Git-tracked JSON file, via helper functions like `readLeads` / `writeLeads`.
+
+Endpoints (simplified):
+
+* `POST /api/inbox` — create a new lead.
+* `GET /api/inbox` — list leads (protected by `PUBLISH_TOKEN`).
+* `DELETE /api/inbox/:id` — delete a lead (admin only).
+
+### 8.2. Client + mapping
+
+A small client helper (e.g. `createLead`) is used by:
+
+* `src/pages/Index.tsx` (home):
+
+  * Newsletter form (`category: "newsletter"`, `source: "home-newsletter"`).
+* `src/components/Footer.tsx`:
+
+  * Footer newsletter form (`category: "newsletter"`, `source: "footer-newsletter"`).
+* `src/pages/Services.tsx`:
+
+  * “Intéressé(e)” dialogs for services (`category: "services"`).
+  * Quote request dialog (`category: "quote"`).
+* `src/pages/Contact.tsx`:
+
+  * Full contact form (`category: "contact"`, `source: "contact-page"`).
+* Subject suggestion (e.g. “Proposer un sujet” on home):
+
+  * Sends a lead with `category: "subject-suggestion"` and the user’s idea.
+
+`src/lib/leadFormatting.ts` contains helpers to display leads nicely in the admin inbox.
+
+### 8.3. Admin inbox UI — `/admin/demandes`
+
+* File: `src/pages/AdminInbox.tsx`.
+* Route: `/admin/demandes` (linked from `/admin` as “Voir les demandes” or similar).
+* Features:
+
+  * Lists leads with:
+
+    * Category label (Contact, Services, Newsletter, etc.).
+    * Basic info: name, email, source, date.
+  * Detail view:
+
+    * You can open a lead in a panel/modal to see the full message, structured nicely.
+  * Filters:
+
+    * By category (e.g. Contact / Services / Newsletter / Subject suggestion / etc.).
+    * By time period (e.g. “Dernier mois”, “Tous les messages”).
+  * Delete:
+
+    * A **red “Supprimer”** action that deletes the lead via `DELETE /api/inbox`.
+
+The inbox is the **single source of truth** for all incoming contacts.
+Do not reintroduce Gmail compose for these flows.
+
+---
+
+## 9. Testimonials / “Ils m’ont fait confiance”
+
+Testimonials are now a full system: public section + review form + admin moderation.
+
+### 9.1. Shared types & storage
+
+* `shared/testimonials.ts`: types and helpers, e.g.:
+
+  ```ts
+  type TestimonialStatus = "pending" | "published" | "rejected";
+
+  type Testimonial = {
+    id: string;
+    createdAt: string;
+    status: TestimonialStatus;
+    name: string;
+    company?: string;
+    city?: string;
+    rating: number;         // 1–5
+    avatar?: string;        // stored image or data URL
+    message: string;
+  };
+  ```
+
+* Data is stored in a Git-tracked JSON file managed through `api/testimonials.ts`.
+
+### 9.2. API: `api/testimonials.ts`
+
+* Same GitHub config helper as `api/publish.ts` and `api/inbox.ts`.
+* Endpoints (conceptual):
+
+  * `POST /api/testimonials` — public “Leave a review” submissions.
+
+    * Creates a **pending** testimonial.
+  * `GET /api/testimonials` — list testimonials (admin view or public list depending on params).
+  * `PATCH /api/testimonials/:id` — update status (publish / reject).
+  * `DELETE /api/testimonials/:id` — delete testimonial.
+
+Validation uses a `normalizeTestimonialPayload` returning:
+
+```ts
+{ ok: true; value: TestimonialCreateInput } | { ok: false; error: string }
+```
+
+The code always checks `if (!result.ok)` before reading `result.error`.
+
+### 9.3. Public components
+
+* `src/components/ReviewForm.tsx`
+
+  * Shown on the `/avis` page to let visitors **leave a review**.
+  * Fields:
+
+    * Name (required)
+    * Email (optional but useful)
+    * Company
+    * Role / position
+    * City
+    * Rating (1–5 stars)
+    * Avatar upload (file drag & drop; no URL field)
+    * Message (required)
+  * Submits to `POST /api/testimonials`.
+
+* `src/components/TestimonialsSection.tsx`
+
+  * Used on:
+
+    * Home page (`/`) near the bottom.
+    * Services page (`/services`).
+  * Displays only **published** testimonials.
+  * Has **left/right arrows** and auto-advances every few seconds (carousel feeling).
+  * Shows rating (stars), name, company/city, avatar, and message.
+
+### 9.4. Admin testimonials — `/admin/avis`
+
+* File: `src/pages/AdminTestimonials.tsx`.
+* Route: `/admin/avis` (linked from `/admin` as “Gérer les avis”).
+
+Features:
+
+* List of testimonials with:
+
+  * Status badges (Pending, Published, Rejected).
+  * Name, rating, date.
+* Actions per testimonial:
+
+  * **Voir** — open full details in a modal/panel.
+  * **Publier** — mark status as `published` so it appears on home + services.
+  * **Rejeter** — mark as `rejected`.
+  * **Supprimer** (red button) — permanently remove it.
+* Status changes and deletions are persisted via `api/testimonials.ts`.
+
+---
+
+## 10. Deployments & domains (reminder)
+
+1. In Vercel, open the project connected to `yinon1995/source-scribe-design`.
+
+2. On the **Domains** tab, you should see:
 
    * **Production:** `a-la-brestoise.vercel.app`
 
-   (Plus auto-generated preview domains for branches.)
+3. If you publish content in `/admin` but do **not** see changes on `https://a-la-brestoise.vercel.app`:
 
-3. If you ever see a completely different domain such as:
+   * Check that your latest commit is on GitHub `main`.
+   * Check that Vercel has a recent deployment for `main`.
+   * Ensure you are not accidentally visiting a legacy domain (see pitfall section).
 
-   * `source-scribe-design-xxxxx-*.vercel.app`
-
-   that is almost certainly a **different project or an old setup**. Do **not** use it.
-
-4. If you just published an article in `/admin` but:
-
-   * It does not appear in `/articles`, **and/or**
-   * The JSON files in GitHub don’t match what you see in `/admin/articles`,
-
-   then you are almost certainly on the **wrong domain/project**.
-
-   → Check the URL and switch back to the project connected to this repo.
+If Git quota or “automatic deployments unavailable” errors appear on Vercel, the site will still read from GitHub’s latest deployed commit, but admin actions will only be visible locally until you trigger a new deployment.
 
 ---
 
-## 9. NPM scripts
+## 11. NPM scripts
 
 From `package.json`:
 
@@ -526,64 +719,61 @@ From `package.json`:
 }
 ```
 
-* `npm run build` also generates `public/sitemap.xml`.
-* `robots.txt` points to the sitemap:
+* `npm run dev` — dev server (used for local admin + content work).
+* `npm run build` — production build **plus sitemap generation**.
+* `npm run preview` — serve the built bundle locally.
 
-  ```txt
-  User-agent: *
-  Allow: /
-  Sitemap: https://a-la-brestoise.vercel.app/sitemap.xml
-  ```
+`npm run build` writes `public/sitemap.xml`.
+`robots.txt` points to that sitemap:
 
----
-
-## 10. Sitemap generation
-
-Sitemap generation is handled by `scripts/generate-sitemap.mjs` and a base XML file in `public/sitemap.xml`.
-
-* In `scripts/generate-sitemap.mjs`:
-
-  ```ts
-  const SITE = "https://a-la-brestoise.vercel.app";
-  ```
-
-* The script:
-
-  * Reads Markdown posts from `content/posts/` (if any),
-
-  * Builds URLs:
-
-    * Home: `/`
-    * Articles index: `/articles`
-    * Individual posts: `/articles/<slug>`
-
-  * Writes the final XML to `public/sitemap.xml`.
-
-**Important:**
-Whenever you change the domain or route structure, update `SITE` and/or the URLs generated in this script.
+```txt
+User-agent: *
+Allow: /
+Sitemap: https://a-la-brestoise.vercel.app/sitemap.xml
+```
 
 ---
 
-## 11. SEO, Search Console & Analytics
+## 12. Sitemap generation
 
-### 11.1. `index.html` `<head>` — SEO basics
+Handled by `scripts/generate-sitemap.mjs` and `public/sitemap.xml` base.
 
-`index.html` contains:
+In `scripts/generate-sitemap.mjs`:
 
-* Page `<title>` and `<meta name="description">`.
-* Canonical link:
+```ts
+const SITE = "https://a-la-brestoise.vercel.app";
+```
+
+The script:
+
+* Reads posts from `content/posts/` (and/or `content/articles/` depending on implementation).
+* Builds URLs for:
+
+  * `/`
+  * `/articles`
+  * `/articles/<slug>`
+* Writes the final XML to `public/sitemap.xml`.
+
+If you change the domain or routes, update `SITE` and URL generation logic accordingly.
+
+---
+
+## 13. SEO, Search Console & Analytics
+
+### 13.1. `index.html` `<head>` — basics
+
+* `<title>` and `<meta name="description">`.
+* Canonical:
 
   ```html
   <link rel="canonical" href="https://a-la-brestoise.vercel.app/" />
   ```
 
-Update these if the brand tagline or canonical domain changes.
+Change these if branding or domain changes.
 
-### 11.2. Google Search Console
+### 13.2. Google Search Console
 
-Ownership is verified via the **HTML tag** method.
-
-In `index.html`:
+Ownership is verified with an HTML meta tag in `index.html`:
 
 ```html
 <!-- Google Search Console verification -->
@@ -593,24 +783,21 @@ In `index.html`:
 />
 ```
 
-* This tag must remain in `<head>` to keep ownership verified.
-* If Google ever gives you a new `content` value (new property / new domain), replace it accordingly.
+This must stay in `<head>` to keep verification.
 
-The sitemap URL submitted in Search Console is:
+Search Console uses sitemap:
 
 ```text
 https://a-la-brestoise.vercel.app/sitemap.xml
 ```
 
-### 11.3. Google Analytics 4 (GA4)
+### 13.3. Google Analytics 4 (GA4)
 
-GA4 is currently **hard-coded directly in `index.html`**, **not** via Google Tag Manager.
+GA4 is **hard-coded** in `index.html` (not via GTM):
 
-Measurement ID in use:
+* Measurement ID: `G-J9R45GD7L3`.
 
-* **GA4 Measurement ID:** `G-J9R45GD7L3`
-
-Snippet in `index.html`:
+Snippet:
 
 ```html
 <!-- Google Analytics 4 (property G-J9R45GD7L3) -->
@@ -623,21 +810,17 @@ Snippet in `index.html`:
 </script>
 ```
 
-If you change GA4 properties later, update both `G-J9R45GD7L3` occurrences.
+If you change GA4, update both `G-J9R45GD7L3` strings.
 
-This setup is already working: when someone visits the site, you should see them in the **Realtime** report of GA4.
+### 13.4. Google Tag Manager (GTM)
 
-### 11.4. Google Tag Manager (GTM)
+GTM container is installed, but GA4 is **not** wired through it yet.
 
-A Google Tag Manager container is installed, but GA4 is **still hard-coded**, not managed by GTM yet.
-
-Container ID:
-
-* **GTM ID:** `GTM-P5PX3JQT`
+* Container ID: `GTM-P5PX3JQT`.
 
 In `index.html`:
 
-**Head (as high as possible):**
+Head:
 
 ```html
 <!-- Google Tag Manager -->
@@ -651,7 +834,7 @@ In `index.html`:
 <!-- End Google Tag Manager -->
 ```
 
-**Immediately after `<body>`:**
+Immediately after `<body>`:
 
 ```html
 <!-- Google Tag Manager (noscript) -->
@@ -666,40 +849,43 @@ In `index.html`:
 <!-- End Google Tag Manager (noscript) -->
 ```
 
-**Important:**
+If you move GA4 into GTM:
 
-* Right now, GA4 is **not** set up as a tag inside GTM.
-  Only the container is loaded (ready for future tags: FB pixel, Hotjar, etc.).
-
-* If in the future you want GA4 managed by GTM:
-
-  1. Create a **GA4 Configuration tag** in GTM and publish.
-  2. **Remove** the hard-coded GA4 snippet from `index.html`.
-     Otherwise each visit will be double-counted.
+1. Create a GA4 tag in GTM and publish it.
+2. **Remove** the hard-coded GA4 snippet from `index.html` to avoid double-counting.
 
 ---
 
-With this README, you should be able to:
+## 14. 🔒 Things future AI MUST NOT break
 
-* Understand how the current JSON-based CMS works.
-* Safely ask Cursor / another AI to continue from the exact state we’re in now.
-* Avoid the Vercel/domain confusion that previously caused hours of debugging.
-* Know how contact works today (Gmail compose placeholder) and how to switch to live emailing.
-* Understand the current SEO/analytics setup:
+* **Vercel / domain wiring**
+  Always use the project whose production domain is `https://a-la-brestoise.vercel.app`.
 
-  * Search Console verification via HTML tag,
-  * GA4 tracking with `G-J9R45GD7L3`,
-  * Google Tag Manager container `GTM-P5PX3JQT` installed but not yet used for GA4,
-  * Sitemap & robots.txt correctly pointing to `https://a-la-brestoise.vercel.app/`.
+* **Admin publish contract (`api/publish.ts`)**
 
-````
+  * Keep the JSON response shape.
+  * Keep `GITHUB_REPO`, `GITHUB_TOKEN`, `PUBLISH_BRANCH`, `PUBLISH_TOKEN` semantics.
+  * Keep support for long `article.body` strings (inline images as data URLs).
 
-Next tiny step, if you want: after you paste this into `README.md`, do:
+* **Inbox (`api/inbox.ts` + `/admin/demandes`)**
 
-```bash
-git add README.md
-git commit -m "Update README with domain, GA4, GTM and sitemap setup"
-git push origin main
-````
+  * All contact flows (newsletter, services, contact, subject suggestions) must keep creating leads.
+  * Do **not** revert back to opening Gmail compose instead of hitting the inbox API.
 
-and we’re fully synced.
+* **Testimonials (`api/testimonials.ts` + `/admin/avis` + public carousel)**
+
+  * Keep the moderation statuses (`pending` → `published` → `rejected`) and mapping to public display.
+  * Keep the flow: public form → pending → admin approves → appears as “Ils m’ont fait confiance”.
+
+* **ArticleCard routing**
+
+  * If you change URLs, update `ArticleCard` and the router together.
+
+With this README, a future dev or AI should understand:
+
+* How the JSON-based CMS works.
+* How the admin space publishes articles, collects leads, and manages reviews.
+* How not to repeat the Vercel/domain confusion.
+* How SEO, Search Console, GA4, GTM, and the sitemap are currently wired.
+
+```

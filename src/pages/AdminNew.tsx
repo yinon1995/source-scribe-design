@@ -499,7 +499,10 @@ const AdminNew = () => {
 
   const sources = useMemo(() => sourcesText.split("\n").map((s) => s.trim()).filter(Boolean), [sourcesText]);
   const draftSnapshot = useMemo<ArticleDraftSnapshot>(() => ({ ...article, sources }), [article, sources]);
-  const showPracticalInfoSection = footerType === "practical-info" || category === "Commerces & places";
+  const showPracticalInfoSection =
+    footerType === "practical-info" ||
+    category === "Commerces & lieux" ||
+    category === "Commerces & places";
 
   async function handlePublish(e: React.FormEvent) {
     e.preventDefault();
