@@ -288,7 +288,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       const normalizedResult = normalizeTestimonialPayload(payload);
       if (!normalizedResult.ok) {
-        const errorMessage = normalizedResult.error;
+        const errorMessage =
+          "error" in normalizedResult ? normalizedResult.error : "Payload invalide";
         respond(res, 422, { success: false, error: errorMessage });
         return;
       }
