@@ -3,7 +3,7 @@ import TestimonialsSection from "@/components/TestimonialsSection";
 import ReviewForm from "@/components/ReviewForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Camera, Sparkles, Mail, Star } from "lucide-react";
+import { FileText, Camera, Sparkles, Star } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -52,19 +52,6 @@ const Services = () => {
         "Article long format"
       ],
       price: "Sur devis"
-    },
-    {
-      icon: Mail,
-      title: "Newsletter & E-mailing",
-      description: "Conception et rédaction de vos campagnes",
-      features: [
-        "Stratégie éditoriale",
-        "Rédaction des contenus",
-        "Design responsive",
-        "Intégration technique",
-        "Analyse des performances"
-      ],
-      price: "À partir de 350€"
     }
   ];
 
