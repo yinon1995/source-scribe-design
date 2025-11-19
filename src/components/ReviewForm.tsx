@@ -20,7 +20,43 @@ type ReviewFormProps = {
 };
 
 const MAX_EVENT_PHOTOS = 5;
-const MAX_TESTIMONIAL_PAYLOAD_BYTES = 2_000_000;
+const MAX_IMAGE_WIDTH = 800;
+const JPEG_QUALITY = 0.7;
+const MAX_TESTIMONIAL_PAYLOAD_BYTES = 3_000_000;
+
+function loadImageFromFile(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = typeof reader.result === "string" ? reader.result : "";
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function resizeImageFileToDataUrl(
+  file: File,
+  maxWidth: number = MAX_IMAGE_WIDTH,
+  quality: number = JPEG_QUALITY,
+): Promise<string> {
+  const img = await loadImageFromFile(file);
+  const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+  const targetWidth = Math.max(1, Math.round(img.width * scale));
+  const targetHeight = Math.max(1, Math.round(img.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Unable to get 2D context");
+  }
+  ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+  return canvas.toDataURL("image/jpeg", quality);
+}
 
 function estimatePayloadSizeBytes(obj: unknown): number {
   try {
@@ -181,13 +217,14 @@ export const ReviewForm = ({
     const files = Array.from(fileList).filter((file) => file.type.startsWith("image/"));
     if (!files.length) return;
     try {
-      const dataUrls = await Promise.all(files.map((file) => fileToDataUrl(file)));
+      const dataUrls = await Promise.all(files.map((file) => resizeImageFileToDataUrl(file)));
       setEventPhotos((prev) => {
         const remaining = Math.max(0, MAX_EVENT_PHOTOS - prev.length);
         if (remaining === 0) return prev;
         return [...prev, ...dataUrls.slice(0, remaining)];
       });
-    } catch {
+    } catch (error) {
+      console.error("Failed to process event photos", error);
       toast({ title: "Impossible de charger certaines images." });
     }
   }
@@ -526,27 +563,37 @@ async function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-async function getCroppedImage(imageSrc: string, crop: Area): Promise<string> {
+async function getCroppedImage(
+  imageSrc: string,
+  crop: Area,
+  maxWidth: number = MAX_IMAGE_WIDTH,
+  quality: number = JPEG_QUALITY,
+): Promise<string> {
   const image = await loadImage(imageSrc);
+  const cropWidth = Math.max(1, crop.width);
+  const cropHeight = Math.max(1, crop.height);
+  const scale = cropWidth > maxWidth ? maxWidth / cropWidth : 1;
+  const targetWidth = Math.max(1, Math.round(cropWidth * scale));
+  const targetHeight = Math.max(1, Math.round(cropHeight * scale));
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas context manquant");
-  canvas.width = Math.round(crop.width);
-  canvas.height = Math.round(crop.height);
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
 
   ctx.drawImage(
     image,
     crop.x,
     crop.y,
-    crop.width,
-    crop.height,
+    cropWidth,
+    cropHeight,
     0,
     0,
-    crop.width,
-    crop.height,
+    targetWidth,
+    targetHeight,
   );
 
-  return canvas.toDataURL("image/png");
+  return canvas.toDataURL("image/jpeg", quality);
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
