@@ -5,12 +5,23 @@ import {
   type JsonArticleCategory,
   type NormalizedCategory,
 } from "../../shared/articleCategories";
+import {
+  ARTICLE_BODY_FONT_VALUES,
+  type ArticleBodyFont,
+} from "../../shared/articleBodyFonts";
+export type { ArticleBodyFont };
 
 export { CATEGORY_OPTIONS, DEFAULT_CATEGORY };
 export type { JsonArticleCategory, NormalizedCategory };
 
 export function normalizeCategory(input?: JsonArticleCategory | string | null): NormalizedCategory {
   return baseNormalizeCategory(input);
+}
+
+export function normalizeBodyFont(value?: string | null): ArticleBodyFont | undefined {
+  if (!value) return undefined;
+  const candidate = value.trim().toLowerCase();
+  return ARTICLE_BODY_FONT_VALUES.find((font) => font === candidate) ?? undefined;
 }
 
 export type JsonArticle = {
@@ -47,6 +58,7 @@ export type JsonArticle = {
   canonicalUrl?: string;
   schemaType?: "Article" | "LocalBusiness" | "Restaurant";
   featured?: boolean;
+  bodyFont?: ArticleBodyFont;
 };
 
 export type PostFrontmatter = {
@@ -82,6 +94,7 @@ export type PostFrontmatter = {
   schemaType?: "Article" | "LocalBusiness" | "Restaurant";
   isJson?: boolean;
   featured?: boolean;
+  bodyFont?: ArticleBodyFont;
 };
 
 export type Post = PostFrontmatter & {
@@ -219,6 +232,10 @@ function coerceFrontmatter(data: Record<string, unknown>, fallbackSlug: string):
     isJson: false,
     featured: false,
   };
+  const normalizedBodyFont = normalizeBodyFont(typeof data.bodyFont === "string" ? data.bodyFont : undefined);
+  if (normalizedBodyFont) {
+    fm.bodyFont = normalizedBodyFont;
+  }
 
   return fm;
 }
@@ -348,6 +365,7 @@ const jsonPosts: Post[] = jsonArticles.map((ja) => {
     canonicalUrl: ja.canonicalUrl,
     schemaType: ja.schemaType ?? "Article",
     featured: ja.featured === true,
+    bodyFont: normalizeBodyFont(ja.bodyFont),
   };
 });
 

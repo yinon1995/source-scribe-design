@@ -13,22 +13,26 @@ const About = () => {
             </h1>
             <div className="space-y-6 text-center max-w-3xl mx-auto">
               <p className="text-xl text-muted-foreground leading-relaxed whitespace-pre-line">
-                {`« Nolwenn, plume brestois 100% beurre salé.
+                {`« Nolwenn, plume brestoise 100% beurre salé.
 
 Specializing in content for events, places, businesses and the universe of beauty, I write to give relief to local experiences and identities.
 
-« À la Brestoise », it is an editorial signature: authentic texts, précis et ancrés dans le territoire, avec une touche moderne qui fait la différence.
+« À la Brestoise », c’est une signature éditoriale : des textes authentiques, précis et ancrés dans le territoire, avec une touche moderne qui fait la différence.
 
-My approach: comprendre votre univers, capter ce qui le rend unique et le traduire en mots qui résonnent, qui inspirent et qui vous ressemblent. »`}
+Mon approche : comprendre votre univers, capter ce qui le rend unique et le traduire en mots qui résonnent, qui inspirent et qui vous ressemblent. »`}
               </p>
+
               <div className="space-y-2">
-                <h2 className="text-2xl font-display font-semibold text-foreground">Une approche exigente</h2>
+                <h2 className="text-2xl font-display font-semibold text-foreground">
+                  Une approche exigeante
+                </h2>
                 <p className="text-base text-muted-foreground leading-relaxed">
-                  Each article published here rests on in-depth research, verified sources et une écriture claire.
+                  Chaque article publié ici repose sur une recherche approfondie,
+                  des sources vérifiées et une écriture claire.
                   <br />
-                  My goal: to offer informative content for my readers
+                  Mon objectif : offrir des contenus informatifs pour mes lecteurs
                   <br />
-                  And to highlight businesses and brands of professionals
+                  et mettre en lumière les entreprises et marques des professionnels.
                 </p>
               </div>
             </div>
@@ -52,7 +56,7 @@ My approach: comprendre votre univers, capter ce qui le rend unique et le tradui
                 <ul className="space-y-2 text-muted-foreground">
                   <li className="flex items-start gap-2">
                     <span className="text-primary mt-1">•</span>
-                    <span>Clarté et accessibilité de l'information</span>
+                    <span>Clarté et accessibilité de l&apos;information</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-primary mt-1">•</span>
@@ -70,28 +74,38 @@ My approach: comprendre votre univers, capter ce qui le rend unique et le tradui
           {/* Expertise */}
           <div className="bg-card rounded-2xl p-8 md:p-12 space-y-8">
             <h2 className="text-3xl font-display font-semibold text-foreground text-center">
-              Domaines d'expertise
+              Domaines d&apos;expertise
             </h2>
 
             <div className="grid md:grid-cols-3 gap-8">
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">Beauté & cosmétique</h3>
+                <h3 className="text-lg font-semibold text-foreground">
+                  Beauté & cosmétique
+                </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Tests produits, décryptage d’ingrédients, analyse scientifiques sourcés, guide d’achat le tout en un article ludique et 100% transparent !
+                  Tests produits, décryptage d’ingrédients, analyses
+                  scientifiques sourcées, guides d’achat – le tout dans un
+                  article ludique et 100% transparent.
                 </p>
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">Commerces & lieux</h3>
+                <h3 className="text-lg font-semibold text-foreground">
+                  Commerces & lieux
+                </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Domaines hôteliers, boutiques & concept-stores, cafés et restaurants, ateliers créatifs, activités
+                  Domaines hôteliers, boutiques & concept-stores, cafés et
+                  restaurants, ateliers créatifs, activités locales.
                 </p>
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">Événementiel</h3>
+                <h3 className="text-lg font-semibold text-foreground">
+                  Événementiel
+                </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Salons professionnels, lieux de réception, événements culturel, sportif, musical
+                  Salons professionnels, lieux de réception, événements
+                  culturels, sportifs et musicaux.
                 </p>
               </div>
             </div>

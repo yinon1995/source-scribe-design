@@ -27,6 +27,7 @@ import {
   DEFAULT_CATEGORY,
   getPostBySlug,
   normalizeCategory,
+  type ArticleBodyFont,
   type JsonArticle,
   type NormalizedCategory,
 } from "@/lib/content";
@@ -61,7 +62,17 @@ type Article = {
   canonicalUrl?: string;
   schemaType: "Article" | "LocalBusiness" | "Restaurant";
   featured: boolean;
+  bodyFont?: ArticleBodyFont;
 };
+
+const ARTICLE_BODY_FONT_OPTIONS: { value: ArticleBodyFont; label: string }[] = [
+  { value: "josefin-sans", label: "Josefin Sans" },
+  { value: "raleway", label: "Raleway" },
+  { value: "montserrat", label: "Montserrat" },
+  { value: "merriweather", label: "Merriweather" },
+  { value: "libre-baskerville", label: "Libre Baskerville" },
+  { value: "alice", label: "Alice" },
+];
 
 function slugify(input: string): string {
   return input
@@ -86,6 +97,43 @@ function fileToDataUrl(file: File): Promise<string> {
     };
     reader.readAsDataURL(file);
   });
+}
+
+const MAX_INLINE_IMAGE_WIDTH = 1200;
+const INLINE_IMAGE_QUALITY = 0.75;
+
+function loadInlineImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error || new Error("Impossible de lire le fichier sélectionné."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Impossible de charger l'image."));
+      img.src = typeof reader.result === "string" ? reader.result : "";
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function resizeInlineImageToDataUrl(
+  file: File,
+  maxWidth: number = MAX_INLINE_IMAGE_WIDTH,
+  quality: number = INLINE_IMAGE_QUALITY,
+): Promise<string> {
+  const img = await loadInlineImage(file);
+  const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+  const targetWidth = Math.max(1, Math.round(img.width * scale));
+  const targetHeight = Math.max(1, Math.round(img.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Impossible de préparer le canvas pour compresser l'image.");
+  }
+  ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+  return canvas.toDataURL("image/jpeg", quality);
 }
 
 // Estimate reading time helper
@@ -148,6 +196,7 @@ const AdminNew = () => {
   const [showTitleInHero, setShowTitleInHero] = useState(true);
   const [footerType, setFooterType] = useState<Article["footerType"]>("default");
   const [footerNote, setFooterNote] = useState("");
+  const [bodyFont, setBodyFont] = useState<ArticleBodyFont | undefined>(undefined);
   const [authorSlug, setAuthorSlug] = useState("");
   const [authorAvatarUrl, setAuthorAvatarUrl] = useState("");
   const [authorRole, setAuthorRole] = useState("");
@@ -165,6 +214,7 @@ const AdminNew = () => {
   const refCounter = useRef(1);
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [imageAlt, setImageAlt] = useState("");
+  const [imageDescription, setImageDescription] = useState("");
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [isImageReading, setIsImageReading] = useState(false);
   const [imageAlignment, setImageAlignment] = useState<"left" | "right" | "full">("full");
@@ -208,6 +258,7 @@ const AdminNew = () => {
       setShowTitleInHero(snapshot?.showTitleInHero !== false);
       setFooterType(snapshot?.footerType ?? "default");
       setFooterNote(snapshot?.footerNote ?? "");
+      setBodyFont(snapshot?.bodyFont ?? undefined);
       setAuthorSlug(snapshot?.authorSlug ?? "");
       setAuthorAvatarUrl(snapshot?.authorAvatarUrl ?? "");
       setAuthorRole(snapshot?.authorRole ?? "");
@@ -225,6 +276,7 @@ const AdminNew = () => {
       setSearchAliasesText(Array.isArray(snapshot?.searchAliases) ? snapshot.searchAliases.join("\n") : "");
       setImageDialogOpen(false);
       setImageAlt("");
+      setImageDescription("");
       setImageDataUrl(null);
       setIsImageReading(false);
       setImageAlignment("full");
@@ -261,6 +313,7 @@ const AdminNew = () => {
       canonicalUrl: existing.canonicalUrl,
       schemaType: (existing.schemaType ?? "Article") as Article["schemaType"],
       featured: existing.featured === true,
+      bodyFont: existing.bodyFont,
     }),
     [],
   );
@@ -446,6 +499,7 @@ const AdminNew = () => {
       showTitleInHero,
       footerType,
       footerNote,
+      bodyFont,
       authorSlug,
       authorAvatarUrl,
       authorRole,
@@ -494,6 +548,7 @@ const AdminNew = () => {
       canonicalUrl,
       schemaType,
       featured,
+      bodyFont,
     ],
   );
 
@@ -620,6 +675,7 @@ const AdminNew = () => {
         canonicalUrl: trimmedCanonicalUrl || undefined,
         schemaType,
         featured: safeArticle.featured === true ? true : false,
+        bodyFont: bodyFont || undefined,
       };
       const reqPayload = payload;
       setLastRequest(reqPayload);
@@ -812,6 +868,7 @@ const AdminNew = () => {
 
   function openImageDialog() {
     setImageAlt("");
+    setImageDescription("");
     setImageDataUrl(null);
     setIsImageReading(false);
     setImageAlignment("full");
@@ -826,20 +883,26 @@ const AdminNew = () => {
 
     const trimmedAlt = imageAlt.trim();
     const safeAlt = trimmedAlt.replace(/[\[\]]/g, "") || "Image";
-    let markdown = `![${safeAlt}](${imageDataUrl})`;
+    const trimmedDescription = imageDescription.trim();
+    const titleAttr = trimmedDescription ? ` "${trimmedDescription.replace(/"/g, '\\"')}"` : "";
+    let markdown = `![${safeAlt}](${imageDataUrl}${titleAttr})`;
     if (imageAlignment === "left") {
-      markdown = `${markdown}{.align-left}`;
+      markdown = `${markdown}\n{.img-left}`;
     } else if (imageAlignment === "right") {
-      markdown = `${markdown}{.align-right}`;
+      markdown = `${markdown}\n{.img-right}`;
+    } else if (imageAlignment === "full") {
+      markdown = `${markdown}\n{.img-full}`;
     }
 
-    if (trimmedAlt) {
-      markdown = `${markdown}\n\n_${trimmedAlt}_`;
+    if (trimmedDescription) {
+      markdown = `${markdown}\n\n_${trimmedDescription}_`;
     }
 
+    markdown = `${markdown}\n\n`;
     insertIntoBodyAtCursor(markdown);
     setImageDialogOpen(false);
     setImageAlt("");
+    setImageDescription("");
     setImageDataUrl(null);
     setIsImageReading(false);
     setImageAlignment("full");
@@ -974,7 +1037,7 @@ const handleClearAll = useCallback(() => {
       }
       setIsImageReading(true);
       try {
-        const dataUrl = await fileToDataUrl(file);
+        const dataUrl = await resizeInlineImageToDataUrl(file);
         setImageDataUrl(dataUrl);
       } catch (error) {
         console.error(error);
@@ -1223,6 +1286,15 @@ const handleClearAll = useCallback(() => {
                             placeholder="Description de l’image"
                           />
                         </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="imgDescription">Description (optionnel)</Label>
+                          <Input
+                            id="imgDescription"
+                            value={imageDescription}
+                            onChange={(e) => setImageDescription(e.target.value)}
+                            placeholder="Légende affichée sous l’image"
+                          />
+                        </div>
                     <div className="space-y-2">
                       <Label>Image</Label>
                       <div
@@ -1368,6 +1440,28 @@ const handleClearAll = useCallback(() => {
           </SelectContent>
         </Select>
       </div>
+    </div>
+    <div className="space-y-2">
+      <Label>Police du corps de texte</Label>
+      <Select
+        value={bodyFont ?? "default"}
+        onValueChange={(value) => setBodyFont(value === "default" ? undefined : (value as ArticleBodyFont))}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Police d’écriture par défaut" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="default">Police par défaut</SelectItem>
+          {ARTICLE_BODY_FONT_OPTIONS.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <p className="text-xs text-muted-foreground">
+        Personnalise la typographie principale de l’article sans affecter les autres pages.
+      </p>
     </div>
     <div className="flex items-center gap-2">
       <Checkbox id="showTitleInHero" checked={showTitleInHero} onCheckedChange={(checked) => setShowTitleInHero(checked === true)} />

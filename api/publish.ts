@@ -7,6 +7,7 @@
 // - All env/network work stays in try/catch blocks inside the handler to keep module load safe.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { CATEGORY_OPTIONS, normalizeCategory, type JsonArticleCategory } from "../shared/articleCategories.js";
+import { ARTICLE_BODY_FONT_VALUES, type ArticleBodyFont } from "../shared/articleBodyFonts.js";
 // Vercel function to publish JSON articles to GitHub (contents API)
 type Article = {
   title: string;
@@ -42,9 +43,16 @@ type Article = {
   canonicalUrl?: string;
   schemaType?: "Article" | "LocalBusiness" | "Restaurant";
   featured?: boolean;
+  bodyFont?: ArticleBodyFont;
 };
 
 const MAX_ARTICLE_BODY_LENGTH = 2_000_000;
+
+function normalizeBodyFont(value: unknown): ArticleBodyFont | undefined {
+  if (typeof value !== "string") return undefined;
+  const candidate = value.trim().toLowerCase();
+  return ARTICLE_BODY_FONT_VALUES.find((font) => font === candidate) ?? undefined;
+}
 
 function normalizeImageUrl(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -438,6 +446,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } else {
       article.body = bodyValue;
     }
+    article.bodyFont = normalizeBodyFont(article.bodyFont);
     if (article.date) {
       const d = new Date(article.date);
       if (isNaN(d.getTime())) fieldErrors.date = "La date n’est pas valide.";

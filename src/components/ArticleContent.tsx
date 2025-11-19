@@ -4,8 +4,18 @@ import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
 import remarkDirective from "remark-directive";
 import rehypeRaw from "rehype-raw";
-import type { Post } from "@/lib/content";
+import type { Post, ArticleBodyFont } from "@/lib/content";
 import { FALLBACK_ARTICLE_IMAGE } from "@/lib/images";
+import { cn } from "@/lib/utils";
+
+const fontClassByKey: Record<ArticleBodyFont, string> = {
+  "josefin-sans": "font-article-josefin-sans",
+  raleway: "font-article-raleway",
+  montserrat: "font-article-montserrat",
+  merriweather: "font-article-merriweather",
+  "libre-baskerville": "font-article-libre-baskerville",
+  alice: "font-article-alice",
+};
 
 type Props =
   | { article: Post; body?: undefined; sources?: string[]; localMap?: Record<string, string> }
@@ -30,13 +40,21 @@ const ArticleContent: React.FC<Props> = (props) => {
     ? renderHero({ article, displayDate, heroImage: heroImage ?? FALLBACK_ARTICLE_IMAGE, heroLayout, showTitleInHero })
     : null;
 
+  const bodyFontClass =
+    article?.bodyFont && fontClassByKey[article.bodyFont] ? fontClassByKey[article.bodyFont] : "";
+
   return (
     <article className="pb-20">
       {heroSection}
 
       <section className="mt-10">
         <div className="container mx-auto px-4">
-          <div className="prose prose-neutral dark:prose-invert max-w-none prose-h1:text-4xl prose-h2:text-3xl prose-h3:text-2xl prose-img:rounded-xl prose-figure:my-6">
+          <div
+            className={cn(
+              "prose prose-neutral dark:prose-invert max-w-none prose-h1:text-4xl prose-h2:text-3xl prose-h3:text-2xl prose-img:rounded-xl prose-figure:my-6",
+              bodyFontClass,
+            )}
+          >
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkBreaks, remarkDirective]}
               rehypePlugins={[rehypeRaw]}
