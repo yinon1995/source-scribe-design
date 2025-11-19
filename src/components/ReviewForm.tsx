@@ -326,7 +326,7 @@ export const ReviewForm = ({
           </div>
         </div>
         <div className="space-y-2 md:col-span-2">
-          <Label className="text-sm font-medium">Photo / avatar</Label>
+          <Label className="text-sm font-medium">Photo de profil (optionnel)</Label>
           <div
             role="button"
             tabIndex={0}

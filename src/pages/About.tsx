@@ -15,7 +15,8 @@ const About = () => {
               <p className="text-xl text-muted-foreground leading-relaxed whitespace-pre-line">
                 {`« Nolwenn, plume brestoise 100% beurre salé.
 
-Specializing in content for events, places, businesses and the universe of beauty, I write to give relief to local experiences and identities.
+Spécialisée dans les contenus pour l’événementiel, les lieux, les commerces et l’univers de la beauté, j’écris pour donner du relief aux expériences et aux identités locales.
+
 
 « À la Brestoise », c’est une signature éditoriale : des textes authentiques, précis et ancrés dans le territoire, avec une touche moderne qui fait la différence.
 
