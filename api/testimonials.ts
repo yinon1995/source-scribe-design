@@ -293,7 +293,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === "GET") {
       const testimonials = await readTestimonials(config);
-      respond(res, 200, { success: true, testimonials });
+      const isAdmin = authorizeAdmin(req);
+      const visible = isAdmin ? testimonials : testimonials.filter((testimonial) => testimonial.status === "published");
+      respond(res, 200, { success: true, testimonials: visible });
       return;
     }
 

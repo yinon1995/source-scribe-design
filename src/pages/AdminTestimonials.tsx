@@ -1,17 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { AdminBackButton } from "@/components/AdminBackButton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import LeadMetaGrid from "@/components/admin/LeadMetaGrid";
 import { toast } from "@/hooks/use-toast";
-import { fetchLeads, deleteLead } from "@/lib/inboxClient";
 import { getAdminToken } from "@/lib/adminSession";
-import { formatLeadMessagePreview } from "@/lib/leadFormatting";
-import type { Lead } from "@/lib/inboxTypes";
-import { clampRating, formatTestimonialLocation, type Testimonial, type TestimonialCreateInput } from "@/lib/testimonials";
-import { createTestimonial, deleteTestimonial, fetchTestimonials } from "@/lib/testimonialsClient";
+import { clampRating, formatTestimonialLocation, type Testimonial, type TestimonialStatus } from "@/lib/testimonials";
+import { deleteTestimonial, fetchTestimonials, updateTestimonialStatus } from "@/lib/testimonialsClient";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Star } from "lucide-react";
 
@@ -22,11 +18,9 @@ const formatter = new Intl.DateTimeFormat("fr-FR", {
 
 const AdminTestimonials = () => {
   const adminToken = getAdminToken();
-  const [pendingLeads, setPendingLeads] = useState<Lead[]>([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [selectedTestimonial, setSelectedTestimonial] = useState<Testimonial | null>(null);
 
   useEffect(() => {
@@ -39,29 +33,13 @@ const AdminTestimonials = () => {
       }
       setLoading(true);
       try {
-        const [leadsRes, testimonialsRes] = await Promise.allSettled([
-          fetchLeads(adminToken),
-          fetchTestimonials(),
-        ]);
+        const data = await fetchTestimonials(adminToken);
         if (!mounted) return;
-
-        if (leadsRes.status === "fulfilled" && leadsRes.value.success) {
-          const items = leadsRes.value.leads ?? [];
-          setPendingLeads(items.filter((lead) => lead.category === "testimonial"));
-          setError(null);
-        } else {
-          setPendingLeads([]);
-          setError(leadsRes.status === "fulfilled" ? (leadsRes.value.error || "Impossible de charger les demandes.") : leadsRes.reason?.message);
-        }
-
-        if (testimonialsRes.status === "fulfilled") {
-          setTestimonials(testimonialsRes.value);
-        } else {
-          toast({
-            title: "Impossible de charger les témoignages publiés",
-            description: testimonialsRes.reason?.message || "Veuillez réessayer.",
-          });
-        }
+        setTestimonials(data);
+        setError(null);
+      } catch (err: any) {
+        if (!mounted) return;
+        setError(err?.message || "Impossible de charger les témoignages.");
       } finally {
         if (mounted) {
           setLoading(false);
@@ -74,60 +52,38 @@ const AdminTestimonials = () => {
     };
   }, [adminToken]);
 
-  async function handleApprove(lead: Lead) {
-    if (!adminToken) {
-      toast({ title: "Session expirée", description: "Veuillez vous reconnecter." });
-      return;
-    }
-    const meta = lead.meta || {};
-    const metaClientType = firstString(meta, ["clientType"]);
-    const metaCompany = firstString(meta, ["company", "organisation", "organization"]);
-    const payload: TestimonialCreateInput = {
-      name: lead.name?.trim() || "Anonyme",
-      clientType: metaClientType || undefined,
-      company: metaCompany || undefined,
-      role: firstString(meta, ["role", "fonction", "fonction_entreprise"]),
-      city: firstString(meta, ["city", "ville"]),
-      rating: clampRating(meta.rating, 5),
-      body: (lead.message || "").trim(),
-      avatarDataUrl: firstString(meta, ["avatarDataUrl"]),
-      avatarUrl: firstString(meta, ["avatarUrl", "logoUrl"]),
-      photos: extractPhotoArray(meta),
-      sourceLeadId: lead.id,
-    };
-    if (!payload.body) {
-      toast({ title: "Message manquant", description: "Impossible de publier un témoignage sans contenu." });
-      return;
-    }
-    const result = await createTestimonial(payload, adminToken);
-    if (!result.success || !result.testimonial) {
-      toast({ title: "Publication impossible", description: result.error || "Veuillez réessayer." });
-      return;
-    }
-    const deleteResult = await deleteLead(lead.id, adminToken);
-    if (!deleteResult.success) {
-      toast({
-        title: "Témoignage publié mais suppression de la demande échouée",
-        description: deleteResult.error,
-      });
-    }
-    setPendingLeads((prev) => prev.filter((item) => item.id !== lead.id));
-    setTestimonials((prev) => [result.testimonial!, ...prev]);
-    toast({ title: "Témoignage publié" });
-  }
+  const pendingTestimonials = useMemo(
+    () => testimonials.filter((testimonial) => testimonial.status === "pending"),
+    [testimonials],
+  );
+  const publishedTestimonials = useMemo(
+    () => testimonials.filter((testimonial) => testimonial.status === "published"),
+    [testimonials],
+  );
+  const rejectedTestimonials = useMemo(
+    () => testimonials.filter((testimonial) => testimonial.status === "rejected"),
+    [testimonials],
+  );
 
-  async function handleReject(id: string) {
+  async function handleStatusChange(testimonial: Testimonial, status: TestimonialStatus) {
     if (!adminToken) {
       toast({ title: "Session expirée", description: "Veuillez vous reconnecter." });
       return;
     }
-    const result = await deleteLead(id, adminToken);
-    if (!result.success) {
-      toast({ title: "Impossible de supprimer", description: result.error });
+    const result = await updateTestimonialStatus(testimonial.id, status, adminToken);
+    if (!result.success || !result.testimonial) {
+      toast({
+        title: "Mise à jour impossible",
+        description: result.error || "Veuillez réessayer.",
+      });
       return;
     }
-    setPendingLeads((prev) => prev.filter((lead) => lead.id !== id));
-    toast({ title: "Demande supprimée" });
+    setTestimonials((prev) =>
+      prev.map((item) => (item.id === result.testimonial!.id ? result.testimonial! : item)),
+    );
+    toast({
+      title: status === "published" ? "Témoignage publié" : status === "rejected" ? "Témoignage rejeté" : "Statut mis à jour",
+    });
   }
 
   async function handleDeleteTestimonial(id: string) {
@@ -146,27 +102,24 @@ const AdminTestimonials = () => {
     toast({ title: "Témoignage supprimé" });
   }
 
-  const pendingCount = pendingLeads.length;
-  const publishedCount = testimonials.length;
+  const pendingCount = pendingTestimonials.length;
+  const publishedCount = publishedTestimonials.length;
+  const rejectedCount = rejectedTestimonials.length;
 
   return (
     <div className="space-y-6">
       <AdminBackButton />
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <Card>
         <CardHeader>
           <CardTitle>Avis en attente ({pendingCount})</CardTitle>
         </CardHeader>
         <CardContent>
-          {error && (
-            <p className="text-sm text-destructive mb-4">{error}</p>
-          )}
-          {loading && (
-            <p className="text-sm text-muted-foreground">Chargement en cours…</p>
-          )}
-          {!loading && pendingLeads.length === 0 && (
+          {loading && <p className="text-sm text-muted-foreground">Chargement en cours…</p>}
+          {!loading && pendingCount === 0 && (
             <p className="text-sm text-muted-foreground">Aucun témoignage en attente.</p>
           )}
-          {!loading && pendingLeads.length > 0 && (
+          {pendingCount > 0 && (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -174,36 +127,37 @@ const AdminTestimonials = () => {
                     <TableHead>Date</TableHead>
                     <TableHead>Nom</TableHead>
                     <TableHead>Note</TableHead>
+                    <TableHead>Note</TableHead>
                     <TableHead>Message</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pendingLeads.map((lead) => (
-                    <TableRow key={lead.id}>
+                  {pendingTestimonials.map((testimonial) => (
+                    <TableRow key={testimonial.id}>
                       <TableCell className="whitespace-nowrap align-top text-sm">
-                        {formatter.format(new Date(lead.createdAt))}
+                        {formatter.format(new Date(testimonial.createdAt))}
                       </TableCell>
                       <TableCell className="align-top text-sm">
-                        <div className="font-semibold text-foreground">{lead.name || "—"}</div>
-                        {lead.email && (
-                          <a href={`mailto:${lead.email}`} className="text-xs text-primary underline">{lead.email}</a>
+                        <div className="font-semibold text-foreground">{testimonial.name || "—"}</div>
+                        {testimonial.email && (
+                          <a href={`mailto:${testimonial.email}`} className="text-xs text-primary underline">{testimonial.email}</a>
                         )}
                       </TableCell>
                       <TableCell className="align-top text-sm">
-                        {renderRating(firstNumber(lead.meta?.rating))}
+                        {renderRating(testimonial.rating)}
                       </TableCell>
                       <TableCell className="align-top text-sm text-muted-foreground">
-                        {formatLeadMessagePreview(lead)}
+                        <span className="line-clamp-2">{testimonial.message}</span>
                       </TableCell>
                       <TableCell className="align-top text-right space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => setSelectedLead(lead)}>
+                        <Button variant="outline" size="sm" onClick={() => setSelectedTestimonial(testimonial)}>
                           Voir
                         </Button>
-                        <Button size="sm" onClick={() => handleApprove(lead)}>
+                        <Button size="sm" onClick={() => handleStatusChange(testimonial, "published")}>
                           Publier
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleReject(lead.id)}>
+                        <Button variant="ghost" size="sm" onClick={() => handleStatusChange(testimonial, "rejected")}>
                           Rejeter
                         </Button>
                       </TableCell>
@@ -221,13 +175,13 @@ const AdminTestimonials = () => {
           <CardTitle>Témoignages publiés ({publishedCount})</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading && testimonials.length === 0 && (
+          {loading && publishedCount === 0 && (
             <p className="text-sm text-muted-foreground">Chargement des témoignages…</p>
           )}
-          {!loading && testimonials.length === 0 && (
+          {!loading && publishedCount === 0 && (
             <p className="text-sm text-muted-foreground">Aucun témoignage publié pour l’instant.</p>
           )}
-          {testimonials.length > 0 && (
+          {publishedCount > 0 && (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -240,7 +194,7 @@ const AdminTestimonials = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {testimonials.map((testimonial) => (
+                  {publishedTestimonials.map((testimonial) => (
                     <TableRow key={testimonial.id}>
                       <TableCell className="whitespace-nowrap align-top text-sm">
                         {formatter.format(new Date(testimonial.createdAt))}
@@ -263,7 +217,7 @@ const AdminTestimonials = () => {
                       </TableCell>
                       <TableCell className="align-top">{renderStars(testimonial.rating)}</TableCell>
                       <TableCell className="align-top text-sm text-muted-foreground">
-                        <span className="line-clamp-2">{testimonial.body}</span>
+                        <span className="line-clamp-2">{testimonial.message}</span>
                       </TableCell>
                       <TableCell className="align-top text-right space-x-2">
                         <Button variant="outline" size="sm" onClick={() => setSelectedTestimonial(testimonial)}>
@@ -282,33 +236,64 @@ const AdminTestimonials = () => {
         </CardContent>
       </Card>
 
-      <LeadDetailsDialog lead={selectedLead} onClose={() => setSelectedLead(null)} />
-      <PublishedTestimonialDialog testimonial={selectedTestimonial} onClose={() => setSelectedTestimonial(null)} />
+      {rejectedCount > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Témoignages rejetés ({rejectedCount})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Auteur</TableHead>
+                    <TableHead>Note</TableHead>
+                    <TableHead>Message</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rejectedTestimonials.map((testimonial) => (
+                    <TableRow key={testimonial.id}>
+                      <TableCell className="whitespace-nowrap align-top text-sm">
+                        {formatter.format(new Date(testimonial.createdAt))}
+                      </TableCell>
+                      <TableCell className="align-top text-sm">
+                        <div className="font-semibold text-foreground">{testimonial.name}</div>
+                      </TableCell>
+                      <TableCell className="align-top text-sm">
+                        {renderRating(testimonial.rating)}
+                      </TableCell>
+                      <TableCell className="align-top text-sm text-muted-foreground">
+                        <span className="line-clamp-2">{testimonial.message}</span>
+                      </TableCell>
+                      <TableCell className="align-top text-right space-x-2">
+                        <Button variant="outline" size="sm" onClick={() => setSelectedTestimonial(testimonial)}>
+                          Voir
+                        </Button>
+                        <Button size="sm" onClick={() => handleStatusChange(testimonial, "published")}>
+                          Re-publier
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDeleteTestimonial(testimonial.id)}>
+                          Supprimer
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <TestimonialDetailsDialog testimonial={selectedTestimonial} onClose={() => setSelectedTestimonial(null)} />
     </div>
   );
 };
 
 export default AdminTestimonials;
-
-function firstString(meta: Record<string, unknown> | undefined, keys: string[]): string | undefined {
-  if (!meta) return undefined;
-  for (const key of keys) {
-    const value = meta[key];
-    if (typeof value === "string" && value.trim().length > 0) {
-      return value.trim();
-    }
-  }
-  return undefined;
-}
-
-function firstNumber(value: unknown): number | undefined {
-  if (typeof value === "number") return value;
-  if (typeof value === "string" && value.trim().length > 0) {
-    const parsed = Number(value);
-    return Number.isNaN(parsed) ? undefined : parsed;
-  }
-  return undefined;
-}
 
 function renderRating(value?: number) {
   if (!value) return "—";
@@ -329,74 +314,12 @@ function renderStars(rating: number) {
   );
 }
 
-function extractPhotoArray(meta: Record<string, unknown> | undefined): string[] | undefined {
-  if (!meta) return undefined;
-  const value = meta.photos;
-  if (!Array.isArray(value)) return undefined;
-  const sanitized = value.filter((entry): entry is string => isImageDataUrl(entry));
-  return sanitized.length > 0 ? sanitized : undefined;
-}
-
-type LeadDetailsDialogProps = {
-  lead: Lead | null;
-  onClose: () => void;
-};
-
-function LeadDetailsDialog({ lead, onClose }: LeadDetailsDialogProps) {
-  return (
-    <Dialog open={!!lead} onOpenChange={(open) => {
-      if (!open) onClose();
-    }}>
-      <DialogContent className="max-w-xl">
-        {lead && (
-          <>
-            <DialogHeader>
-              <DialogTitle>Témoignage en attente</DialogTitle>
-              <DialogDescription>
-                Reçu le {formatter.format(new Date(lead.createdAt))}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 text-sm">
-              <div>
-                <div className="font-medium">Nom</div>
-                <div>{lead.name || "—"}</div>
-              </div>
-              <div>
-                <div className="font-medium">Email</div>
-                {lead.email ? (
-                  <a href={`mailto:${lead.email}`} className="text-primary underline">{lead.email}</a>
-                ) : (
-                  <span>—</span>
-                )}
-              </div>
-              <div>
-                <div className="font-medium">Note</div>
-                <div>{renderRating(firstNumber(lead.meta?.rating))}</div>
-              </div>
-              <div>
-                <div className="font-medium">Message</div>
-                <div className="mt-1 whitespace-pre-wrap rounded-md border bg-muted/50 px-3 py-2 text-sm">
-                  {lead.message?.trim() || "—"}
-                </div>
-              </div>
-              <LeadMetaGrid meta={lead.meta} />
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={onClose}>Fermer</Button>
-            </DialogFooter>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-type PublishedTestimonialDialogProps = {
+type TestimonialDetailsDialogProps = {
   testimonial: Testimonial | null;
   onClose: () => void;
 };
 
-function PublishedTestimonialDialog({ testimonial, onClose }: PublishedTestimonialDialogProps) {
+function TestimonialDetailsDialog({ testimonial, onClose }: TestimonialDetailsDialogProps) {
   return (
     <Dialog open={!!testimonial} onOpenChange={(open) => {
       if (!open) onClose();
@@ -405,9 +328,9 @@ function PublishedTestimonialDialog({ testimonial, onClose }: PublishedTestimoni
         {testimonial && (
           <>
             <DialogHeader>
-              <DialogTitle>Témoignage publié</DialogTitle>
+              <DialogTitle>Détail du témoignage</DialogTitle>
               <DialogDescription>
-                Publié le {formatter.format(new Date(testimonial.createdAt))}
+                Reçu le {formatter.format(new Date(testimonial.createdAt))} — statut : {formatStatus(testimonial.status)}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 text-sm">
@@ -447,9 +370,23 @@ function PublishedTestimonialDialog({ testimonial, onClose }: PublishedTestimoni
               <div>
                 <div className="font-medium">Message</div>
                 <div className="mt-1 whitespace-pre-wrap rounded-md border bg-muted/50 px-3 py-2 text-sm">
-                  {testimonial.body}
+                  {testimonial.message}
                 </div>
               </div>
+              {testimonial.email && (
+                <div>
+                  <div className="font-medium">Email</div>
+                  <a href={`mailto:${testimonial.email}`} className="text-primary underline">
+                    {testimonial.email}
+                  </a>
+                </div>
+              )}
+              {testimonial.source && (
+                <div>
+                  <div className="font-medium">Source</div>
+                  <div className="text-muted-foreground">{testimonial.source}</div>
+                </div>
+              )}
               {testimonial.photos && testimonial.photos.length > 0 && (
                 <div>
                   <div className="font-medium">Photos partagées</div>
@@ -500,9 +437,16 @@ function initials(value: string) {
     .toUpperCase()
     .slice(0, 2);
 }
-
-function isImageDataUrl(value: unknown): value is string {
-  return typeof value === "string" && value.startsWith("data:image/");
+function formatStatus(status: TestimonialStatus) {
+  switch (status) {
+    case "pending":
+      return "En attente";
+    case "published":
+      return "Publié";
+    case "rejected":
+      return "Rejeté";
+    default:
+      return status;
+  }
 }
-
 

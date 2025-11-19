@@ -1,7 +1,7 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Star, StarOff, ChevronLeft, ChevronRight } from "lucide-react";
+import { Star, StarOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchTestimonials } from "@/lib/testimonialsClient";
 import type { Testimonial } from "@/lib/testimonials";
@@ -24,7 +24,6 @@ const TestimonialsSection = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -51,31 +50,41 @@ const TestimonialsSection = ({
     };
   }, []);
 
-  const hasMany = testimonials.length > 1;
-  const showSection = testimonials.length > 0 || !!ctaSlot || loading;
+  const publishedTestimonials = useMemo(
+    () =>
+      testimonials
+        .filter((testimonial) => testimonial.status === "published")
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [testimonials],
+  );
+  const hasMany = publishedTestimonials.length > 1;
+  const showSection = publishedTestimonials.length > 0 || !!ctaSlot || loading;
   const averageRating = useMemo(() => {
-    if (!testimonials.length) return null;
-    const sum = testimonials.reduce((acc, item) => acc + item.rating, 0);
-    return sum / testimonials.length;
-  }, [testimonials]);
+    if (!publishedTestimonials.length) return null;
+    const sum = publishedTestimonials.reduce((acc, item) => acc + item.rating, 0);
+    return sum / publishedTestimonials.length;
+  }, [publishedTestimonials]);
 
   useEffect(() => {
-    if (!hasMany) return;
-    const interval = window.setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1 >= testimonials.length ? 0 : prev + 1));
-    }, 6000);
-    return () => window.clearInterval(interval);
-  }, [hasMany, testimonials.length]);
+    setCurrentIndex(0);
+  }, [publishedTestimonials.length]);
+
+  const current = publishedTestimonials.length
+    ? publishedTestimonials[Math.min(currentIndex, publishedTestimonials.length - 1)]
+    : null;
+
+  function goPrev() {
+    setCurrentIndex((index) => (index > 0 ? index - 1 : index));
+  }
+
+  function goNext() {
+    setCurrentIndex((index) =>
+      publishedTestimonials.length === 0 || index >= publishedTestimonials.length - 1 ? index : index + 1,
+    );
+  }
 
   if (!showSection) {
     return null;
-  }
-
-  function scrollByCard(direction: number) {
-    if (!listRef.current) return;
-    const container = listRef.current;
-    const scrollAmount = container.clientWidth * 0.8 * direction;
-    container.scrollBy({ left: scrollAmount, behavior: "smooth" });
   }
 
   return (
@@ -93,73 +102,80 @@ const TestimonialsSection = ({
         {ctaSlot}
       </div>
 
-      {loading && testimonials.length === 0 && (
+      {loading && publishedTestimonials.length === 0 && (
         <p className="text-sm text-muted-foreground">Chargement des témoignages…</p>
       )}
 
-      {!loading && error && (
-        <p className="text-sm text-destructive">{error}</p>
-      )}
+      {!loading && error && <p className="text-sm text-destructive">{error}</p>}
 
-      {!loading && testimonials.length === 0 && !error && (
+      {!loading && !current && !error && (
         <p className="text-sm text-muted-foreground">Aucun témoignage publié pour le moment.</p>
       )}
 
-      {testimonials.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" size="icon" onClick={() => scrollByCard(-1)} aria-label="Témoignage précédent" disabled={!hasMany}>
-              <ChevronLeft className="h-4 w-4" />
+      {current && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <Button variant="outline" className="rounded-full" onClick={goPrev} disabled={currentIndex === 0}>
+              Précédent
             </Button>
-            <Button variant="outline" size="icon" onClick={() => scrollByCard(1)} aria-label="Témoignage suivant" disabled={!hasMany}>
-              <ChevronRight className="h-4 w-4" />
+            <p className="text-sm text-muted-foreground">
+              {currentIndex + 1} / {publishedTestimonials.length}
+            </p>
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={goNext}
+              disabled={publishedTestimonials.length === 0 || currentIndex >= publishedTestimonials.length - 1}
+            >
+              Suivant
             </Button>
           </div>
-          <div
-            ref={listRef}
-            className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4"
-          >
-            {testimonials.map((testimonial) => (
-              <Card
-                key={testimonial.id}
-                className="min-w-[280px] snap-start rounded-2xl border bg-card/80 p-6 md:min-w-[360px]"
-              >
-                <CardContent className="flex flex-col gap-4 p-0">
-                  <div className="flex items-center gap-3">
-                    {renderAvatar(testimonial)}
-                    <div>
-                      <p className="font-semibold">{testimonial.name}</p>
-                      {formatTestimonialLocation(testimonial) && (
-                        <p className="text-sm text-muted-foreground">
-                          {formatTestimonialLocation(testimonial)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 text-primary">
-                    {renderStars(testimonial.rating)}
-                  </div>
-                  <p className="text-base text-muted-foreground leading-relaxed">“{testimonial.body}”</p>
-                  {testimonial.photos && testimonial.photos.length > 0 && (
-                    <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                      {testimonial.photos.map((src, index) => (
+
+          <Card className="mx-auto max-w-3xl rounded-[32px] border bg-card/90 p-8 shadow-lg">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-center gap-4">
+                {renderAvatar(current)}
+                <div>
+                  <p className="text-xl font-semibold">{current.name}</p>
+                  {formatTestimonialLocation(current) && (
+                    <p className="text-sm text-muted-foreground">{formatTestimonialLocation(current)}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-primary">
+                {renderStars(current.rating)}
+                <span className="text-sm text-muted-foreground">{current.rating}/5</span>
+              </div>
+              <p className="text-lg leading-relaxed text-muted-foreground">“{current.message}”</p>
+              <div className="text-sm text-muted-foreground">
+                {new Date(current.createdAt).toLocaleDateString("fr-FR", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </div>
+              {current.photos && current.photos.length > 0 && (
+                <div className="mt-4">
+                  <p className="mb-2 text-sm font-medium text-muted-foreground">Photos de l’événement</p>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                    {current.photos.slice(0, 5).map((src, index) => (
+                      <div
+                        key={`${current.id}-photo-${index}`}
+                        className="relative aspect-[4/3] overflow-hidden rounded-2xl border bg-muted"
+                      >
                         <img
-                          key={`${testimonial.id}-photo-${index}`}
                           src={src}
-                          alt={`Photo ${index + 1} partagée par ${testimonial.name}`}
-                          className="h-20 w-28 flex-shrink-0 rounded-md object-cover border"
+                          alt={`Photo ${index + 1} partagée par ${current.name}`}
+                          className="h-full w-full object-cover"
                           loading="lazy"
                         />
-                      ))}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <span>{new Date(testimonial.createdAt).toLocaleDateString("fr-FR")}</span>
+                      </div>
+                    ))}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                </div>
+              )}
+            </div>
+          </Card>
         </div>
       )}
     </section>
