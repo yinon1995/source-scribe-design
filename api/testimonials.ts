@@ -216,11 +216,14 @@ function sanitizePhotoArray(value: unknown): string[] | null {
   return items.length > 0 ? items : null;
 }
 
-function normalizeTestimonialPayload(input: unknown): { ok: true; value: TestimonialCreateInput } | { ok: false; error: string } {
-  if (!input || typeof input !== "object") {
-    return { ok: false, error: "Nom et message requis." };
-  }
-  const data = input as Record<string, unknown>;
+type NormalizeTestimonialResult = {
+  ok: boolean;
+  value?: TestimonialCreateInput;
+  error?: string;
+};
+
+function normalizeTestimonialPayload(input: unknown): NormalizeTestimonialResult {
+  const data = (input ?? {}) as Record<string, unknown>;
   const name = typeof data.name === "string" ? data.name.trim() : "";
   const body = typeof data.body === "string" ? data.body.trim() : "";
   const message = typeof data.message === "string" ? data.message.trim() : body;
@@ -229,36 +232,44 @@ function normalizeTestimonialPayload(input: unknown): { ok: true; value: Testimo
   }
   const ratingRaw = Number((data as any).rating);
   const rating =
-    Number.isFinite(ratingRaw) && ratingRaw >= 1 && ratingRaw <= 5
-      ? Math.round(ratingRaw)
-      : 5;
+    Number.isFinite(ratingRaw) && ratingRaw >= 1 && ratingRaw <= 5 ? ratingRaw : 5;
 
+  const email = typeof data.email === "string" ? data.email : null;
+  const company = typeof data.company === "string" ? data.company : null;
+  const role = typeof data.role === "string" ? data.role : null;
+  const city = typeof data.city === "string" ? data.city : null;
+  const clientType = typeof data.clientType === "string" ? data.clientType : null;
+  const avatarUrl = typeof data.avatarUrl === "string" ? data.avatarUrl : null;
+  const sourceLeadId = typeof data.sourceLeadId === "string" ? data.sourceLeadId : null;
+  const source = typeof data.source === "string" ? data.source : null;
   const avatar =
-    typeof data.avatar === "string"
-      ? data.avatar
+    typeof (data as any).avatar === "string"
+      ? (data as any).avatar
       : typeof (data as any).avatarDataUrl === "string"
         ? (data as any).avatarDataUrl
-        : undefined;
+        : null;
 
-  const photosArray = Array.isArray((data as any).photos)
-    ? (data as any).photos.filter((photo): photo is string => typeof photo === "string")
+  const rawPhotos = (data as any).photos;
+  const photos = Array.isArray(rawPhotos)
+    ? rawPhotos.filter((photo: unknown): photo is string => typeof photo === "string")
     : [];
 
   const value: TestimonialCreateInput = {
     name,
     rating,
     message,
-    email: optionalString(data.email) ?? null,
-    clientType: optionalString(data.clientType) ?? null,
-    company: optionalString(data.company) ?? null,
-    role: optionalString(data.role) ?? null,
-    city: optionalString(data.city) ?? null,
-    avatar: typeof avatar === "string" ? avatar : null,
-    avatarUrl: optionalString(data.avatarUrl) ?? null,
-    photos: photosArray.length ? photosArray.slice(0, MAX_STORED_PHOTOS) : null,
-    sourceLeadId: optionalString(data.sourceLeadId) ?? null,
-    source: optionalString(data.source) ?? null,
+    email,
+    company,
+    role,
+    city,
+    clientType,
+    avatar,
+    avatarUrl,
+    photos: photos.length ? photos : null,
+    sourceLeadId,
+    source,
   };
+
   return { ok: true, value };
 }
 
@@ -299,9 +310,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return;
       }
       const result = normalizeTestimonialPayload(payload);
-      if (!result.ok) {
-        console.error("Invalid testimonial payload", result, payload);
-        respond(res, 422, { success: false, error: result.error });
+      if (!result.ok || !result.value) {
+        const errorMessage = result.error ?? "Payload invalide";
+        console.error("Invalid testimonial payload", { error: errorMessage, payload });
+        respond(res, 422, { success: false, error: errorMessage });
         return;
       }
       const input = result.value;
