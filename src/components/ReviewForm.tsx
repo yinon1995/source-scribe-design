@@ -20,6 +20,15 @@ type ReviewFormProps = {
 };
 
 const MAX_EVENT_PHOTOS = 5;
+const MAX_TESTIMONIAL_PAYLOAD_BYTES = 2_000_000;
+
+function estimatePayloadSizeBytes(obj: unknown): number {
+  try {
+    return new TextEncoder().encode(JSON.stringify(obj)).length;
+  } catch {
+    return JSON.stringify(obj ?? "").length;
+  }
+}
 
 export const ReviewForm = ({
   source,
@@ -71,6 +80,7 @@ export const ReviewForm = ({
       return;
     }
     setLoading(true);
+    const trimmedPhotos = eventPhotos.length > 0 ? eventPhotos.slice(0, 3) : [];
     const payload = {
       name,
       source,
@@ -81,8 +91,22 @@ export const ReviewForm = ({
       rating,
       message,
       avatar: avatarDataUrl || undefined,
-      photos: eventPhotos.length ? eventPhotos : undefined,
+      photos: trimmedPhotos.length ? trimmedPhotos : undefined,
     };
+    const estimatedSize = estimatePayloadSizeBytes(payload);
+    if (estimatedSize > MAX_TESTIMONIAL_PAYLOAD_BYTES) {
+      console.error("Testimonial payload too large", {
+        estimatedSize,
+        photosCount: trimmedPhotos.length,
+      });
+      toast({
+        variant: "destructive",
+        title: "Photos trop volumineuses",
+        description: "Vos photos sont un peu trop lourdes. Réduisez leur taille ou sélectionnez-en moins, puis réessayez.",
+      });
+      setLoading(false);
+      return;
+    }
     const submission = await submitTestimonial(payload);
     setLoading(false);
     if (!submission.ok) {
