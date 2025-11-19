@@ -290,14 +290,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         respond(res, 400, { success: false, error: "JSON invalide", details: INCLUDE_ERROR_DETAILS ? err?.message : undefined });
         return;
       }
-      const normalizedResult = normalizeLeadPayload(payload);
-      if (!normalizedResult.ok) {
-        const errorMessage =
-          "error" in normalizedResult ? normalizedResult.error : "Payload invalide";
+      const result = normalizeLeadPayload(payload);
+      if (!result.ok) {
+        const errorMessage = "error" in result ? result.error : "Payload invalide";
+        console.error("Invalid lead payload", errorMessage);
         respond(res, 422, { success: false, error: errorMessage });
         return;
       }
-      const normalizedLead = normalizedResult.value;
+      const normalizedLead = result.value;
       const lead: Lead = {
         ...normalizedLead,
         id: randomUUID(),
