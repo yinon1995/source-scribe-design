@@ -286,24 +286,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
         return;
       }
-      const normalized = normalizeTestimonialPayload(payload);
-      if (!normalized.ok) {
-        respond(res, 422, { success: false, error: normalized.error });
+      const normalizedResult = normalizeTestimonialPayload(payload);
+      if (!normalizedResult.ok) {
+        const errorMessage = normalizedResult.error;
+        respond(res, 422, { success: false, error: errorMessage });
         return;
       }
       const testimonial: Testimonial = {
         id: randomUUID(),
-        name: normalized.value.name,
-        body: normalized.value.body,
-        rating: normalized.value.rating,
-        clientType: normalized.value.clientType ?? normalized.value.company ?? null,
-        company: normalized.value.company ?? null,
-        role: normalized.value.role ?? null,
-        city: normalized.value.city ?? null,
-        avatar: normalized.value.avatarDataUrl ?? normalized.value.avatarUrl ?? null,
-        avatarUrl: normalized.value.avatarUrl ?? null,
-        photos: normalized.value.photos && normalized.value.photos.length > 0 ? normalized.value.photos : null,
-        sourceLeadId: normalized.value.sourceLeadId ?? null,
+        name: normalizedResult.value.name,
+        body: normalizedResult.value.body,
+        rating: normalizedResult.value.rating,
+        clientType: normalizedResult.value.clientType ?? normalizedResult.value.company ?? null,
+        company: normalizedResult.value.company ?? null,
+        role: normalizedResult.value.role ?? null,
+        city: normalizedResult.value.city ?? null,
+        avatar: normalizedResult.value.avatarDataUrl ?? normalizedResult.value.avatarUrl ?? null,
+        avatarUrl: normalizedResult.value.avatarUrl ?? null,
+        photos:
+          normalizedResult.value.photos && normalizedResult.value.photos.length > 0
+            ? normalizedResult.value.photos
+            : null,
+        sourceLeadId: normalizedResult.value.sourceLeadId ?? null,
         createdAt: new Date().toISOString(),
       };
       const current = await readTestimonials(config);
