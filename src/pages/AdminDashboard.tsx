@@ -76,6 +76,20 @@ const AdminDashboard = () => {
 								</Button>
 							</CardContent>
 						</Card>
+
+						<Card className="flex flex-col justify-between">
+							<CardHeader>
+								<CardTitle>Mettre à jour À propos</CardTitle>
+							</CardHeader>
+							<CardContent className="flex flex-col gap-3">
+								<p className="text-sm text-muted-foreground">
+									Éditer le texte de présentation affiché sur la page Services & Partenariats.
+								</p>
+								<Button variant="default" size="default" className="self-start" onClick={() => navigate("/admin/a-propos")}>
+									Ouvrir l’éditeur
+								</Button>
+							</CardContent>
+						</Card>
 					</div>
 				</div>
 			</main>

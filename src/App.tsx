@@ -13,6 +13,7 @@ import AdminNew from "./pages/AdminNew";
 import AdminArticles from "./pages/AdminArticles";
 import AdminInbox from "./pages/AdminInbox";
 import AdminTestimonials from "./pages/AdminTestimonials";
+import AdminAbout from "./pages/AdminAbout";
 import About from "./pages/About";
 import Services from "./pages/Services";
 import Contact from "./pages/Contact";
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/admin/articles" element={<AdminGuard><AdminArticles /></AdminGuard>} />
             <Route path="/admin/demandes" element={<AdminGuard><AdminInbox /></AdminGuard>} />
             <Route path="/admin/temoignages" element={<AdminGuard><AdminTestimonials /></AdminGuard>} />
+            <Route path="/admin/a-propos" element={<AdminGuard><AdminAbout /></AdminGuard>} />
             <Route path="/admin/new" element={<AdminGuard><AdminNew /></AdminGuard>} />
             <Route path="/thematiques" element={<Thematiques />} />
             <Route path="/a-propos" element={<About />} />

@@ -1,0 +1,28 @@
+export type AboutContent = {
+  aboutTitle: string;
+  aboutBody: string[];
+  valuesTitle: string;
+  valuesItems: string[];
+  approachTitle: string;
+  approachBody: string;
+};
+
+export const DEFAULT_ABOUT_CONTENT: AboutContent = {
+  aboutTitle: "Nolwenn, plume brestoise 100% beurre salé.",
+  aboutBody: [
+    "Spécialisée dans les contenus pour l’événementiel, les lieux, les commerces et l’univers de la beauté, j’écris pour donner du relief aux expériences et aux identités locales.",
+    "« À la Brestoise », c’est une signature éditoriale proposant des textes authentiques, précis et ancrés dans la ville.",
+    "Les articles sont donc destinés à la fois à des lecteurs attirés par ces sujets proposés et également aux professionnels les plus exigeants."
+  ],
+  valuesTitle: "Mes valeurs",
+  valuesItems: [
+    "Clarté et accessibilité de l’information",
+    "Approche terrain pour les reportages locaux",
+    "Élégance et modernité dans la forme et le fond"
+  ],
+  approachTitle: "Une approche exigeante et professionnelle",
+  approachBody:
+    "Chaque article publié ici repose sur une recherche approfondie, des sources vérifiées et une écriture claire.\n\nMon objectif : offrir des contenus informatifs pour mes lecteurs et mettre en lumière les entreprises et marques des professionnels.\n\nMon approche : comprendre votre univers, capter ce qui le rend unique et le traduire en mots qui résonnent, qui inspirent et qui vous ressemblent.",
+};
+
+

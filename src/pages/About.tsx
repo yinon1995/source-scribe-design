@@ -1,7 +1,14 @@
 import Footer from "@/components/Footer";
 import heroImage from "@/assets/hero-portrait.jpeg";
+import { getAboutContent } from "@/lib/about";
 
 const About = () => {
+  const aboutContent = getAboutContent();
+  const approachParagraphs = aboutContent.approachBody
+    .split("\n")
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
   return (
     <div className="min-h-screen bg-background">
       <article className="py-20">
@@ -12,29 +19,24 @@ const About = () => {
               À propos
             </h1>
             <div className="space-y-6 text-center max-w-3xl mx-auto">
-              <p className="text-xl text-muted-foreground leading-relaxed whitespace-pre-line">
-                {`« Nolwenn, plume brestoise 100% beurre salé.
-
-Spécialisée dans les contenus pour l’événementiel, les lieux, les commerces et l’univers de la beauté, j’écris pour donner du relief aux expériences et aux identités locales.
-
-
-« À la Brestoise », c’est une signature éditoriale : des textes authentiques, précis et ancrés dans le territoire, avec une touche moderne qui fait la différence.
-
-Mon approche : comprendre votre univers, capter ce qui le rend unique et le traduire en mots qui résonnent, qui inspirent et qui vous ressemblent. »`}
+              <p className="text-2xl font-display font-semibold text-foreground">
+                {aboutContent.aboutTitle}
               </p>
+              {aboutContent.aboutBody.map((paragraph, index) => (
+                <p key={index} className="text-xl text-muted-foreground leading-relaxed">
+                  {paragraph}
+                </p>
+              ))}
 
               <div className="space-y-2">
                 <h2 className="text-2xl font-display font-semibold text-foreground">
-                  Une approche exigeante
+                  {aboutContent.approachTitle}
                 </h2>
-                <p className="text-base text-muted-foreground leading-relaxed">
-                  Chaque article publié ici repose sur une recherche approfondie,
-                  des sources vérifiées et une écriture claire.
-                  <br />
-                  Mon objectif : offrir des contenus informatifs pour mes lecteurs
-                  <br />
-                  et mettre en lumière les entreprises et marques des professionnels.
-                </p>
+                <div className="space-y-4 text-base text-muted-foreground leading-relaxed whitespace-pre-line">
+                  {approachParagraphs.map((paragraph, index) => (
+                    <p key={index}>{paragraph}</p>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -52,21 +54,15 @@ Mon approche : comprendre votre univers, capter ce qui le rend unique et le trad
             <div className="space-y-6">
               <div className="space-y-4">
                 <h3 className="text-xl font-display font-semibold text-foreground">
-                  Mes valeurs
+                  {aboutContent.valuesTitle}
                 </h3>
                 <ul className="space-y-2 text-muted-foreground">
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary mt-1">•</span>
-                    <span>Clarté et accessibilité de l&apos;information</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary mt-1">•</span>
-                    <span>Approche terrain pour les reportages locaux</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary mt-1">•</span>
-                    <span>Élégance dans la forme et le fond</span>
-                  </li>
+                  {aboutContent.valuesItems.map((item, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="text-primary mt-1">•</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
                 </ul>
               </div>
             </div>
@@ -74,7 +70,7 @@ Mon approche : comprendre votre univers, capter ce qui le rend unique et le trad
 
           {/* Expertise */}
           <div className="bg-card rounded-2xl p-8 md:p-12 space-y-8">
-            <h2 className="text-3xl font-display font-semibold text-foreground text-center">
+              <h2 className="text-3xl font-display font-semibold text-foreground text-center">
               Domaines d&apos;expertise
             </h2>
 
