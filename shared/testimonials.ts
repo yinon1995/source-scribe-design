@@ -1,9 +1,13 @@
+export type TestimonialStatus = "pending" | "published" | "rejected";
+
 export type Testimonial = {
   id: string;
-  name: string;
-  body: string;
-  rating: number;
   createdAt: string;
+  status: TestimonialStatus;
+  name: string;
+  rating: number;
+  message: string;
+  email?: string | null;
   clientType?: string | null;
   company?: string | null;
   role?: string | null;
@@ -12,20 +16,23 @@ export type Testimonial = {
   avatarUrl?: string | null;
   photos?: string[] | null;
   sourceLeadId?: string | null;
+  source?: string | null;
 };
 
 export type TestimonialCreateInput = {
   name: string;
-  body: string;
   rating: number;
+  message: string;
+  email?: string | null;
   clientType?: string | null;
   company?: string | null;
   role?: string | null;
   city?: string | null;
-  avatarDataUrl?: string | null;
+  avatar?: string | null;
   avatarUrl?: string | null;
   photos?: string[] | null;
   sourceLeadId?: string | null;
+  source?: string | null;
 };
 
 export function clampRating(value: unknown, fallback = 5): number {

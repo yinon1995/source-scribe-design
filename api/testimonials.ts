@@ -1,7 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomUUID } from "crypto";
-import type { Testimonial, TestimonialCreateInput } from "../shared/testimonials.js";
-import { clampRating } from "../shared/testimonials.js";
+import type { Testimonial, TestimonialCreateInput, TestimonialStatus } from "../shared/testimonials.js";
 
 type GithubConfig = {
   repo: string;
@@ -20,9 +19,7 @@ const PUBLISH_TOKEN = process.env.PUBLISH_TOKEN;
 const INCLUDE_ERROR_DETAILS = process.env.NODE_ENV !== "production";
 
 const TESTIMONIALS_PATH = "content/testimonials/testimonials.json";
-
-const MAX_EMBEDDED_IMAGE_LENGTH = 500_000;
-const MAX_PHOTO_COUNT = 5;
+const MAX_STORED_PHOTOS = 5;
 
 export const config = {
   runtime: "nodejs",
@@ -37,7 +34,7 @@ type ApiResponse<T extends Record<string, unknown> = Record<string, never>> = {
 
 function setCors(res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 }
 
@@ -169,7 +166,7 @@ async function readTestimonials(config: GithubConfig): Promise<Testimonial[]> {
     const decoded = Buffer.from(String((existing as any).content), "base64").toString("utf8");
     const parsed = JSON.parse(decoded);
     if (Array.isArray(parsed)) {
-      return (parsed as Testimonial[]).map(ensureTestimonialShape);
+      return (parsed as (Testimonial & { body?: string })[]).map(ensureTestimonialShape);
     }
     return [];
   } catch {
@@ -177,13 +174,22 @@ async function readTestimonials(config: GithubConfig): Promise<Testimonial[]> {
   }
 }
 
-function ensureTestimonialShape(testimonial: Testimonial): Testimonial {
+function ensureTestimonialShape(testimonial: Testimonial & { body?: string }): Testimonial {
+  const message =
+    typeof testimonial.message === "string" && testimonial.message.trim().length > 0
+      ? testimonial.message.trim()
+      : typeof testimonial.body === "string"
+        ? testimonial.body
+        : "";
   return {
     ...testimonial,
+    message,
     status: testimonial.status ?? "published",
     clientType: testimonial.clientType ?? testimonial.company ?? null,
+    email: testimonial.email ?? null,
     avatar: testimonial.avatar ?? testimonial.avatarUrl ?? null,
     photos: sanitizePhotoArray(testimonial.photos),
+    source: testimonial.source ?? null,
   };
 }
 
@@ -198,96 +204,60 @@ function optionalString(value: unknown): string | undefined {
   return trimmed.length ? trimmed : undefined;
 }
 
-function isImageDataUrl(value: string) {
-  return value.startsWith("data:image/");
-}
-
-function normalizeDataUrl(value: unknown, label: string): { ok: true; value?: string } | { ok: false; error: string } {
-  const str = optionalString(value);
-  if (!str) {
-    return { ok: true, value: undefined };
-  }
-  if (!isImageDataUrl(str)) {
-    return { ok: false, error: `${label} invalide` };
-  }
-  if (str.length > MAX_EMBEDDED_IMAGE_LENGTH) {
-    return { ok: false, error: `${label} trop volumineux` };
-  }
-  return { ok: true, value: str };
-}
-
-function normalizePhotoArray(value: unknown): { ok: true; value?: string[] } | { ok: false; error: string } {
-  if (value === undefined || value === null) {
-    return { ok: true, value: undefined };
-  }
-  if (!Array.isArray(value)) {
-    return { ok: false, error: "Photos invalides" };
-  }
-  if (value.length > MAX_PHOTO_COUNT) {
-    return { ok: false, error: `Maximum ${MAX_PHOTO_COUNT} photos autorisées` };
-  }
-  const photos: string[] = [];
-  for (const entry of value) {
-    if (typeof entry !== "string" || !isImageDataUrl(entry)) {
-      return { ok: false, error: "Photos invalides" };
-    }
-    if (entry.length > MAX_EMBEDDED_IMAGE_LENGTH) {
-      return { ok: false, error: "Une photo est trop volumineuse" };
-    }
-    photos.push(entry);
-  }
-  return { ok: true, value: photos.length > 0 ? photos : undefined };
+function isTestimonialStatus(value: unknown): value is TestimonialStatus {
+  return value === "pending" || value === "published" || value === "rejected";
 }
 
 function sanitizePhotoArray(value: unknown): string[] | null {
   if (!Array.isArray(value)) return null;
   const items = value
-    .filter((entry): entry is string => typeof entry === "string" && isImageDataUrl(entry))
-    .slice(0, MAX_PHOTO_COUNT);
+    .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+    .slice(0, MAX_STORED_PHOTOS);
   return items.length > 0 ? items : null;
 }
 
 function normalizeTestimonialPayload(input: unknown): { ok: true; value: TestimonialCreateInput } | { ok: false; error: string } {
   if (!input || typeof input !== "object") {
-    return { ok: false, error: "Payload invalide" };
+    return { ok: false, error: "Nom et message requis." };
   }
   const data = input as Record<string, unknown>;
-  const name = optionalString(data.name);
-  if (!name) {
-    return { ok: false, error: "Nom requis" };
+  const name = typeof data.name === "string" ? data.name.trim() : "";
+  const body = typeof data.body === "string" ? data.body.trim() : "";
+  const message = typeof data.message === "string" ? data.message.trim() : body;
+  if (!name || !message) {
+    return { ok: false, error: "Nom et message requis." };
   }
-  const rating = clampRating(data.rating, 5);
-  if (Number.isNaN(rating) || rating < 1 || rating > 5) {
-    return { ok: false, error: "Note invalide" };
-  }
-  const body = optionalString(data.body);
-  const message = optionalString(data.message);
-  const testimonialBody = body ?? message;
-  if (!testimonialBody) {
-    return { ok: false, error: "Témoignage requis" };
-  }
-  const avatarResult = normalizeDataUrl(data.avatar ?? data.avatarDataUrl, "Avatar");
-  if (!avatarResult.ok) {
-    return { ok: false, error: avatarResult.error };
-  }
-  const photosResult = normalizePhotoArray(data.photos);
-  if (!photosResult.ok) {
-    return { ok: false, error: photosResult.error };
-  }
+  const ratingRaw = Number((data as any).rating);
+  const rating =
+    Number.isFinite(ratingRaw) && ratingRaw >= 1 && ratingRaw <= 5
+      ? Math.round(ratingRaw)
+      : 5;
+
+  const avatar =
+    typeof data.avatar === "string"
+      ? data.avatar
+      : typeof (data as any).avatarDataUrl === "string"
+        ? (data as any).avatarDataUrl
+        : undefined;
+
+  const photosArray = Array.isArray((data as any).photos)
+    ? (data as any).photos.filter((photo): photo is string => typeof photo === "string")
+    : [];
+
   const value: TestimonialCreateInput = {
     name,
-    body: testimonialBody,
-    message: message ?? undefined,
-    email: optionalString(data.email),
-    clientType: optionalString(data.clientType),
-    company: optionalString(data.company),
-    role: optionalString(data.role),
-    city: optionalString(data.city),
     rating,
-    avatar: avatarResult.value ?? null,
-    avatarUrl: optionalString(data.avatarUrl),
-    photos: photosResult.value ?? null,
-    sourceLeadId: optionalString(data.sourceLeadId),
+    message,
+    email: optionalString(data.email) ?? null,
+    clientType: optionalString(data.clientType) ?? null,
+    company: optionalString(data.company) ?? null,
+    role: optionalString(data.role) ?? null,
+    city: optionalString(data.city) ?? null,
+    avatar: typeof avatar === "string" ? avatar : null,
+    avatarUrl: optionalString(data.avatarUrl) ?? null,
+    photos: photosArray.length ? photosArray.slice(0, MAX_STORED_PHOTOS) : null,
+    sourceLeadId: optionalString(data.sourceLeadId) ?? null,
+    source: optionalString(data.source) ?? null,
   };
   return { ok: true, value };
 }
@@ -317,6 +287,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === "POST") {
+      let payload: unknown;
+      try {
+        payload = await readJsonBody(req);
+      } catch (error: any) {
+        respond(res, 400, {
+          success: false,
+          error: "JSON invalide",
+          details: INCLUDE_ERROR_DETAILS ? error?.message : undefined,
+        });
+        return;
+      }
+      const result = normalizeTestimonialPayload(payload);
+      if (!result.ok) {
+        console.error("Invalid testimonial payload", result, payload);
+        respond(res, 422, { success: false, error: result.error });
+        return;
+      }
+      const input = result.value;
+      const testimonial: Testimonial = {
+        id: randomUUID(),
+        createdAt: new Date().toISOString(),
+        status: "pending",
+        name: input.name,
+        rating: input.rating,
+        message: input.message,
+        email: input.email ?? null,
+        clientType: input.clientType ?? null,
+        company: input.company ?? null,
+        role: input.role ?? null,
+        city: input.city ?? null,
+        avatar: input.avatar ?? input.avatarUrl ?? null,
+        avatarUrl: input.avatarUrl ?? null,
+        photos: input.photos ?? null,
+        sourceLeadId: input.sourceLeadId ?? null,
+        source: input.source ?? null,
+      };
+      const current = await readTestimonials(config);
+      await writeTestimonials([testimonial, ...current], config);
+      respond(res, 201, { success: true, testimonial });
+      return;
+    }
+
+    if (req.method === "PATCH") {
       if (!authorizeAdmin(req)) {
         respond(res, 401, { success: false, error: "Admin token invalide" });
         return;
@@ -332,32 +345,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
         return;
       }
-      const result = normalizeTestimonialPayload(payload);
-      if (!result.ok) {
-        const errorMessage = "error" in result ? result.error : "Payload invalide";
-        console.error("Invalid testimonial payload", errorMessage, payload);
-        respond(res, 422, { success: false, error: errorMessage });
+      const data = payload as Record<string, unknown>;
+      const id = typeof data.id === "string" ? data.id.trim() : "";
+      const statusRaw = typeof data.status === "string" ? data.status.trim() : "";
+      if (!id || !isTestimonialStatus(statusRaw)) {
+        respond(res, 400, { success: false, error: "Paramètres invalides" });
         return;
       }
-      const input = result.value;
-      const testimonial: Testimonial = {
-        id: randomUUID(),
-        name: input.name,
-        body: input.message ?? input.body,
-        rating: input.rating,
-        clientType: input.clientType ?? input.company ?? null,
-        company: input.company ?? null,
-        role: input.role ?? null,
-        city: input.city ?? null,
-        avatar: input.avatar ?? input.avatarUrl ?? null,
-        avatarUrl: input.avatarUrl ?? null,
-        photos: input.photos && input.photos.length > 0 ? input.photos : null,
-        sourceLeadId: input.sourceLeadId ?? null,
-        createdAt: new Date().toISOString(),
-      };
       const current = await readTestimonials(config);
-      await writeTestimonials([testimonial, ...current], config);
-      respond(res, 201, { success: true, testimonial });
+      const index = current.findIndex((testimonial) => testimonial.id === id);
+      if (index === -1) {
+        respond(res, 404, { success: false, error: "Témoignage introuvable" });
+        return;
+      }
+      const next = [...current];
+      next[index] = {
+        ...current[index],
+        status: statusRaw,
+      };
+      await writeTestimonials(next, config);
+      respond(res, 200, { success: true, testimonial: next[index] });
       return;
     }
 

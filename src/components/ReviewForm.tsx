@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "@/hooks/use-toast";
-import { createLead } from "@/lib/inboxClient";
 import { cn } from "@/lib/utils";
 import { Star, X } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -72,45 +71,43 @@ export const ReviewForm = ({
       return;
     }
     setLoading(true);
-    const result = await createLead({
-      category: "testimonial",
-      source,
+    const payload = {
       name,
+      source,
       email: email || undefined,
+      clientType: clientType || undefined,
+      role: role || undefined,
+      city: city || undefined,
+      rating,
       message,
-      meta: {
-        clientType: clientType || undefined,
-        role: role || undefined,
-        city: city || undefined,
-        rating,
-        avatar: avatarDataUrl || undefined,
-        photos: eventPhotos.length ? eventPhotos : undefined,
-      },
-    });
+      avatar: avatarDataUrl || undefined,
+      photos: eventPhotos.length ? eventPhotos : undefined,
+    };
+    const submission = await submitTestimonial(payload);
     setLoading(false);
-    if (result.success) {
-      toast({ title: successMessage });
-      setName("");
-      setEmail("");
-      setClientType("");
-      setRole("");
-      setCity("");
-      setAvatarDataUrl(null);
-      setAvatarSource(null);
-      setEventPhotos([]);
-      setMessage("");
-      setRating(5);
-      setSubmitted(false);
-      resetAvatarInput();
-      resetEventPhotosInput();
-      onSubmitted?.();
+    if (!submission.ok) {
+      toast({
+        variant: "destructive",
+        title: "Impossible d’enregistrer votre témoignage",
+        description: submission.error,
+      });
       return;
     }
-    console.error("Failed to submit testimonial", { source, status: "error", error: result.error });
-    toast({
-      title: "Impossible d’enregistrer votre témoignage",
-      description: result.error || "Veuillez réessayer dans quelques instants.",
-    });
+    toast({ title: successMessage });
+    setName("");
+    setEmail("");
+    setClientType("");
+    setRole("");
+    setCity("");
+    setAvatarDataUrl(null);
+    setAvatarSource(null);
+    setEventPhotos([]);
+    setMessage("");
+    setRating(5);
+    setSubmitted(false);
+    resetAvatarInput();
+    resetEventPhotosInput();
+    onSubmitted?.();
   }
 
   const handleAvatarFile = useCallback(async (file: File | undefined | null) => {
@@ -459,6 +456,42 @@ export const ReviewForm = ({
 };
 
 export default ReviewForm;
+
+type SubmitTestimonialPayload = {
+  name: string;
+  source: string;
+  email?: string;
+  clientType?: string;
+  role?: string;
+  city?: string;
+  rating: number;
+  message: string;
+  avatar?: string;
+  photos?: string[];
+};
+
+type SubmitTestimonialResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+async function submitTestimonial(payload: SubmitTestimonialPayload): Promise<SubmitTestimonialResult> {
+  try {
+    const res = await fetch("/api/testimonials", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) {
+      console.error("Failed to submit testimonial", { status: res.status, data });
+      return { ok: false, error: data?.error ?? "Une erreur est survenue." };
+    }
+    return { ok: true };
+  } catch (error: any) {
+    console.error("Failed to submit testimonial", error);
+    return { ok: false, error: "Une erreur est survenue." };
+  }
+}
 
 async function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
