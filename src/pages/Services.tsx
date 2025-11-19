@@ -3,7 +3,7 @@ import TestimonialsSection from "@/components/TestimonialsSection";
 import ReviewForm from "@/components/ReviewForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Camera, Sparkles, Star } from "lucide-react";
+import { FileText, Camera, Sparkles } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,8 +11,11 @@ import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { createLead } from "@/lib/inboxClient";
+import heroImage from "@/assets/hero-portrait.jpeg";
+import { getAboutContent } from "@/lib/about";
 
 const Services = () => {
+  const aboutContent = getAboutContent();
   const services = [
     {
       icon: FileText,
@@ -65,9 +68,62 @@ const Services = () => {
               Services & Partenariats
             </h1>
             <p className="text-xl text-muted-foreground">
-              Des prestations sur-mesure pour valoriser votre commerce, événement ou marque 
+              Des prestations sur-mesure pour valoriser votre commerce, événement ou marque
               à travers des contenus éditoriaux de qualité
             </p>
+          </div>
+
+          {/* Bio */}
+          <div className="space-y-10 mb-16">
+            <div className="space-y-4 text-center max-w-3xl mx-auto">
+              <p className="text-2xl font-display font-semibold text-foreground">
+                {aboutContent.aboutTitle}
+              </p>
+              {aboutContent.aboutBody.map((paragraph, index) => (
+                <p key={index} className="text-lg text-muted-foreground leading-relaxed">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-10 items-start">
+              <div className="aspect-[3/4] rounded-3xl overflow-hidden shadow-lg bg-muted">
+                <img
+                  src={heroImage}
+                  alt="Portrait de Nolwenn"
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+              <div className="space-y-5 bg-card rounded-3xl p-6 shadow border border-border/60">
+                <h3 className="text-2xl font-display font-semibold text-foreground">
+                  {aboutContent.valuesTitle}
+                </h3>
+                <ul className="space-y-3 text-base text-muted-foreground">
+                  {aboutContent.valuesItems.map((item, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="text-primary mt-1">•</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="bg-accent/20 rounded-3xl p-8 md:p-10 space-y-4 text-center max-w-4xl mx-auto">
+              <h3 className="text-2xl font-display font-semibold text-foreground">
+                {aboutContent.approachTitle}
+              </h3>
+              {aboutContent.approachBody
+                .split("\n")
+                .map((paragraph) => paragraph.trim())
+                .filter(Boolean)
+                .map((paragraph, index) => (
+                  <p key={index} className="text-base md:text-lg text-muted-foreground leading-relaxed whitespace-pre-line">
+                    {paragraph}
+                  </p>
+                ))}
+            </div>
           </div>
 
           {/* Services Grid */}
