@@ -1,5 +1,4 @@
-Here’s an updated, “future-AI friendly” README you can paste over the old one.
-I’ve baked in everything we’ve built: JSON CMS, admin, inbox leads, testimonials, inline images, etc.
+ `README.md`:
 
 ````markdown
 # À la Brestoise — JSON CMS + Admin “Writing Space”
@@ -9,7 +8,7 @@ This repo contains the **À la Brestoise** site, built with **Vite + React + Typ
 Editorial content (articles) now lives primarily as **JSON files** under `content/articles/`.  
 There is also legacy support for **Markdown files** under `content/posts/`, but the **admin writing space** reads/writes JSON articles and commits them to GitHub via Vercel serverless functions. When the repo updates, Vercel redeploys and the updated content appears on the public pages.
 
-This README is meant to be a **brain dump** so a future developer or AI can safely continue from here **without breaking the admin, inbox, testimonials, or publish flow**.
+This README is meant to be a **brain dump** so a future developer or AI can safely continue from here **without breaking the admin, inbox, testimonials, images, À propos config, or publish flow**.
 
 ---
 
@@ -62,11 +61,12 @@ If anything looks “impossible” (admin and GitHub do not match, or publish se
 
 - **JSON articles** under `content/articles/*.json` (main source of truth).
 - **Legacy Markdown** posts under `content/posts/*.md` (optional, read-only).
-- JSON/TS content for supporting pieces (testimonials, home sections, etc.).
-- All of this is loaded via `src/lib/content.ts` into:
+- JSON/TS content for supporting pieces (testimonials, home sections, **À propos**, etc.).
+- All of this is loaded via helpers like `src/lib/content.ts`, `src/lib/about.ts`, etc. into:
 
   - `posts: Post[]` — full content.
   - `postsIndex: PostFrontmatter[]` — for listings & SEO.
+  - `aboutContent` — structured “À propos” content.
 
 ### Backend / API (Vercel serverless)
 
@@ -80,15 +80,20 @@ Serverless functions in `/api` handle:
     - Contact forms
     - Services / quote interest
     - Subject suggestions
-    - (Internally) testimonial requests
+    - (Previously) testimonial requests
   - Stores them in a Git-tracked JSON file and exposes them to the **admin inbox UI**.
 - `api/testimonials.ts`
   - Manages **customer testimonials/reviews** for “Ils m’ont fait confiance”:
     - Accepts new testimonial submissions from the public form.
+    - Saves avatar + up to a few event photos as image data URLs.
     - Lets admin publish/reject/delete reviews.
-    - Updates the data used by the public testimonials carousel.
+    - Updates the data used by the public testimonials carousel (one testimonial per slide with a small photo gallery).
+- `api/about.ts`
+  - Manages the structured **À propos** content used by `/a-propos` and the “Services & Partnerships” page.
+  - Reads/writes `content/about/a-propos.json` via the GitHub Contents API.
+  - Powers the **Admin À propos** editor.
 
-All three APIs share a **GitHub config helper** (similar pattern to `api/publish.ts`) and require the same core env vars (`GITHUB_REPO`, `GITHUB_TOKEN`, `PUBLISH_BRANCH`).
+All these APIs share a **GitHub config helper** (same pattern as `api/publish.ts`) and require the same core env vars (`GITHUB_REPO`, `GITHUB_TOKEN`, `PUBLISH_BRANCH`, plus `PUBLISH_TOKEN` for admin-authenticated operations).
 
 ### Deployment
 
@@ -113,7 +118,7 @@ npm run dev
 
 Then open `http://localhost:5173` (or the port shown in the terminal).
 
-For local testing of **admin features** (articles, inbox, reviews), you’ll need a `.env.local` file with at least:
+For local testing of **admin features** (articles, inbox, testimonials, À propos), you’ll need a `.env.local` file with at least:
 
 * `GITHUB_REPO`
 * `GITHUB_TOKEN`
@@ -128,9 +133,9 @@ matching the Vercel environment.
 
 In Vercel → Project (linked to **yinon1995/source-scribe-design**) → **Settings → Environment Variables**.
 
-### 3.1. GitHub / content publishing (articles, inbox, testimonials)
+### 3.1. GitHub / content publishing (articles, inbox, testimonials, À propos)
 
-Used by `api/publish.ts`, `api/inbox.ts`, and `api/testimonials.ts`:
+Used by `api/publish.ts`, `api/inbox.ts`, `api/testimonials.ts`, and `api/about.ts`:
 
 * `GITHUB_REPO`
   Full `owner/repo` string. Example:
@@ -152,7 +157,7 @@ Used by `api/publish.ts`, `api/inbox.ts`, and `api/testimonials.ts`:
   Secret token used as:
 
   * The **admin password** in the writing space (admin UI).
-  * The **server-side auth token** for `api/publish.ts`, `api/inbox.ts`, and `api/testimonials.ts`
+  * The **server-side auth token** for `api/publish.ts`, `api/inbox.ts`, `api/testimonials.ts`, and `api/about.ts`
     (`Authorization: Bearer <PUBLISH_TOKEN>`).
 
 This is the **single source of truth** for admin access.
@@ -162,7 +167,7 @@ This is the **single source of truth** for admin access.
 * `VERCEL_DEPLOY_HOOK_URL` (optional)
   Vercel “Deploy Hook” URL for this project.
 
-If set, `api/publish.ts` (and possibly other APIs) can call it after writing files so Vercel redeploys immediately.
+If set, APIs like `api/publish.ts` and `api/about.ts` can call it after writing files so Vercel redeploys immediately.
 If not set, Vercel will still deploy when the branch is updated via GitHub.
 
 ### 3.4. Email / external providers
@@ -188,18 +193,27 @@ Each article is a `JsonArticle` (defined in `src/lib/content.ts`, exact type may
 Conceptually:
 
 ```ts
+type ArticleBodyFontKey =
+  | "josefin-sans"
+  | "raleway"
+  | "montserrat"
+  | "merriweather"
+  | "libre-baskerville"
+  | "alice";
+
 type JsonArticle = {
   title: string;
   slug: string;
   category: "Beauté & cosmétique" | "Commerces & lieux" | "Événementiel";
   tags: string[];
-  cover: string;      // image URL or data URL (for cover image)
-  excerpt: string;    // short French summary
-  body: string;       // markdown body (can include inline images as data URLs)
+  cover: string;          // image URL or data URL (cover image)
+  excerpt: string;        // short French summary
+  body: string;           // markdown body (supports inline images via data URLs)
   author: string;
-  date: string;       // ISO date
+  date: string;           // ISO date
   readingMinutes?: number;
   sources?: string[];
+  bodyFont?: ArticleBodyFontKey; // optional font key for article body
 };
 ```
 
@@ -207,18 +221,85 @@ Notes:
 
 * Legacy JSON files may still have old labels (`"Beauté"`, `"Commerces & places"`, `"Expérience"`).
   The runtime normalizes them so the public site and admin UI only surface the new labels.
-* The **cover image** is now set via the admin UI, usually as a data URL or uploaded image.
+* The **cover image** is set via the admin UI, usually as a data URL or uploaded image.
+* The **`bodyFont`** is optional; if not set, the site falls back to the default body font.
 
-`api/publish.ts`:
+#### 4.1.1. Inline article images (Insert image dialog)
 
-* Validates fields.
-* Ensures `article.body` is a non-empty string.
-* Accepts long bodies (including inline `data:image/...;base64,...` segments).
-  There is a `MAX_ARTICLE_BODY_LENGTH` guard to prevent absurdly large payloads, but it is generous enough for normal articles with a few inline images.
-* Writes:
+The admin article editor has an **“Insérer une image”** dialog:
 
-  * `content/articles/<slug>.json` — full article payload.
-  * `content/articles/index.json` — metadata index used by listings.
+* Fields:
+
+  * File input (drag & drop)
+  * Alternative text
+  * Alignment (left / right / full width)
+
+* Behaviour:
+
+  * The selected image is converted to a `data:image/...;base64,...` URL client-side.
+  * The editor inserts a Markdown snippet into `body`, e.g.:
+
+    ```md
+    ![Alt text](data:image/jpeg;base64,....)
+    ```
+
+    plus optional layout hints/caption in the surrounding markup.
+
+* Rendering:
+
+  * `src/components/ArticleContent.tsx` parses the Markdown and **does not strip** `data:` URLs.
+  * There are Tailwind utility classes for alignment:
+
+    * Left/right image with text wrapping.
+    * Full-width image (edge-to-edge inside the article column).
+
+**Important for future changes:**
+
+* Do **not** introduce regexes or sanitizer rules that blindly strip `data:image/...` URLs — they are essential for inline images.
+* Avoid very large original files. On the client and in admin, recommend images roughly ≤ 1–2 MB before base64; huge images will bloat `body` and can make requests heavy for Vercel.
+
+#### 4.1.2. Per-article body font
+
+We added per-article font choice for the body text:
+
+* Allowed fonts (front-end):
+
+  * **Josefin Sans**
+  * **Raleway**
+  * **Montserrat**
+  * **Merriweather**
+  * **Libre Baskerville**
+  * **Alice**
+
+* Technical wiring:
+
+  * `shared/articleBodyFonts.ts` defines the mapping between `ArticleBodyFontKey` and:
+
+    * The human name shown in the admin UI.
+    * The CSS class applied to the article body.
+
+  * `index.html` or `src/index.css` includes the relevant Google Fonts imports.
+
+  * `src/index.css` defines CSS classes like:
+
+    ```css
+    .article-font-josefin-sans { font-family: "Josefin Sans", system-ui, sans-serif; }
+    .article-font-raleway { font-family: "Raleway", system-ui, sans-serif; }
+    .article-font-montserrat { font-family: "Montserrat", system-ui, sans-serif; }
+    .article-font-merriweather { font-family: "Merriweather", Georgia, serif; }
+    .article-font-libre-baskerville { font-family: "Libre Baskerville", Georgia, serif; }
+    .article-font-alice { font-family: "Alice", Georgia, serif; }
+    ```
+
+  * `src/pages/AdminNew.tsx` exposes a select/dropdown that allows choosing the body font for each article, storing the key in `bodyFont`.
+
+  * `src/components/ArticleContent.tsx` wraps the article body in a container that applies the corresponding `article-font-…` class if `bodyFont` is set.
+
+**If you change fonts or remove one:**
+
+* Update `shared/articleBodyFonts.ts`.
+* Update the font imports in `index.html` / `src/index.css`.
+* Keep the keys stable where possible; if you rename keys, consider migration for existing JSON files.
 
 ### 4.2. Legacy Markdown posts (`content/posts/*.md`)
 
@@ -238,12 +319,11 @@ sources:
   - "Source 1"
   - "Source 2"
 ---
-
-Article body in **Markdown** (French).
 ```
 
-These are **read-only** for the current admin:
-the admin UI does **not** edit Markdown files.
+The body is plain Markdown (French).
+
+These are **read-only** for the current admin: the admin UI does **not** edit Markdown files.
 
 ### 4.3. `src/lib/content.ts`
 
@@ -266,7 +346,7 @@ Responsibilities:
   import.meta.glob("/content/articles/*.json", { eager: true });
   ```
 
-  Map them into the same `PostFrontmatter` / `Post` shape used by the rest of the site.
+  Map them into the same `PostFrontmatter` / `Post` shape used by the rest of the site (including `bodyFont`).
 
 Exports:
 
@@ -297,8 +377,8 @@ Defined in `src/App.tsx` / `src/pages`:
 * `/articles` — article listing
 * `/articles/:slug` — article detail
 * `/thematiques`
-* `/a-propos`
-* `/services`
+* `/a-propos` — **About page, powered by the same À propos config as Services**
+* `/services` — Services & Partnerships (also uses À propos config for the bio block)
 * `/contact`
 * `/avis` — testimonials / “Ils m’ont fait confiance”
 
@@ -335,7 +415,7 @@ If you change the article route structure, you **must** keep `ArticleCard` in sy
 
 ---
 
-## 6. Admin “Espace rédaction” (articles)
+## 6. Admin “Espace rédaction” (articles + inbox + avis + À propos)
 
 The admin area is a client-side SPA, protected by a guard that checks a token via `src/lib/adminSession.ts`.
 
@@ -344,12 +424,14 @@ The admin area is a client-side SPA, protected by a guard that checks a token vi
 All admin routes are wrapped by `AdminGuard` in `src/App.tsx`:
 
 * `/admin` — **Dashboard**
-  Cards for:
+
+  Cards for (names may be in French in the UI):
 
   * “Créer un nouvel article”
   * “Modifier les articles existants”
   * “Voir les demandes” (inbox)
   * “Gérer les avis” (testimonials)
+  * **“Mettre à jour À propos”** (opens the Admin À propos config screen)
 
 * `/admin/nouvel-article` (alias `/admin/new`) — **new/edit article**
 
@@ -361,11 +443,12 @@ All admin routes are wrapped by `AdminGuard` in `src/App.tsx`:
     * Tags
     * Cover image (drag & drop / file upload)
     * Excerpt (summary)
-    * Body (Markdown, with inline images)
+    * Body (Markdown, with inline images via data URLs)
     * Sources
     * Author
     * Date
     * Reading time
+    * Body font (select from: Josefin Sans, Raleway, Montserrat, Merriweather, Libre Baskerville, Alice)
 
   * Admin token is read from `adminSession` and sent as:
 
@@ -379,18 +462,8 @@ All admin routes are wrapped by `AdminGuard` in `src/App.tsx`:
 
   * Inline images:
 
-    * There is a dialog for **“Insérer une image”**:
-
-      * You choose an image file (drag/drop or input).
-      * The editor converts it to a `data:image/...;base64,...` URL.
-      * The body gets a Markdown snippet:
-
-        ```md
-        ![Alt text](data:image/jpeg;base64,....)
-        ```
-
-        plus an optional caption.
-    * This means **body can be long** due to base64. Do not over-tighten validation.
+    * The **“Insérer une image”** dialog (see 4.1.1) injects `data:` URLs into the body.
+    * `api/publish.ts` accepts long strings and stores them **as-is** (no image rewriting).
 
   * Drafts:
 
@@ -399,23 +472,40 @@ All admin routes are wrapped by `AdminGuard` in `src/App.tsx`:
 
 * `/admin/articles` — **existing articles list**
 
-  * Uses admin articles index.
+  * Uses the admin articles index.
   * Shows `Title | Slug | Date | Status | Actions`.
   * Actions:
 
     * “Modifier” → `/admin/nouvel-article?slug=<slug>`
     * “Supprimer” → `DELETE /api/publish?slug=<slug>` (with confirmation).
 
+* `/admin/demandes` — **Inbox (leads)**
+
+  * Lists contact/service/newsletter/subject-suggestion leads.
+  * See section 8.
+
+* `/admin/avis` — **Testimonials moderation**
+
+  * Lists reviews, shows “Avis en attente (N)”, and allows publish / reject / delete.
+  * See section 9.
+
+* `/admin/a-propos` — **Admin À propos config**
+
+  * New screen to edit the copy used in `/a-propos` and the bio block on `/services`.
+  * See section 15.
+
 ### 6.2. Admin session & guard
 
 * `src/lib/adminSession.ts`:
 
   * `getAdminToken()`, `setAdminToken(value)`, `clearAdminToken()`.
+
 * `src/components/AdminGuard.tsx`:
 
   * If token is missing → shows login screen (“Accès espace rédaction”).
   * If token is present → renders admin routes.
-* Admin sub-pages include a consistent **“← Back to dashboard”** button to return to `/admin`.
+
+Admin sub-pages include a consistent **“← Back to dashboard”** button to return to `/admin`.
 
 ---
 
@@ -423,17 +513,15 @@ All admin routes are wrapped by `AdminGuard` in `src/App.tsx`:
 
 ### 7.1. Publishing (POST `/api/publish`)
 
-Flow:
+Flow (summary):
 
-1. Admin opens `/admin`, logs in with `PUBLISH_TOKEN`.
+1. Admin logs in with `PUBLISH_TOKEN`.
 
-2. Clicks **Créer un nouvel article**.
+2. Fills the article form (including cover + body + optional `bodyFont`).
 
-3. Fills the form (including cover + body).
+3. Clicks **Publier**.
 
-4. Clicks **Publier**.
-
-5. Frontend sends:
+4. Frontend sends:
 
    ```http
    POST /api/publish
@@ -443,20 +531,26 @@ Flow:
 
    Payload matches the `Article` shape in `api/publish.ts`.
 
-6. `api/publish.ts`:
+5. `api/publish.ts`:
 
-   * Checks env vars via a GitHub config helper (similar to inbox).
+   * Checks env vars via a GitHub config helper.
+
    * Validates fields (title, slug, excerpt, category, body, etc.).
-   * Ensures `article.body` is non-empty and not longer than `MAX_ARTICLE_BODY_LENGTH`.
+
+   * Ensures `article.body` is non-empty and allows long values (for inline images).
+
    * Normalizes the slug (lowercase, URL-safe).
+
    * Writes/updates:
 
      * `content/articles/<slug>.json`
      * `content/articles/index.json`
-   * Commits to `GITHUB_REPO` on `PUBLISH_BRANCH` using the GitHub Contents API.
+
+   * Commits to `GITHUB_REPO` on `PUBLISH_BRANCH`.
+
    * Optionally calls `VERCEL_DEPLOY_HOOK_URL`.
 
-7. Response contract (simplified):
+6. Response contract (simplified):
 
    ```ts
    type ApiResponseShape = {
@@ -469,9 +563,7 @@ Flow:
    ```
 
    * On success → `success: true`, plus final slug, URL, etc.
-   * On error → `success: false`, a human-readable `error`, and appropriate HTTP status (401/422/503…).
-
-The admin UI **relies on this JSON contract**.
+   * On error → `success: false`, a human-readable `error`, and appropriate HTTP status.
 
 ### 7.2. Deleting (DELETE `/api/publish?slug=...`)
 
@@ -548,56 +640,45 @@ Endpoints (simplified):
 
 ### 8.2. Client + mapping
 
-A small client helper (e.g. `createLead`) is used by:
+A small client helper (`createLead`) is used by:
 
-* `src/pages/Index.tsx` (home):
-
-  * Newsletter form (`category: "newsletter"`, `source: "home-newsletter"`).
-* `src/components/Footer.tsx`:
-
-  * Footer newsletter form (`category: "newsletter"`, `source: "footer-newsletter"`).
-* `src/pages/Services.tsx`:
-
-  * “Intéressé(e)” dialogs for services (`category: "services"`).
-  * Quote request dialog (`category: "quote"`).
-* `src/pages/Contact.tsx`:
-
-  * Full contact form (`category: "contact"`, `source: "contact-page"`).
-* Subject suggestion (e.g. “Proposer un sujet” on home):
-
-  * Sends a lead with `category: "subject-suggestion"` and the user’s idea.
+* `src/pages/Index.tsx` (home) — newsletter form.
+* `src/components/Footer.tsx` — footer newsletter form.
+* `src/pages/Services.tsx` — interest/quote dialogs.
+* `src/pages/Contact.tsx` — full contact form.
+* Subject suggestion UI.
 
 `src/lib/leadFormatting.ts` contains helpers to display leads nicely in the admin inbox.
 
 ### 8.3. Admin inbox UI — `/admin/demandes`
 
 * File: `src/pages/AdminInbox.tsx`.
-* Route: `/admin/demandes` (linked from `/admin` as “Voir les demandes” or similar).
-* Features:
+* Route: `/admin/demandes` (linked from `/admin` as “Voir les demandes”).
 
-  * Lists leads with:
+Features:
 
-    * Category label (Contact, Services, Newsletter, etc.).
-    * Basic info: name, email, source, date.
-  * Detail view:
+* Lists leads with:
 
-    * You can open a lead in a panel/modal to see the full message, structured nicely.
-  * Filters:
+  * Category label (Contact, Services, Newsletter, etc.).
+  * Basic info: name, email, source, date.
 
-    * By category (e.g. Contact / Services / Newsletter / Subject suggestion / etc.).
-    * By time period (e.g. “Dernier mois”, “Tous les messages”).
-  * Delete:
+* Detail view:
 
-    * A **red “Supprimer”** action that deletes the lead via `DELETE /api/inbox`.
+  * You can open a lead in a panel/modal to see the full message.
 
-The inbox is the **single source of truth** for all incoming contacts.
-Do not reintroduce Gmail compose for these flows.
+* Filters:
+
+  * By category and by time period.
+
+* Delete:
+
+  * A **red “Supprimer”** action that deletes the lead via `DELETE /api/inbox`.
 
 ---
 
 ## 9. Testimonials / “Ils m’ont fait confiance”
 
-Testimonials are now a full system: public section + review form + admin moderation.
+Testimonials are a full system: public section + review form + admin moderation + avatars + optional event photos.
 
 ### 9.1. Shared types & storage
 
@@ -611,62 +692,134 @@ Testimonials are now a full system: public section + review form + admin moderat
     createdAt: string;
     status: TestimonialStatus;
     name: string;
-    company?: string;
-    city?: string;
-    rating: number;         // 1–5
-    avatar?: string;        // stored image or data URL
+    company?: string | null;
+    city?: string | null;
+    role?: string | null;
+    rating: number;             // 1–5
     message: string;
+    email?: string | null;
+    clientType?: string | null;
+    source?: string | null;
+    avatar?: string | null;     // image data URL or URL
+    avatarUrl?: string | null;  // optional external URL
+    photos?: string[] | null;   // optional array of image data URLs/URLs
+    sourceLeadId?: string | null;
   };
   ```
 
 * Data is stored in a Git-tracked JSON file managed through `api/testimonials.ts`.
 
+> **Important**: avatar + photos are usually stored as **data URLs**, so the JSON file can be large. We intentionally allow this but keep image sizes and counts reasonable (e.g. up to ~5 photos per testimonial).
+
 ### 9.2. API: `api/testimonials.ts`
 
 * Same GitHub config helper as `api/publish.ts` and `api/inbox.ts`.
+
+* We now use a **permissive normalizer** for testimonials:
+
+  ```ts
+  type NormalizeTestimonialResult = {
+    ok: boolean;
+    value?: TestimonialCreateInput;
+    error?: string;
+  };
+  ```
+
+  * Only missing `name` / `message` will produce `ok: false`.
+  * Avatar and photos are accepted as strings/arrays if present; they do **not** cause validation failures.
+
 * Endpoints (conceptual):
 
   * `POST /api/testimonials` — public “Leave a review” submissions.
 
-    * Creates a **pending** testimonial.
-  * `GET /api/testimonials` — list testimonials (admin view or public list depending on params).
+    * Creates a **pending** testimonial (`status: "pending"`).
+
+  * `GET /api/testimonials` — list testimonials.
+
+    * In admin mode: returns all statuses.
+    * In public mode: returns only `status: "published"`.
+
   * `PATCH /api/testimonials/:id` — update status (publish / reject).
+
   * `DELETE /api/testimonials/:id` — delete testimonial.
 
-Validation uses a `normalizeTestimonialPayload` returning:
-
-```ts
-{ ok: true; value: TestimonialCreateInput } | { ok: false; error: string }
-```
-
-The code always checks `if (!result.ok)` before reading `result.error`.
+The `result.error` pattern is always read safely (we do **not** access `.error` on success unions anymore; that was a previous TypeScript error which is now fixed).
 
 ### 9.3. Public components
 
-* `src/components/ReviewForm.tsx`
+#### 9.3.1. `ReviewForm.tsx` (leave a review)
 
-  * Shown on the `/avis` page to let visitors **leave a review**.
-  * Fields:
+* Shown on the `/avis` page to let visitors **leave a review**.
 
-    * Name (required)
-    * Email (optional but useful)
-    * Company
-    * Role / position
-    * City
-    * Rating (1–5 stars)
-    * Avatar upload (file drag & drop; no URL field)
-    * Message (required)
-  * Submits to `POST /api/testimonials`.
+* Fields:
 
-* `src/components/TestimonialsSection.tsx`
+  * Name (required)
+  * Email (optional)
+  * Company
+  * Role / position
+  * City
+  * Rating (1–5 stars)
+  * Avatar upload (file drag & drop, with face-crop UI)
+  * Event photos upload (0–5 additional images)
+  * Message (required)
 
-  * Used on:
+* Behaviour:
 
-    * Home page (`/`) near the bottom.
-    * Services page (`/services`).
-  * Displays only **published** testimonials.
-  * Has **left/right arrows** and auto-advances every few seconds (carousel feeling).
-  * Shows rating (stars), name, company/city, avatar, and message.
+  * When the form submits, the frontend calls a dedicated helper (e.g. `submitTestimonial`), which POSTs directly to `/api/testimonials`.
+
+  * Payload includes:
+
+    ```ts
+    {
+      name,
+      source,
+      email,
+      clientType,
+      role,
+      city,
+      rating,
+      message,
+      avatar: avatarDataUrl || undefined,
+      photos: eventPhotos.length ? eventPhotos : undefined
+    }
+    ```
+
+  * On success:
+
+    * The review does **not** go live immediately; it becomes a `pending` testimonial.
+    * The UI shows a success toast.
+
+  * On failure:
+
+    * A destructive toast is shown with the error message.
+    * The error is logged to `console.error` for debugging.
+
+#### 9.3.2. `TestimonialsSection.tsx` (public carousel)
+
+* Used on:
+
+  * Home page (`/`) near the bottom.
+  * Services page (`/services`).
+
+* Behaviour after the image/gallery refactor:
+
+  * Fetches only **published** testimonials (`status: "published"`).
+  * Displays **one testimonial per slide** (not a grid).
+  * Has left/right arrows to navigate between testimonials.
+  * Auto-advances every few seconds for a “slider” feeling.
+  * For each testimonial, shows:
+
+    * Rating (stars)
+    * Message
+    * Name
+    * Company / city / role if present
+    * Avatar in a **round photo** (using the cropped avatar stored as data URL).
+    * A small **horizontal gallery** (carousel) of event photos if `photos` is non-empty:
+
+      * 1–5 images.
+      * Nice, modern layout (not an ugly grid).
+      * Clicking arrows cycles through photos.
+      * If there are no photos, the gallery area is simply not rendered.
 
 ### 9.4. Admin testimonials — `/admin/avis`
 
@@ -675,17 +828,35 @@ The code always checks `if (!result.ok)` before reading `result.error`.
 
 Features:
 
+* At the top: a **“Avis en attente (N)”** count for pending reviews.
+
 * List of testimonials with:
 
   * Status badges (Pending, Published, Rejected).
-  * Name, rating, date.
+  * Name, rating, createdAt date.
+
+* Detail modal/panel per testimonial:
+
+  * Shows full message, contact info, avatar, and the photo gallery (if any).
+  * Allows clicking through the photos exactly as the visitor would see them.
+
 * Actions per testimonial:
 
-  * **Voir** — open full details in a modal/panel.
-  * **Publier** — mark status as `published` so it appears on home + services.
-  * **Rejeter** — mark as `rejected`.
-  * **Supprimer** (red button) — permanently remove it.
-* Status changes and deletions are persisted via `api/testimonials.ts`.
+  * **Publier** — sets `status` to `"published"` (then appears in the public carousel).
+  * **Rejeter** — sets `status` to `"rejected"`.
+  * **Supprimer** — fully deletes the testimonial (including images) from the JSON file.
+
+Back-end calls:
+
+* Status changes use `PATCH /api/testimonials/:id` with `Authorization: Bearer <PUBLISH_TOKEN>`.
+* Delete uses `DELETE /api/testimonials/:id` with the same token.
+
+**Important**: the public flow is now:
+
+1. Visitor submits review (+ avatar + optional photos) on `/avis`.
+2. A **pending** testimonial is created.
+3. Admin goes to `/admin/avis`, reviews content + images.
+4. Admin clicks **Publier** → testimonial appears in the public carousel.
 
 ---
 
@@ -746,12 +917,14 @@ const SITE = "https://a-la-brestoise.vercel.app";
 
 The script:
 
-* Reads posts from `content/posts/` (and/or `content/articles/` depending on implementation).
+* Reads posts from `content/posts/` and/or `content/articles/`.
+
 * Builds URLs for:
 
   * `/`
   * `/articles`
   * `/articles/<slug>`
+
 * Writes the final XML to `public/sitemap.xml`.
 
 If you change the domain or routes, update `SITE` and URL generation logic accordingly.
@@ -818,8 +991,6 @@ GTM container is installed, but GA4 is **not** wired through it yet.
 
 * Container ID: `GTM-P5PX3JQT`.
 
-In `index.html`:
-
 Head:
 
 ```html
@@ -859,13 +1030,25 @@ If you move GA4 into GTM:
 ## 14. 🔒 Things future AI MUST NOT break
 
 * **Vercel / domain wiring**
-  Always use the project whose production domain is `https://a-la-brestoise.vercel.app`.
+
+  * Always use the project whose production domain is `https://a-la-brestoise.vercel.app`.
 
 * **Admin publish contract (`api/publish.ts`)**
 
   * Keep the JSON response shape.
   * Keep `GITHUB_REPO`, `GITHUB_TOKEN`, `PUBLISH_BRANCH`, `PUBLISH_TOKEN` semantics.
   * Keep support for long `article.body` strings (inline images as data URLs).
+
+* **Inline article images**
+
+  * Do **not** strip or block `data:image/...;base64,...` URLs in article bodies.
+  * Do not enforce tiny size limits that would make normal inline images fail.
+
+* **Per-article fonts**
+
+  * Keep `bodyFont` as a simple key mapped via `shared/articleBodyFonts.ts`.
+  * Keep the CSS + font imports in sync with the keys.
+  * If you change or remove fonts, update the mapping instead of silently breaking existing articles.
 
 * **Inbox (`api/inbox.ts` + `/admin/demandes`)**
 
@@ -875,7 +1058,21 @@ If you move GA4 into GTM:
 * **Testimonials (`api/testimonials.ts` + `/admin/avis` + public carousel)**
 
   * Keep the moderation statuses (`pending` → `published` → `rejected`) and mapping to public display.
-  * Keep the flow: public form → pending → admin approves → appears as “Ils m’ont fait confiance”.
+  * Keep the flow: public form → pending in `/admin/avis` (“Avis en attente”) → admin approves → appears as “Ils m’ont fait confiance”.
+  * Keep avatar + event photos support:
+
+    * Avatar as a round image next to the review.
+    * Up to a few event photos in a gallery, not a cluttered grid.
+
+* **À propos config (`api/about.ts` + `/admin/a-propos` + `/a-propos` + `/services`)**
+
+  * Do **not** hard-code the bio text again inside `About.tsx` or `Services.tsx`.
+    The source of truth is **`content/about/a-propos.json`**.
+  * Keep the structured shape (bio block, values block, approach block) and the **Admin À propos** editor workflow:
+
+    * Admin edits the text in `/admin/a-propos`.
+    * `api/about.ts` writes `content/about/a-propos.json` via GitHub.
+    * `/a-propos` and `/services` both render from this config.
 
 * **ArticleCard routing**
 
@@ -884,8 +1081,10 @@ If you move GA4 into GTM:
 With this README, a future dev or AI should understand:
 
 * How the JSON-based CMS works.
-* How the admin space publishes articles, collects leads, and manages reviews.
+* How the admin space publishes articles, collects leads, manages reviews, handles images, and manages the shared À propos content.
 * How not to repeat the Vercel/domain confusion.
 * How SEO, Search Console, GA4, GTM, and the sitemap are currently wired.
 
-```
+````
+
+
