@@ -166,6 +166,7 @@ export default function MagazineEditor({ initialData, onPublish, onBack }: Magaz
                             blocks={blocks}
                             onUpdateBlock={updateBlock}
                             settings={settings}
+                            references={references}
                         />
                     </div>
                 )}

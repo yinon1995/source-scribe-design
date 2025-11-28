@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useState, useEffect } from "react";
 import { CONTACT_WHATSAPP_URL } from "@/config/contactFallback";
 import { createLead } from "@/lib/inboxClient";
 
@@ -21,6 +21,18 @@ const Contact = () => {
   const [deadline, setDeadline] = useState("");
   const [message, setMessage] = useState("");
   const [consent, setConsent] = useState(false);
+  const [isQrOpen, setIsQrOpen] = useState(false);
+
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsQrOpen(false);
+    };
+    if (isQrOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isQrOpen]);
 
   const resetForm = () => {
     setFullName("");
@@ -231,10 +243,56 @@ const Contact = () => {
               Pour toute question urgente, vous pouvez également me contacter sur les réseaux sociaux.
             </p>
           </div>
+
+          {/* QR Code Section */}
+          <div className="mt-16 flex flex-col items-center space-y-4">
+            <h3 className="text-lg font-semibold text-foreground">Scanner le QR Code</h3>
+            <p className="text-sm text-muted-foreground">Cliquez pour l’agrandir</p>
+            <button
+              onClick={() => setIsQrOpen(true)}
+              className="relative group transition-transform hover:scale-105 focus:outline-none"
+            >
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-stone-100">
+                <img
+                  src="/contact/qr-alabrestoise.png"
+                  alt="QR code À la Brestoise"
+                  className="w-32 h-32 md:w-40 md:h-40 object-contain"
+                />
+              </div>
+            </button>
+          </div>
         </div>
       </section>
 
       <Footer />
+
+      {/* QR Modal */}
+      {isQrOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          onClick={() => setIsQrOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="relative max-w-[92vw] max-h-[90vh] bg-white p-4 rounded-2xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setIsQrOpen(false)}
+              className="absolute -top-4 -right-4 bg-white text-stone-900 rounded-full p-2 shadow-lg hover:bg-stone-100 transition-colors"
+              aria-label="Fermer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+            <img
+              src="/contact/qr-alabrestoise.png"
+              alt="QR code À la Brestoise"
+              className="w-full h-full object-contain max-h-[80vh] max-w-[80vw] md:max-w-md"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

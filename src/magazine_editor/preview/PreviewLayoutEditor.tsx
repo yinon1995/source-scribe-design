@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { ArticleBlock, TextLayout, ArticleSettings } from '../../types';
+import { ArticleBlock, TextLayout, ArticleSettings, Reference } from '../../types';
 import { TEXT_STYLES } from '../lib/fonts';
 import { Placement, PreviewLayout } from './types';
 import { setPlacement as setStorePlacement } from '../lib/layoutStore';
@@ -8,11 +8,12 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEn
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { buildLayoutSections } from '../lib/layoutHelper';
+import { collectCitedReferenceIds, buildReferenceNumberMap } from '../lib/citations';
 
 // --- RICH TEXT RENDERER ---
 const TOKEN_REGEX = /(\[[^\]]+\]\([^)]+\))|(\[\^[a-zA-Z0-9_-]+\])|(\*\*(?!\s)[\s\S]+?\*\*)|(\*(?!\s)[\s\S]+?\*)|(~~(?!\s)[\s\S]+?~~)/g;
 
-const renderRichText = (text: string) => {
+const renderRichText = (text: string, refNumberMap?: Record<string, number>) => {
     if (!text) return null;
     const elements: React.ReactNode[] = [];
     let lastIndex = 0;
@@ -34,11 +35,24 @@ const renderRichText = (text: string) => {
                 elements.push(<a key={`link-${i}`} href={linkParts[2]} target="_blank" rel="noopener noreferrer" className="text-stone-900 border-b border-stone-300 hover:border-stone-900 transition-colors cursor-pointer">{linkParts[1]}</a>);
             } else { elements.push(fullMatch); }
         } else if (citeMatch) {
-            elements.push(
-                <sup key={`cite-${i}`} className="inline-block ml-0.5 -top-0.5 leading-none">
-                    <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-0.5 rounded-sm">#</span>
-                </sup>
-            );
+            const refId = citeMatch.slice(2, -1); // [^id] -> id
+            const num = refNumberMap ? refNumberMap[refId] : null;
+
+            if (num) {
+                elements.push(
+                    <sup key={`cite-${i}`} className="inline-block ml-0.5 -top-0.5 leading-none">
+                        <a href={`#ref-${refId}`} className="text-[10px] font-bold text-stone-500 bg-stone-100 px-1 rounded-sm hover:bg-stone-200 transition-colors no-underline">
+                            {num}
+                        </a>
+                    </sup>
+                );
+            } else {
+                elements.push(
+                    <sup key={`cite-${i}`} className="inline-block ml-0.5 -top-0.5 leading-none">
+                        <span className="text-[10px] font-bold text-red-400 bg-red-50 px-0.5 rounded-sm">?</span>
+                    </sup>
+                );
+            }
         } else if (boldMatch) elements.push(<strong key={`b-${i}`} className="font-bold text-stone-900">{boldMatch.slice(2, -2)}</strong>);
         else if (italicMatch) elements.push(<em key={`i-${i}`} className="italic">{italicMatch.slice(1, -1)}</em>);
         else if (strikeMatch) elements.push(<del key={`s-${i}`} className="line-through decoration-stone-400 decoration-1 opacity-70">{strikeMatch.slice(2, -2)}</del>);
@@ -89,15 +103,15 @@ const parseTextBlocks = (text: string) => {
 };
 
 // --- BLOCK RENDERER ---
-const BlockRenderer: React.FC<{ block: ArticleBlock }> = React.memo(({ block }) => {
+const BlockRenderer: React.FC<{ block: ArticleBlock, refNumberMap?: Record<string, number> }> = React.memo(({ block, refNumberMap }) => {
     const { content } = block;
 
     switch (block.type) {
         case 'title':
             return (
                 <div className="flex flex-col justify-center py-4">
-                    {content.subtitle && <span className={`${TEXT_STYLES.subtitle} mb-4 block`}>{content.subtitle}</span>}
-                    <h1 className={TEXT_STYLES.display}>{content.title}</h1>
+                    {content.subtitle && <span className={`${TEXT_STYLES.subtitle} mb-4 block`}>{renderRichText(content.subtitle, refNumberMap)}</span>}
+                    <h1 className={TEXT_STYLES.display}>{renderRichText(content.title || '', refNumberMap)}</h1>
                 </div>
             );
         case 'image':
@@ -107,7 +121,7 @@ const BlockRenderer: React.FC<{ block: ArticleBlock }> = React.memo(({ block }) 
                         <div className="w-full overflow-hidden rounded-sm bg-stone-100">
                             {content.imageUrl && <img src={content.imageUrl} alt={content.caption || ''} className="w-full h-auto block pointer-events-none" />}
                         </div>
-                        {content.caption && <figcaption className={`${TEXT_STYLES.caption} w-full`}>{content.caption}</figcaption>}
+                        {content.caption && <figcaption className={`${TEXT_STYLES.caption} w-full`}>{renderRichText(content.caption, refNumberMap)}</figcaption>}
                     </figure>
                 </div>
             );
@@ -115,7 +129,7 @@ const BlockRenderer: React.FC<{ block: ArticleBlock }> = React.memo(({ block }) 
             const parsedBlocks = parseTextBlocks(content.text || '');
             return (
                 <div>
-                    {content.heading && <h2 className={TEXT_STYLES.h2}>{content.heading}</h2>}
+                    {content.heading && <h2 className={TEXT_STYLES.h2}>{renderRichText(content.heading, refNumberMap)}</h2>}
                     <div className={`${TEXT_STYLES.body}`}>
                         {parsedBlocks.map((b, i) => {
                             if (b.type === 'ul') {
@@ -123,7 +137,7 @@ const BlockRenderer: React.FC<{ block: ArticleBlock }> = React.memo(({ block }) 
                                     <ul key={i} className="mt-4 mb-4 pl-6 list-disc space-y-2">
                                         {b.content.map((item, k) => (
                                             <li key={k} className="text-stone-700 leading-relaxed marker:text-stone-400">
-                                                {renderRichText(item)}
+                                                {renderRichText(item, refNumberMap)}
                                             </li>
                                         ))}
                                     </ul>
@@ -133,7 +147,7 @@ const BlockRenderer: React.FC<{ block: ArticleBlock }> = React.memo(({ block }) 
                                 const isFirstBlock = i === 0;
                                 return (
                                     <p key={i} className={isFirstBlock && content.dropCap ? 'first-letter:text-6xl first-letter:font-serif first-letter:font-medium first-letter:float-left first-letter:mr-3 first-letter:mt-[-4px] first-letter:text-stone-900' : ''}>
-                                        {renderRichText(textContent)}
+                                        {renderRichText(textContent, refNumberMap)}
                                     </p>
                                 );
                             }
@@ -147,12 +161,12 @@ const BlockRenderer: React.FC<{ block: ArticleBlock }> = React.memo(({ block }) 
                     <div className="space-y-6">
                         {content.sidebarItems?.map((group, idx) => (
                             <div key={idx}>
-                                <h3 className={TEXT_STYLES.h3}>{group.heading}</h3>
+                                <h3 className={TEXT_STYLES.h3}>{renderRichText(group.heading, refNumberMap)}</h3>
                                 <ul className="space-y-2 mt-2">
                                     {group.items.map((item, i) => (
                                         <li key={i} className="font-sans text-sm text-stone-600 flex items-start">
                                             <span className="mr-2 text-stone-300">•</span>
-                                            {item}
+                                            {renderRichText(item, refNumberMap)}
                                         </li>
                                     ))}
                                 </ul>
@@ -165,11 +179,11 @@ const BlockRenderer: React.FC<{ block: ArticleBlock }> = React.memo(({ block }) 
             return (
                 <div className="text-center px-4 py-2">
                     <blockquote className="font-serif text-3xl md:text-4xl italic text-stone-800 leading-tight">
-                        "{content.quote}"
+                        "{renderRichText(content.quote || '', refNumberMap)}"
                     </blockquote>
                     {content.author && (
                         <cite className="block mt-4 font-sans text-xs font-bold uppercase tracking-widest text-stone-400 not-italic">
-                            — {content.author}
+                            — {renderRichText(content.author, refNumberMap)}
                         </cite>
                     )}
                 </div>
@@ -199,10 +213,11 @@ interface BlockWrapperProps {
     onDrop: (e: React.DragEvent, id: string) => void;
     isDragging: boolean;
     readOnly?: boolean;
+    refNumberMap?: Record<string, number>;
 }
 
 const BlockWrapper: React.FC<BlockWrapperProps> = ({
-    id, block, placement, onUpdatePlacement, onDragStart, onDragOver, onDrop, isDragging, readOnly
+    id, block, placement, onUpdatePlacement, onDragStart, onDragOver, onDrop, isDragging, readOnly, refNumberMap
 }) => {
     const [showToolbar, setShowToolbar] = useState(false);
     const isDragHandleActive = useRef(false);
@@ -282,7 +297,7 @@ const BlockWrapper: React.FC<BlockWrapperProps> = ({
                 </div>
             )}
 
-            <BlockRenderer block={block} />
+            <BlockRenderer block={block} refNumberMap={refNumberMap} />
         </div>
     );
 };
@@ -294,6 +309,7 @@ interface PreviewLayoutEditorProps {
     readOnly?: boolean;
     onUpdateBlock?: (id: string, updates: Partial<ArticleBlock['content']>) => void;
     settings?: ArticleSettings;
+    references?: Reference[];
 }
 
 export const PreviewLayoutEditor: React.FC<PreviewLayoutEditorProps> = ({
@@ -301,7 +317,8 @@ export const PreviewLayoutEditor: React.FC<PreviewLayoutEditorProps> = ({
     blocks,
     readOnly = false,
     onUpdateBlock,
-    settings
+    settings,
+    references
 }) => {
 
     // 1. ISOLATE: Create immutable copy of blocks to ensure NO leakage to Builder
@@ -439,6 +456,15 @@ export const PreviewLayoutEditor: React.FC<PreviewLayoutEditorProps> = ({
         return buildLayoutSections(orderedBlocks);
     }, [layout.order, blockMap]);
 
+    // 9. COMPUTE CITATIONS
+    const { usedRefIds, refNumberMap } = useMemo(() => {
+        // Use ordered blocks for correct citation numbering order
+        const orderedBlocks = layout.order.map(id => blockMap.get(id)).filter((b): b is ArticleBlock => !!b);
+        const ids = collectCitedReferenceIds(orderedBlocks);
+        const map = buildReferenceNumberMap(ids);
+        return { usedRefIds: ids, refNumberMap: map };
+    }, [layout.order, blockMap]);
+
 
     return (
         <article className="relative w-full max-w-[1000px] mx-auto bg-[#fcfbf9] p-8 md:p-16 shadow-[0_10px_40px_rgba(0,0,0,0.08)] border border-stone-200 min-h-[90vh]">
@@ -523,6 +549,7 @@ export const PreviewLayoutEditor: React.FC<PreviewLayoutEditorProps> = ({
                                 onDrop={handleDrop}
                                 isDragging={draggedId === block.id}
                                 readOnly={readOnly}
+                                refNumberMap={refNumberMap}
                             />
                         );
                     } else {
@@ -548,6 +575,7 @@ export const PreviewLayoutEditor: React.FC<PreviewLayoutEditorProps> = ({
                                             onDrop={handleDrop}
                                             isDragging={draggedId === block.id}
                                             readOnly={readOnly}
+                                            refNumberMap={refNumberMap}
                                         />
                                     ))}
                                 </div>
@@ -566,6 +594,7 @@ export const PreviewLayoutEditor: React.FC<PreviewLayoutEditorProps> = ({
                                             onDrop={handleDrop}
                                             isDragging={draggedId === block.id}
                                             readOnly={readOnly}
+                                            refNumberMap={refNumberMap}
                                         />
                                     ))}
                                 </div>
@@ -574,6 +603,44 @@ export const PreviewLayoutEditor: React.FC<PreviewLayoutEditorProps> = ({
                     }
                 })}
             </div>
+
+            {/* References Footer */}
+            {usedRefIds.length > 0 && references && (
+                <div className="mt-16 pt-8 border-t border-stone-200 relative z-10">
+                    <h3 className={TEXT_STYLES.h3}>Références</h3>
+                    <div className="mt-4 space-y-3">
+                        {usedRefIds.map((refId, idx) => {
+                            const ref = references.find(r => r.id === refId);
+                            if (!ref) {
+                                // Unknown reference
+                                return (
+                                    <div key={refId} id={`ref-${refId}`} className="flex gap-3 text-sm font-sans text-red-400">
+                                        <span className="font-bold select-none min-w-[20px]">{idx + 1}.</span>
+                                        <div className="flex-1">
+                                            Référence inconnue: <span className="font-mono">{refId}</span>
+                                        </div>
+                                    </div>
+                                );
+                            }
+                            return (
+                                <div key={ref.id} id={`ref-${ref.id}`} className="flex gap-3 text-sm font-sans text-stone-600">
+                                    <span className="font-bold text-stone-400 select-none min-w-[20px]">{idx + 1}.</span>
+                                    <div className="flex-1">
+                                        <span className="font-bold text-stone-800">{ref.title}</span>.
+                                        {ref.publisher && <span className="text-stone-500 italic"> {ref.publisher}</span>}
+                                        {ref.date && <span className="text-stone-500">, {ref.date}</span>}.
+                                        {ref.url && (
+                                            <a href={ref.url} target="_blank" rel="noopener noreferrer" className="ml-1 text-stone-400 hover:text-stone-900 underline decoration-stone-300">
+                                                Link
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* Footer Text */}
             {settings?.footerEnabled && settings.footerText && (

@@ -28,15 +28,17 @@ const About = () => {
                 </p>
               ))}
 
-              <div className="space-y-2">
-                <h2 className="text-2xl font-display font-semibold text-foreground">
-                  {aboutContent.approachTitle}
-                </h2>
-                <div className="space-y-4 text-base text-muted-foreground leading-relaxed whitespace-pre-line">
-                  {approachParagraphs.map((paragraph, index) => (
-                    <p key={index}>{paragraph}</p>
-                  ))}
-                </div>
+            </div>
+
+            {/* Approach Section - Justified Block */}
+            <div className="mt-16 max-w-[820px] mx-auto px-6">
+              <h2 className="text-3xl font-display font-semibold text-foreground text-center mb-8">
+                {aboutContent.approachTitle}
+              </h2>
+              <div className="space-y-6 text-[18px] md:text-[20px] text-muted-foreground leading-relaxed text-justify">
+                {approachParagraphs.map((paragraph, index) => (
+                  <p key={index}>{paragraph}</p>
+                ))}
               </div>
             </div>
           </div>
@@ -70,7 +72,7 @@ const About = () => {
 
           {/* Expertise */}
           <div className="bg-card rounded-2xl p-8 md:p-12 space-y-8">
-              <h2 className="text-3xl font-display font-semibold text-foreground text-center">
+            <h2 className="text-3xl font-display font-semibold text-foreground text-center">
               Domaines d&apos;expertise
             </h2>
 

@@ -71,7 +71,9 @@ const ArticleDetail = () => {
           settings?: ArticleSettings;
         };
       } catch (e) {
-        console.error("Failed to parse magazine state", e);
+        if (process.env.NODE_ENV === 'development') {
+          console.warn("Failed to parse magazine state, falling back to legacy renderer", e);
+        }
         return null;
       }
     }
@@ -118,9 +120,11 @@ const ArticleDetail = () => {
           </div>
         </>
       ) : (
-        <ArticleContent article={post} journalMode={true} />
+        <>
+          <ArticleContent article={post} journalMode={true} />
+          <SignatureBlock />
+        </>
       )}
-      <SignatureBlock />
       <Footer />
     </div>
   );
