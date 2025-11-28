@@ -508,7 +508,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       let processedBody = typeof article.body === "string" ? article.body : "";
       let coverImage = normalizeImageUrl(article.cover) ?? normalizeImageUrl((article as any).heroImage);
 
-      const stateMatch = processedBody.match(/^<!-- MAGAZINE_EDITOR_STATE: (.*?) -->/s);
+      const stateMatch = processedBody.match(/^\s*<!-- MAGAZINE_EDITOR_STATE: (.*?) -->/s);
       if (stateMatch) {
         try {
           const editorState = JSON.parse(stateMatch[1]);
@@ -607,12 +607,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     // --- IMAGE PROCESSING END ---
 
+    if (typeof article.body === "string" && article.body.length > MAX_ARTICLE_BODY_LENGTH) {
+      sendValidationError(res, {
+        body: `Le contenu est trop long (max ${MAX_ARTICLE_BODY_LENGTH} caractères).`,
+      });
+      return;
+    }
+
     // Validate Body Length (AFTER image processing)
     const bodyValue = typeof article.body === "string" ? article.body : "";
     const trimmedBodyValue = bodyValue.trim();
+    const looksLikeMagazineWithBase64 =
+      /^\s*<!--\s*MAGAZINE_EDITOR_STATE:\s*/s.test(bodyValue) &&
+      /data:image\/[a-zA-Z+]+;base64,/i.test(bodyValue);
     if (!trimmedBodyValue) {
       fieldErrors.body = "Le contenu de l’article est obligatoire.";
-    } else if (bodyValue.length > MAX_ARTICLE_BODY_LENGTH) {
+    } else if (bodyValue.length > MAX_ARTICLE_BODY_LENGTH && !looksLikeMagazineWithBase64) {
       fieldErrors.body = `Le contenu est trop long (max ${MAX_ARTICLE_BODY_LENGTH} caractères).`;
     } else {
       article.body = bodyValue;
