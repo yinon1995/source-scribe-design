@@ -1264,22 +1264,13 @@ const SortableBlockItem: React.FC<any> = (props) => {
 };
 
 export const AdminBuilder: React.FC<AdminBuilderProps> = ({
-  blocks, setBlocks, tags, setTags, references, setReferences, settings, setSettings
+  blocks, setBlocks, tags, setTags, references, setReferences, settings, setSettings, onRequestPublish
 }) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [insertAfterId, setInsertAfterId] = useState<string | null>(null);
 
-  // Publish State
-  const [showPublishModal, setShowPublishModal] = useState(false);
-  const [isPublishing, setIsPublishing] = useState(false);
-  const [publishMessage, setPublishMessage] = useState<string | null>(null);
-
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5, // Requires 5px movement to start drag, allowing clicks to pass through
-      }
-    }),
+    useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -1390,17 +1381,6 @@ export const AdminBuilder: React.FC<AdminBuilderProps> = ({
     setReferences(prev => [...prev, ref]);
   };
 
-  const handlePublish = async () => {
-    setIsPublishing(true);
-    console.log('[PUBLISH] requested');
-    // Mock network request
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsPublishing(false);
-    setShowPublishModal(false);
-    setPublishMessage("Demande de publication enregistrée (à venir).");
-    setTimeout(() => setPublishMessage(null), 3000);
-  };
-
   return (
     <div className="max-w-[800px] mx-auto pb-32 pt-10">
 
@@ -1500,55 +1480,15 @@ export const AdminBuilder: React.FC<AdminBuilderProps> = ({
 
       {/* Publish Action Area */}
       <div className="mt-12 pt-6 border-t border-stone-200 flex flex-col items-end gap-2">
-        <button
-          onClick={() => setShowPublishModal(true)}
-          className="bg-stone-900 text-white px-6 py-2.5 rounded-sm font-bold text-xs uppercase tracking-widest hover:bg-stone-700 transition-colors shadow-sm"
-        >
-          Publier
-        </button>
-        {publishMessage && (
-          <span className="text-xs text-green-600 font-medium animate-fade-in">
-            {publishMessage}
-          </span>
+        {onRequestPublish && (
+          <button
+            onClick={onRequestPublish}
+            className="bg-stone-900 text-white px-6 py-2.5 rounded-sm font-bold text-xs uppercase tracking-widest hover:bg-stone-700 transition-colors shadow-sm"
+          >
+            Publier
+          </button>
         )}
       </div>
-
-      {/* Publish Confirmation Modal */}
-      {showPublishModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
-            onClick={() => !isPublishing && setShowPublishModal(false)}
-          ></div>
-
-          {/* Modal Panel */}
-          <div className="relative bg-white p-6 rounded-md shadow-2xl max-w-sm w-full border border-stone-100 animate-fade-in-up">
-            <h3 className="font-serif text-xl text-stone-900 mb-2">Publier l’article ?</h3>
-            <p className="font-sans text-sm text-stone-600 mb-6 leading-relaxed">
-              Cette action publiera l’article sur le site (intégration à venir).
-            </p>
-
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowPublishModal(false)}
-                disabled={isPublishing}
-                className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-stone-500 hover:text-stone-800 disabled:opacity-50"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={handlePublish}
-                disabled={isPublishing}
-                className="flex items-center gap-2 px-4 py-2 bg-stone-900 text-white rounded-sm text-xs font-bold uppercase tracking-wider hover:bg-stone-800 disabled:opacity-70"
-              >
-                {isPublishing && <Loader2 size={12} className="animate-spin" />}
-                Publier
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -38,6 +38,7 @@ const AdminNew = () => {
           // Try to rehydrate editor state from body comment
           let loadedBlocks: ArticleBlock[] = [];
           let loadedReferences: Reference[] = [];
+          let loadedSettings: Partial<ArticleSettings> | undefined;
 
           const stateMatch = existing.body.match(/^<!-- MAGAZINE_EDITOR_STATE: (.*?) -->/);
           if (stateMatch) {
@@ -45,6 +46,7 @@ const AdminNew = () => {
               const state = JSON.parse(stateMatch[1]);
               if (Array.isArray(state.blocks)) loadedBlocks = state.blocks;
               if (Array.isArray(state.references)) loadedReferences = state.references;
+              if (state.settings) loadedSettings = state.settings;
             } catch (e) {
               console.error("Failed to parse editor state", e);
             }
@@ -55,11 +57,13 @@ const AdminNew = () => {
             tags: Array.isArray(existing.tags) ? existing.tags : [],
             references: loadedReferences,
             settings: {
-              headerEnabled: true,
-              headerText: 'À la Brestoise',
-              footerEnabled: false,
-              footerText: '',
-              // Metadata from existing article
+              ...(loadedSettings || {
+                headerEnabled: true,
+                headerText: 'À la Brestoise',
+                footerEnabled: false,
+                footerText: ''
+              }),
+              // Always override metadata with current frontmatter to ensure consistency
               featured: (existing as any).featured || false,
               date: existing.date ? new Date(existing.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
               readingMinutes: existing.readingMinutes || null,
@@ -136,7 +140,8 @@ const AdminNew = () => {
       // Embed editor state for rehydration
       const editorState = {
         blocks: payload.blocks,
-        references: payload.references
+        references: payload.references,
+        settings: payload.settings
       };
       // Prepend hidden comment
       body = `<!-- MAGAZINE_EDITOR_STATE: ${JSON.stringify(editorState)} -->\n\n${body}`;

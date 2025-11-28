@@ -1,0 +1,9 @@
+/* QR Overlay Title Styling */
+.qr-overlay-title {
+    margin-top: 14px;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.15;
+    font-family: "Playfair Display", Georgia, serif;
+}

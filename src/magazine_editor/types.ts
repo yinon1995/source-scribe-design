@@ -99,4 +99,5 @@ export interface AdminBuilderProps {
     setReferences: React.Dispatch<React.SetStateAction<Reference[]>>;
     settings: ArticleSettings;
     setSettings: React.Dispatch<React.SetStateAction<ArticleSettings>>;
+    onRequestPublish?: () => void;
 }

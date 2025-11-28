@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ArticleBlock, Reference, ArticleSettings } from './types';
 import { AdminBuilder } from './components/AdminBuilder';
 import { PreviewLayoutEditor } from './preview/PreviewLayoutEditor';
-import { Eye, Edit3, ArrowLeft } from 'lucide-react';
+import { Eye, Edit3, ArrowLeft, Loader2 } from 'lucide-react';
 
 const DEFAULT_SETTINGS: ArticleSettings = {
     headerEnabled: true,
@@ -41,6 +41,8 @@ export default function MagazineEditor({ initialData, onPublish, onBack }: Magaz
     const [references, setReferences] = useState<Reference[]>(initialData?.references || []);
     const [settings, setSettings] = useState<ArticleSettings>({ ...DEFAULT_SETTINGS, ...initialData?.settings });
     const [isPreviewMode, setIsPreviewMode] = useState(false);
+    const [showPublishModal, setShowPublishModal] = useState(false);
+    const [isPublishing, setIsPublishing] = useState(false);
 
     // Hydration Effect (Runs ONCE)
     useEffect(() => {
@@ -52,9 +54,21 @@ export default function MagazineEditor({ initialData, onPublish, onBack }: Magaz
         setBlocks(prev => prev.map(b => b.id === id ? { ...b, content: { ...b.content, ...updates } } : b));
     };
 
-    const handlePublishClick = () => {
-        if (onPublish) {
-            onPublish({ blocks, tags, references, settings });
+    const handleRequestPublish = () => {
+        setShowPublishModal(true);
+    };
+
+    const handleConfirmPublish = async () => {
+        if (!onPublish) return;
+
+        setIsPublishing(true);
+        try {
+            await onPublish({ blocks, tags, references, settings });
+            setShowPublishModal(false);
+        } catch (error) {
+            console.error("Publish failed", error);
+        } finally {
+            setIsPublishing(false);
         }
     };
 
@@ -102,7 +116,7 @@ export default function MagazineEditor({ initialData, onPublish, onBack }: Magaz
 
                     {onPublish && (
                         <button
-                            onClick={handlePublishClick}
+                            onClick={handleRequestPublish}
                             className="flex items-center gap-2 px-4 py-2 bg-stone-900 text-white rounded text-xs font-bold uppercase tracking-wide hover:bg-stone-800 transition-colors"
                         >
                             Publish
@@ -124,6 +138,7 @@ export default function MagazineEditor({ initialData, onPublish, onBack }: Magaz
                             setReferences={setReferences}
                             settings={settings}
                             setSettings={setSettings}
+                            onRequestPublish={handleRequestPublish}
                         />
                     </div>
                 ) : (
@@ -155,6 +170,43 @@ export default function MagazineEditor({ initialData, onPublish, onBack }: Magaz
                     </div>
                 )}
             </main>
+
+            {/* Publish Confirmation Modal */}
+            {showPublishModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    {/* Backdrop */}
+                    <div
+                        className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
+                        onClick={() => !isPublishing && setShowPublishModal(false)}
+                    ></div>
+
+                    {/* Modal Panel */}
+                    <div className="relative bg-white p-6 rounded-md shadow-2xl max-w-sm w-full border border-stone-100 animate-fade-in-up">
+                        <h3 className="font-serif text-xl text-stone-900 mb-2">Publier l’article ?</h3>
+                        <p className="font-sans text-sm text-stone-600 mb-6 leading-relaxed">
+                            Cette action publiera l’article sur le site (intégration à venir).
+                        </p>
+
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setShowPublishModal(false)}
+                                disabled={isPublishing}
+                                className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-stone-500 hover:text-stone-800 disabled:opacity-50"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={handleConfirmPublish}
+                                disabled={isPublishing}
+                                className="flex items-center gap-2 px-4 py-2 bg-stone-900 text-white rounded-sm text-xs font-bold uppercase tracking-wider hover:bg-stone-800 disabled:opacity-70"
+                            >
+                                {isPublishing && <Loader2 size={12} className="animate-spin" />}
+                                Publier
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div>
     );

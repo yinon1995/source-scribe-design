@@ -5,6 +5,8 @@ import { getPostBySlug } from "@/lib/content";
 import ArticleContent from "@/components/ArticleContent";
 import SignatureBlock from "@/components/SignatureBlock";
 import Navigation from "@/components/Navigation";
+import { MagazineArticleView } from "@/magazine_editor/components/MagazineArticleView";
+import type { ArticleBlock, Reference, ArticleSettings } from "@/magazine_editor/types";
 
 const ArticleDetail = () => {
   const { slug = "" } = useParams();
@@ -34,6 +36,25 @@ const ArticleDetail = () => {
     };
   }, [post]);
 
+  // Check for Magazine Editor State
+  const magazineState = useMemo(() => {
+    if (!post?.body) return null;
+    const match = post.body.match(/^<!-- MAGAZINE_EDITOR_STATE: (.*?) -->/);
+    if (match) {
+      try {
+        return JSON.parse(match[1]) as {
+          blocks: ArticleBlock[];
+          references: Reference[];
+          settings?: ArticleSettings; // Settings might be inside or we might need to reconstruct
+        };
+      } catch (e) {
+        console.error("Failed to parse magazine state", e);
+        return null;
+      }
+    }
+    return null;
+  }, [post]);
+
   if (!post) {
     return (
       <div className="min-h-screen bg-background">
@@ -51,7 +72,31 @@ const ArticleDetail = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <ArticleContent article={post} journalMode={true} />
+      {magazineState ? (
+        <>
+          <Navigation />
+          <div className="pt-20 pb-10">
+            <MagazineArticleView
+              blocks={magazineState.blocks}
+              references={magazineState.references}
+              settings={{
+                ...(magazineState.settings || {
+                  headerEnabled: true,
+                  headerText: 'À la Brestoise',
+                  footerEnabled: true,
+                  footerText: ''
+                }),
+                featured: post.featured,
+                date: post.date,
+                readingMinutes: post.readingMinutes,
+                category: post.category as any,
+              }}
+            />
+          </div>
+        </>
+      ) : (
+        <ArticleContent article={post} journalMode={true} />
+      )}
       <SignatureBlock />
       <Footer />
     </div>
