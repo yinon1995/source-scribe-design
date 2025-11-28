@@ -607,6 +607,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     // --- IMAGE PROCESSING END ---
 
+
     if (typeof article.body === "string" && article.body.length > MAX_ARTICLE_BODY_LENGTH) {
       sendValidationError(res, {
         body: `Le contenu est trop long (max ${MAX_ARTICLE_BODY_LENGTH} caractères).`,
@@ -714,36 +715,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       deploy,
     });
     return;
-  } catch (e: any) {
-    const message = e?.message ? String(e.message) : String(e);
-    // Try to extract status code if present in the message like "GitHub PUT 422: ..."
-    const m = /GitHub\s+[A-Z]+\s+(\d{3})/.exec(message);
-    const status = m ? Number(m[1]) : undefined;
-    console.error("[publish] GitHub error", { repo: GITHUB_REPO, branch: PUBLISH_BRANCH, message });
-    sendError(res, 502, "Erreur GitHub, vérifiez le dépôt / la branche / le token.", {
-      detailsMessage: status ? `${status} ${message}` : message,
-    });
-    return;
-  }
-}
 
-try {
-  if (req.method === "OPTIONS") {
-    respond(res, 200, { success: true });
-    return;
   }
-  if (req.method === "DELETE") {
-    await handleDelete();
-    return;
+
+  try {
+    if (req.method === "OPTIONS") {
+      respond(res, 200, { success: true });
+      return;
+    }
+    if (req.method === "DELETE") {
+      await handleDelete();
+      return;
+    }
+    if (req.method === "POST") {
+      await handlePublish();
+      return;
+    }
+    respond(res, 405, { success: false, error: "Méthode non autorisée" });
+  } catch (err) {
+    console.error("[publish] Unhandled error:", err);
+    const message = err instanceof Error ? err.message : "Erreur serveur interne";
+    respond(res, 500, { success: false, error: message || "Erreur serveur interne" });
   }
-  if (req.method === "POST") {
-    await handlePublish();
-    return;
-  }
-  respond(res, 405, { success: false, error: "Méthode non autorisée" });
-} catch (err) {
-  console.error("[publish] Unhandled error:", err);
-  const message = err instanceof Error ? err.message : "Erreur serveur interne";
-  respond(res, 500, { success: false, error: message || "Erreur serveur interne" });
-}
 }
