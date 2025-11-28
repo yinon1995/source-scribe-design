@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import galleryConfigImport from "../../content/home/gallery.json";
 import ImageLightbox from "./ImageLightbox";
-import AutoGalleryMarquee, { AutoGalleryItem } from "./AutoGalleryMarquee";
+import AutoGalleryMarquee from "./AutoGalleryMarquee";
 
 type GalleryItem = {
     id: string;
@@ -31,7 +31,8 @@ const HomePhotoStripGallery = ({ itemsOverride }: HomePhotoStripGalleryProps = {
         // Fetch from API
         const loadGallery = async () => {
             try {
-                const res = await fetch("/api/homeGallery");
+                // Add timestamp to prevent caching
+                const res = await fetch(`/api/homeGallery?t=${Date.now()}`);
                 const json = await res.json();
                 if (json.success && json.data && json.data.items) {
                     setItems(json.data.items);

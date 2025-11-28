@@ -8,6 +8,19 @@ import { toast } from "sonner";
 import { ArrowUp, ArrowDown, Trash2, Upload, AlertCircle } from "lucide-react";
 import HomePhotoStripGallery from "@/components/HomePhotoStripGallery";
 import Footer from "@/components/Footer";
+import { getAdminToken } from "@/lib/adminSession";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+// Fallback import if API fails completely
 import galleryConfigLocal from "../../content/home/gallery.json";
 
 type GalleryItem = {
@@ -29,6 +42,7 @@ const AdminGallery = () => {
     const [saving, setSaving] = useState(false);
     const [config, setConfig] = useState<GalleryConfig>({ title: "Galerie", items: [] });
     const [isLocalMode, setIsLocalMode] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
 
     // Load gallery
     useEffect(() => {
@@ -48,14 +62,9 @@ const AdminGallery = () => {
 
                 if (json.success && json.data) {
                     setConfig(json.data);
-                    setIsLocalMode(json.source === "fs-fallback" || Boolean(json.missingEnv));
-                } else if (json.items) {
-                    setConfig(json);
-                    setIsLocalMode(false);
+                    setIsLocalMode(json.source === "fs" || json.source === "empty");
                 } else {
-                    console.error("Unexpected API response", json);
                     setConfig(galleryConfigLocal as GalleryConfig);
-                    setIsLocalMode(true);
                 }
             } catch (error) {
                 console.error("Failed to load gallery:", error);
@@ -137,10 +146,21 @@ const AdminGallery = () => {
         setConfig({ ...config, items: updated });
     };
 
-    const save = async () => {
+    const handleSaveClick = () => {
+        setShowConfirmModal(true);
+    };
+
+    const confirmSave = async () => {
+        setShowConfirmModal(false);
         setSaving(true);
         try {
-            const token = sessionStorage.getItem("adminToken");
+            const token = getAdminToken();
+            if (!token) {
+                toast.error("Session expirée, veuillez vous reconnecter");
+                navigate("/admin");
+                return;
+            }
+
             const res = await fetch("/api/homeGallery", {
                 method: "PUT",
                 headers: {
@@ -164,41 +184,27 @@ const AdminGallery = () => {
                     body: errorDetails,
                 });
 
-                // Show specific error
                 if (res.status === 404) {
                     toast.error("API locale indisponible — lancez: npm run dev:api");
                 } else {
-                    toast.error(`Erreur de sauvegarde (code: ${res.status})`);
+                    toast.error(`Erreur de sauvegarde: ${errorDetails}`);
                 }
                 return;
             }
 
             const json = await res.json();
             if (json.success) {
-                toast.success("Enregistré");
-                // Re-fetch to stay in sync
-                try {
-                    const refreshRes = await fetch("/api/homeGallery");
-                    if (refreshRes.ok) {
-                        const refreshJson = await refreshRes.json();
-                        if (refreshJson.success && refreshJson.data) {
-                            setConfig(refreshJson.data);
-                        }
-                    }
-                } catch (e) {
-                    console.warn("Could not refresh after save:", e);
+                toast.success("Galerie enregistrée avec succès");
+                // Update local state with server response to be sure
+                if (json.data) {
+                    setConfig(json.data);
                 }
             } else {
-                console.error("Save returned success:false", json);
                 toast.error(json.error || "Erreur de sauvegarde");
             }
         } catch (error) {
             console.error("Save failed:", error);
-            if (error instanceof TypeError && error.message.includes("fetch")) {
-                toast.error("API locale indisponible — lancez: npm run dev:api");
-            } else {
-                toast.error("Erreur de sauvegarde");
-            }
+            toast.error("Erreur de sauvegarde");
         } finally {
             setSaving(false);
         }
@@ -231,7 +237,7 @@ const AdminGallery = () => {
                         <Alert>
                             <AlertCircle className="h-4 w-4" />
                             <AlertDescription>
-                                Mode local — la sauvegarde est désactivée (env manquantes)
+                                Mode local ou fallback — vérifiez les variables d'environnement si vous êtes en production.
                             </AlertDescription>
                         </Alert>
                     )}
@@ -327,7 +333,7 @@ const AdminGallery = () => {
 
                             {/* Save Button */}
                             <Button
-                                onClick={save}
+                                onClick={handleSaveClick}
                                 disabled={saving}
                                 className="w-full"
                                 size="lg"
@@ -349,6 +355,21 @@ const AdminGallery = () => {
                 </div>
             </main>
             <Footer />
+
+            <AlertDialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Enregistrer la galerie ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Cette action mettra à jour la galerie de la page d’accueil.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmSave}>Confirmer</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };
