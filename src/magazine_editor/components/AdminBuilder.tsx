@@ -6,7 +6,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Placement } from '../preview/types';
-import { fileToDataUrl } from '../lib/imageUtils';
+import { fileToCompressedDataURL } from '../lib/imageUtils';
 
 const TagsEditor: React.FC<{ tags: string[], onChange: (tags: string[]) => void }> = ({ tags, onChange }) => {
   const [inputVal, setInputVal] = useState(tags.join(', '));
@@ -996,7 +996,7 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                           URL.revokeObjectURL(block.content.imageUrl);
                         }
 
-                        fileToDataUrl(file).then((dataUrl) => {
+                        fileToCompressedDataURL(file).then((dataUrl) => {
                           updateBlock(block.id, {
                             imageUrl: dataUrl,
                             imageFileName: file.name

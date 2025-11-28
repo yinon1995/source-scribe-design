@@ -189,7 +189,16 @@ const AdminNew = () => {
         body: JSON.stringify(articlePayload),
       });
 
-      const responseBody = await res.json().catch(() => ({}));
+      let responseBody: any;
+      try {
+        responseBody = await res.json();
+      } catch {
+        try {
+          responseBody = { error: await res.text() };
+        } catch {
+          responseBody = {};
+        }
+      }
 
       if (res.status === 401) {
         toast.error("Accès refusé — mot de passe administrateur invalide.");
@@ -197,7 +206,25 @@ const AdminNew = () => {
       }
 
       if (!res.ok || !responseBody?.success) {
-        const message = responseBody?.error || "Publication impossible";
+        let message = responseBody?.error || "Publication impossible";
+
+        // Add detailed error information
+        const details: string[] = [];
+        details.push(`HTTP ${res.status}`);
+
+        if (responseBody?.fieldErrors) {
+          const fieldErr = Object.entries(responseBody.fieldErrors)
+            .map(([field, msg]) => `${field}: ${msg}`)
+            .join("; ");
+          details.push(fieldErr);
+        } else if (responseBody?.details?.message) {
+          details.push(responseBody.details.message);
+        }
+
+        if (details.length > 0) {
+          message += `\n${details.join(" — ")}`;
+        }
+
         toast.error(message);
         console.error("[admin] Publication échouée", res.status, responseBody);
         return;
