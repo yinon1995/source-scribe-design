@@ -1,0 +1,161 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { ArticleBlock, Reference, ArticleSettings } from './types';
+import { AdminBuilder } from './components/AdminBuilder';
+import { PreviewLayoutEditor } from './preview/PreviewLayoutEditor';
+import { Eye, Edit3, ArrowLeft } from 'lucide-react';
+
+const DEFAULT_SETTINGS: ArticleSettings = {
+    headerEnabled: true,
+    headerText: 'À la Brestoise',
+    footerEnabled: true,
+    footerText: '',
+    publishedAt: new Date().toISOString().split('T')[0],
+    readingTimeMode: 'auto',
+    readingTimeMinutes: 5,
+    // Metadata defaults
+    featured: false,
+    date: new Date().toISOString().split('T')[0],
+    readingMinutes: null
+};
+
+interface MagazineEditorProps {
+    initialData?: {
+        blocks?: ArticleBlock[];
+        tags?: string[];
+        references?: Reference[];
+        settings?: Partial<ArticleSettings>;
+    };
+    onPublish?: (payload: {
+        blocks: ArticleBlock[];
+        tags: string[];
+        references: Reference[];
+        settings: ArticleSettings;
+    }) => Promise<void> | void;
+    onBack?: () => void;
+}
+
+export default function MagazineEditor({ initialData, onPublish, onBack }: MagazineEditorProps) {
+    const hydratedRef = useRef(false);
+    const [blocks, setBlocks] = useState<ArticleBlock[]>(initialData?.blocks || []);
+    const [tags, setTags] = useState<string[]>(initialData?.tags || []);
+    const [references, setReferences] = useState<Reference[]>(initialData?.references || []);
+    const [settings, setSettings] = useState<ArticleSettings>({ ...DEFAULT_SETTINGS, ...initialData?.settings });
+    const [isPreviewMode, setIsPreviewMode] = useState(false);
+
+    // Hydration Effect (Runs ONCE)
+    useEffect(() => {
+        if (hydratedRef.current) return;
+        hydratedRef.current = true;
+    }, []);
+
+    const updateBlock = (id: string, updates: Partial<ArticleBlock['content']>) => {
+        setBlocks(prev => prev.map(b => b.id === id ? { ...b, content: { ...b.content, ...updates } } : b));
+    };
+
+    const handlePublishClick = () => {
+        if (onPublish) {
+            onPublish({ blocks, tags, references, settings });
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-[#e8e6e1] text-stone-900 font-sans selection:bg-stone-300 selection:text-stone-900">
+
+            {/* Navigation / Control Bar */}
+            <nav className="fixed top-0 left-0 right-0 z-50 bg-[#e8e6e1]/80 backdrop-blur-md border-b border-stone-300/50">
+                <div className="max-w-[1600px] mx-auto px-6 h-14 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        {onBack && (
+                            <button
+                                onClick={onBack}
+                                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-stone-600 hover:text-stone-900 transition-colors border border-stone-300 rounded hover:bg-stone-100"
+                            >
+                                <ArrowLeft size={14} />
+                                <span>Retour au tableau de bord</span>
+                            </button>
+                        )}
+                        <span className="font-serif font-bold text-xl tracking-tight text-stone-900">À la Brestoise</span>
+                    </div>
+
+                    <div className="flex items-center bg-stone-200/50 p-1 rounded-full border border-stone-300/50">
+                        <button
+                            onClick={() => setIsPreviewMode(false)}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${!isPreviewMode
+                                ? 'bg-stone-900 text-white shadow-sm'
+                                : 'text-stone-500 hover:text-stone-700'
+                                }`}
+                        >
+                            <Edit3 size={12} />
+                            <span>Builder</span>
+                        </button>
+                        <button
+                            onClick={() => setIsPreviewMode(true)}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-all ${isPreviewMode
+                                ? 'bg-stone-900 text-white shadow-sm'
+                                : 'text-stone-500 hover:text-stone-700'
+                                }`}
+                        >
+                            <Eye size={12} />
+                            <span>Preview</span>
+                        </button>
+                    </div>
+
+                    {onPublish && (
+                        <button
+                            onClick={handlePublishClick}
+                            className="flex items-center gap-2 px-4 py-2 bg-stone-900 text-white rounded text-xs font-bold uppercase tracking-wide hover:bg-stone-800 transition-colors"
+                        >
+                            Publish
+                        </button>
+                    )}
+                </div>
+            </nav>
+
+            {/* Main Content Area */}
+            <main className="relative z-10 pt-20 pb-20 px-4 min-h-screen">
+                {!isPreviewMode ? (
+                    <div className="animate-fade-in">
+                        <AdminBuilder
+                            blocks={blocks}
+                            setBlocks={setBlocks}
+                            tags={tags}
+                            setTags={setTags}
+                            references={references}
+                            setReferences={setReferences}
+                            settings={settings}
+                            setSettings={setSettings}
+                        />
+                    </div>
+                ) : (
+                    <div className="animate-fade-in flex flex-col justify-center items-center pt-4 md:pt-12">
+                        <div
+                            data-preview-marker="true"
+                            style={{
+                                position: "sticky",
+                                top: 60,
+                                zIndex: 99999,
+                                background: "#00d1ff",
+                                color: "#00131a",
+                                padding: "10px 12px",
+                                fontWeight: 900,
+                                textAlign: "center",
+                                borderBottom: "2px solid rgba(0,0,0,0.15)",
+                                marginBottom: "20px",
+                                borderRadius: "4px"
+                            }}
+                        >
+                            PREVIEW LAYOUT MODE ON
+                        </div>
+                        <PreviewLayoutEditor
+                            articleId="default"
+                            blocks={blocks}
+                            onUpdateBlock={updateBlock}
+                            settings={settings}
+                        />
+                    </div>
+                )}
+            </main>
+
+        </div>
+    );
+}

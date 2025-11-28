@@ -3,6 +3,8 @@ import { useParams, Link } from "react-router-dom";
 import Footer from "@/components/Footer";
 import { getPostBySlug } from "@/lib/content";
 import ArticleContent from "@/components/ArticleContent";
+import SignatureBlock from "@/components/SignatureBlock";
+import Navigation from "@/components/Navigation";
 
 const ArticleDetail = () => {
   const { slug = "" } = useParams();
@@ -49,7 +51,8 @@ const ArticleDetail = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <ArticleContent article={post} />
+      <ArticleContent article={post} journalMode={true} />
+      <SignatureBlock />
       <Footer />
     </div>
   );

@@ -8,6 +8,7 @@ import type { Post, ArticleBodyFont } from "@/lib/content";
 import { FALLBACK_ARTICLE_IMAGE } from "@/lib/images";
 import { cn } from "@/lib/utils";
 
+
 const fontClassByKey: Record<ArticleBodyFont, string> = {
   "josefin-sans": "font-article-josefin-sans",
   raleway: "font-article-raleway",
@@ -18,8 +19,8 @@ const fontClassByKey: Record<ArticleBodyFont, string> = {
 };
 
 type Props =
-  | { article: Post; body?: undefined; sources?: string[]; localMap?: Record<string, string> }
-  | { article?: undefined; body: string; sources?: string[]; localMap?: Record<string, string> };
+  | { article: Post; body?: undefined; sources?: string[]; localMap?: Record<string, string>; journalMode?: boolean; slug?: string; journalImages?: any[] }
+  | { article?: undefined; body: string; sources?: string[]; localMap?: Record<string, string>; journalMode?: boolean; slug?: string; journalImages?: any[] };
 
 const ArticleContent: React.FC<Props> = (props) => {
   const article = props.article;
@@ -43,6 +44,12 @@ const ArticleContent: React.FC<Props> = (props) => {
   const bodyFontClass =
     article?.bodyFont && fontClassByKey[article.bodyFont] ? fontClassByKey[article.bodyFont] : "";
 
+  const journalMode = props.journalMode ?? false;
+  const slug = article?.slug || props.slug;
+  // Use passed journalImages (preview) or article's own (published)
+  const journalImages = props.journalImages || article?.journalImages || [];
+  let imageIndex = 0;
+
   return (
     <article className="pb-20">
       {heroSection}
@@ -50,15 +57,49 @@ const ArticleContent: React.FC<Props> = (props) => {
       <section className="mt-10">
         <div className="container mx-auto px-4">
           <div
+            lang={journalMode ? "fr" : undefined}
             className={cn(
               "prose prose-neutral dark:prose-invert max-w-none prose-h1:text-4xl prose-h2:text-3xl prose-h3:text-2xl prose-img:rounded-xl prose-figure:my-6",
               bodyFontClass,
+              journalMode && "article-journal"
             )}
           >
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkBreaks, remarkDirective]}
               rehypePlugins={[rehypeRaw]}
               components={{
+                p: ({ node, children, ...pProps }) => {
+                  const hasImage = node?.children?.some(
+                    (c: any) => c.type === "element" && c.tagName === "img"
+                  );
+
+                  if (hasImage || !journalMode) {
+                    return <p {...pProps}>{children}</p>;
+                  }
+
+                  const currentImage = journalImages[imageIndex];
+                  if (currentImage) {
+                    imageIndex++;
+                    return (
+                      <>
+                        <p {...pProps}>{children}</p>
+                        <figure className={`journal-figure ${currentImage.mode === "wide" ? "journal-figure--wide" : ""}`}>
+                          <img
+                            src={currentImage.src}
+                            alt={currentImage.alt || ""}
+                            className="journal-img"
+                            loading="lazy"
+                          />
+                          {currentImage.caption && (
+                            <figcaption className="journal-caption">{currentImage.caption}</figcaption>
+                          )}
+                        </figure>
+                      </>
+                    );
+                  }
+
+                  return <p {...pProps}>{children}</p>;
+                },
                 img: ({ node: _node, ...imgProps }) => {
                   const rawSrc = imgProps.src || "";
                   if (rawSrc.startsWith("local:") && !localMap) {

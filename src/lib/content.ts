@@ -59,6 +59,12 @@ export type JsonArticle = {
   schemaType?: "Article" | "LocalBusiness" | "Restaurant";
   featured?: boolean;
   bodyFont?: ArticleBodyFont;
+  journalImages?: Array<{
+    src: string;
+    alt?: string;
+    caption?: string;
+    mode?: "column" | "wide";
+  }>;
 };
 
 export type PostFrontmatter = {
@@ -95,6 +101,12 @@ export type PostFrontmatter = {
   isJson?: boolean;
   featured?: boolean;
   bodyFont?: ArticleBodyFont;
+  journalImages?: Array<{
+    src: string;
+    alt?: string;
+    caption?: string;
+    mode?: "column" | "wide";
+  }>;
 };
 
 export type Post = PostFrontmatter & {
@@ -231,6 +243,7 @@ function coerceFrontmatter(data: Record<string, unknown>, fallbackSlug: string):
     sources: bodySources,
     isJson: false,
     featured: false,
+    journalImages: (data.journalImages as any) || [],
   };
   const normalizedBodyFont = normalizeBodyFont(typeof data.bodyFont === "string" ? data.bodyFont : undefined);
   if (normalizedBodyFont) {
@@ -366,6 +379,7 @@ const jsonPosts: Post[] = jsonArticles.map((ja) => {
     schemaType: ja.schemaType ?? "Article",
     featured: ja.featured === true,
     bodyFont: normalizeBodyFont(ja.bodyFont),
+    journalImages: ja.journalImages,
   };
 });
 

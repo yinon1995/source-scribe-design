@@ -5,6 +5,7 @@ import ArticleCard from "@/components/ArticleCard";
 import CategoryFilter from "@/components/CategoryFilter";
 import Footer from "@/components/Footer";
 import TestimonialsSection from "@/components/TestimonialsSection";
+import HomePhotoStripGallery from "@/components/HomePhotoStripGallery";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
@@ -111,6 +112,9 @@ const Index = () => {
           )}
         </div>
       </section>
+
+      {/* Photo Gallery */}
+      <HomePhotoStripGallery />
 
       {/* CTA Section */}
       <section className="py-20 bg-accent/30">
