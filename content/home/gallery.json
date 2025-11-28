@@ -1,0 +1,35 @@
+{
+    "title": "Galerie",
+    "items": [
+        {
+            "id": "g1",
+            "src": "/images/gallery/1.jpg",
+            "alt": "Beauté tendance",
+            "description": "Dernières tendances beauté à Brest"
+        },
+        {
+            "id": "g2",
+            "src": "/images/gallery/2.jpg",
+            "alt": "Événement local",
+            "description": "Événements et culture locale"
+        },
+        {
+            "id": "g3",
+            "src": "/images/gallery/3.jpg",
+            "alt": "Lieux à découvrir",
+            "description": "Les plus beaux lieux de Brest"
+        },
+        {
+            "id": "g4",
+            "src": "/images/gallery/4.jpg",
+            "alt": "Tendances mode",
+            "description": "Mode et style brestois"
+        },
+        {
+            "id": "g5",
+            "src": "/images/gallery/5.jpg",
+            "alt": "Bien-être",
+            "description": "Bien-être et cosmétiques"
+        }
+    ]
+}
