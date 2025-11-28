@@ -1,1 +1,18 @@
-[]
+[
+  {
+    "title": "Chats & chiens : deux façons d’aimer 🐾",
+    "slug": "chats-chiens-deux-facons-d-aimer",
+    "category": "Commerces & lieux",
+    "tags": [
+      "cat",
+      "dog",
+      "animals"
+    ],
+    "cover": "",
+    "heroImage": "",
+    "excerpt": "we love animals",
+    "date": "2025-11-28",
+    "readingMinutes": 4,
+    "featured": true
+  }
+]
