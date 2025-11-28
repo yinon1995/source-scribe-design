@@ -7,6 +7,7 @@ import { GripVertical, Columns, Maximize2, AlignLeft, AlignRight, X, AlignCenter
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { buildLayoutSections } from '../lib/layoutHelper';
 
 // --- RICH TEXT RENDERER ---
 const TOKEN_REGEX = /(\[[^\]]+\]\([^)]+\))|(\[\^[a-zA-Z0-9_-]+\])|(\*\*(?!\s)[\s\S]+?\*\*)|(\*(?!\s)[\s\S]+?\*)|(~~(?!\s)[\s\S]+?~~)/g;
@@ -432,43 +433,11 @@ export const PreviewLayoutEditor: React.FC<PreviewLayoutEditorProps> = ({
         setDraggedId(null);
     };
 
-    // 8. BUILD SECTIONS (for independent column stacking)
-    type Section =
-        | { type: 'columns'; left: string[]; right: string[] }
-        | { type: 'full'; blockId: string };
-
-    const sections = useMemo((): Section[] => {
-        const result: Section[] = [];
-        let currentSection: { left: string[]; right: string[] } | null = null;
-
-        const flushSection = () => {
-            if (currentSection && (currentSection.left.length > 0 || currentSection.right.length > 0)) {
-                result.push({ type: 'columns', ...currentSection });
-                currentSection = null;
-            }
-        };
-
-        for (const blockId of layout.order) {
-            const placement = getDerivedPlacement(blockId);
-
-            if (placement === 'full') {
-                flushSection();
-                result.push({ type: 'full', blockId });
-            } else {
-                if (!currentSection) {
-                    currentSection = { left: [], right: [] };
-                }
-                if (placement === 'left') {
-                    currentSection.left.push(blockId);
-                } else if (placement === 'right') {
-                    currentSection.right.push(blockId);
-                }
-            }
-        }
-
-        flushSection();
-        return result;
-    }, [layout.order, getDerivedPlacement]);
+    // 8. BUILD SECTIONS (for independent column stacking) using shared helper
+    const sections = useMemo(() => {
+        const orderedBlocks = layout.order.map(id => blockMap.get(id)).filter((b): b is ArticleBlock => !!b);
+        return buildLayoutSections(orderedBlocks);
+    }, [layout.order, blockMap]);
 
 
     return (
@@ -541,20 +510,18 @@ export const PreviewLayoutEditor: React.FC<PreviewLayoutEditorProps> = ({
             <div className="relative z-10 mt-8 flex flex-col gap-y-8">
                 {sections.map((section, sIdx) => {
                     if (section.type === 'full') {
-                        const block = blockMap.get(section.blockId);
-                        if (!block) return null;
-
+                        const block = section.block;
                         return (
                             <BlockWrapper
-                                key={section.blockId}
-                                id={section.blockId}
+                                key={block.id}
+                                id={block.id}
                                 block={block}
                                 placement="full"
-                                onUpdatePlacement={(p) => handleUpdatePlacement(section.blockId, p)}
+                                onUpdatePlacement={(p) => handleUpdatePlacement(block.id, p)}
                                 onDragStart={handleDragStart}
                                 onDragOver={handleDragOver}
                                 onDrop={handleDrop}
-                                isDragging={draggedId === section.blockId}
+                                isDragging={draggedId === block.id}
                                 readOnly={readOnly}
                             />
                         );
@@ -569,48 +536,38 @@ export const PreviewLayoutEditor: React.FC<PreviewLayoutEditorProps> = ({
                             <div key={`section-${sIdx}`} className="flex gap-x-8">
                                 {/* Left Column */}
                                 <div className="w-0 flex-1 flex flex-col gap-y-8">
-                                    {section.left.map(blockId => {
-                                        const block = blockMap.get(blockId);
-                                        if (!block) return null;
-
-                                        return (
-                                            <BlockWrapper
-                                                key={blockId}
-                                                id={blockId}
-                                                block={block}
-                                                placement="left"
-                                                onUpdatePlacement={(p) => handleUpdatePlacement(blockId, p)}
-                                                onDragStart={handleDragStart}
-                                                onDragOver={handleDragOver}
-                                                onDrop={handleDrop}
-                                                isDragging={draggedId === blockId}
-                                                readOnly={readOnly}
-                                            />
-                                        );
-                                    })}
+                                    {section.left.map(block => (
+                                        <BlockWrapper
+                                            key={block.id}
+                                            id={block.id}
+                                            block={block}
+                                            placement="left"
+                                            onUpdatePlacement={(p) => handleUpdatePlacement(block.id, p)}
+                                            onDragStart={handleDragStart}
+                                            onDragOver={handleDragOver}
+                                            onDrop={handleDrop}
+                                            isDragging={draggedId === block.id}
+                                            readOnly={readOnly}
+                                        />
+                                    ))}
                                 </div>
 
                                 {/* Right Column */}
                                 <div className="w-0 flex-1 flex flex-col gap-y-8">
-                                    {section.right.map(blockId => {
-                                        const block = blockMap.get(blockId);
-                                        if (!block) return null;
-
-                                        return (
-                                            <BlockWrapper
-                                                key={blockId}
-                                                id={blockId}
-                                                block={block}
-                                                placement="right"
-                                                onUpdatePlacement={(p) => handleUpdatePlacement(blockId, p)}
-                                                onDragStart={handleDragStart}
-                                                onDragOver={handleDragOver}
-                                                onDrop={handleDrop}
-                                                isDragging={draggedId === blockId}
-                                                readOnly={readOnly}
-                                            />
-                                        );
-                                    })}
+                                    {section.right.map(block => (
+                                        <BlockWrapper
+                                            key={block.id}
+                                            id={block.id}
+                                            block={block}
+                                            placement="right"
+                                            onUpdatePlacement={(p) => handleUpdatePlacement(block.id, p)}
+                                            onDragStart={handleDragStart}
+                                            onDragOver={handleDragOver}
+                                            onDrop={handleDrop}
+                                            isDragging={draggedId === block.id}
+                                            readOnly={readOnly}
+                                        />
+                                    ))}
                                 </div>
                             </div>
                         );

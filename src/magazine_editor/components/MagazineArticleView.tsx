@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { ArticleBlock, ArticleSettings, Reference } from '../types';
 import { TEXT_STYLES } from '../lib/fonts';
-import { Placement } from '../preview/types';
 import { Star, Clock } from 'lucide-react';
+import { buildLayoutSections } from '../lib/layoutHelper';
 
 // --- RICH TEXT RENDERER ---
 const TOKEN_REGEX = /(\[[^\]]+\]\([^)]+\))|(\[\^[a-zA-Z0-9_-]+\])|(\*\*(?!\s)[\s\S]+?\*\*)|(\*(?!\s)[\s\S]+?\*)|(~~(?!\s)[\s\S]+?~~)/g;
@@ -196,61 +196,15 @@ export const MagazineArticleView: React.FC<MagazineArticleViewProps> = ({
     references
 }) => {
 
-    // Helper: Derive Placement from Block Content
-    const getDerivedPlacement = (block: ArticleBlock): Placement => {
-        if (block.type === 'image') {
-            const pos = block.content.position || 'center';
-            if (pos === 'left') return 'left';
-            if (pos === 'right') return 'right';
-            return 'full';
-        }
-        // Text and others
-        const layout = block.content.layout || block.content.textLayout || 'two_thirds';
-        if (layout === 'left_third' || (layout as string) === 'left') return 'left';
-        if (layout === 'right_third' || (layout as string) === 'right') return 'right';
-        return 'full';
-    };
+    // Build Sections using shared helper
+    const sections = useMemo(() => buildLayoutSections(blocks), [blocks]);
 
-    // Build Sections (for independent column stacking)
-    type Section =
-        | { type: 'columns'; left: ArticleBlock[]; right: ArticleBlock[] }
-        | { type: 'full'; block: ArticleBlock };
-
-    const sections = useMemo((): Section[] => {
-        const result: Section[] = [];
-        let currentSection: { left: ArticleBlock[]; right: ArticleBlock[] } | null = null;
-
-        const flushSection = () => {
-            if (currentSection && (currentSection.left.length > 0 || currentSection.right.length > 0)) {
-                result.push({ type: 'columns', ...currentSection });
-                currentSection = null;
-            }
-        };
-
-        for (const block of blocks) {
-            const placement = getDerivedPlacement(block);
-
-            if (placement === 'full') {
-                flushSection();
-                result.push({ type: 'full', block });
-            } else {
-                if (!currentSection) {
-                    currentSection = { left: [], right: [] };
-                }
-                if (placement === 'left') {
-                    currentSection.left.push(block);
-                } else if (placement === 'right') {
-                    currentSection.right.push(block);
-                }
-            }
-        }
-
-        flushSection();
-        return result;
-    }, [blocks]);
+    if (process.env.NODE_ENV === 'development') {
+        console.log('[MagazineArticleView] Layout Sections:', sections);
+    }
 
     // Grid classes for wrappers
-    const getGridClasses = (placement: Placement) => {
+    const getGridClasses = (placement: 'left' | 'right' | 'full') => {
         if (placement === 'left') return 'col-span-1 col-start-1';
         if (placement === 'right') return 'col-span-1 col-start-2';
         return 'col-span-2';

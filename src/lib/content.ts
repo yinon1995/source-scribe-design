@@ -65,6 +65,7 @@ export type JsonArticle = {
     caption?: string;
     mode?: "column" | "wide";
   }>;
+  allowIndexing?: boolean;
 };
 
 export type PostFrontmatter = {
@@ -107,6 +108,7 @@ export type PostFrontmatter = {
     caption?: string;
     mode?: "column" | "wide";
   }>;
+  allowIndexing?: boolean;
 };
 
 export type Post = PostFrontmatter & {
@@ -380,6 +382,7 @@ const jsonPosts: Post[] = jsonArticles.map((ja) => {
     featured: ja.featured === true,
     bodyFont: normalizeBodyFont(ja.bodyFont),
     journalImages: ja.journalImages,
+    allowIndexing: ja.allowIndexing,
   };
 });
 

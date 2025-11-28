@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { AdminBuilderProps, ArticleBlock, BlockType, TextLayout, Reference, ArticleSettings } from '../types';
-import { Trash2, ArrowUp, ArrowDown, Type, Image as ImageIcon, MessageSquare, Heading, List, X, Upload, GripVertical, AlignLeft, AlignCenter, AlignRight, Plus, Hash, Link as LinkIcon, Quote, BookOpen, LayoutTemplate, AlertCircle, Minus, Bold, Italic, Strikethrough, Loader2, Star, Calendar, Clock } from 'lucide-react';
+import { AdminBuilderProps, ArticleBlock, BlockType, TextLayout, Reference, ArticleSettings, SeoFields } from '../types';
+import { Trash2, ArrowUp, ArrowDown, Type, Image as ImageIcon, MessageSquare, Heading, List, X, Upload, GripVertical, AlignLeft, AlignCenter, AlignRight, Plus, Hash, Link as LinkIcon, Quote, BookOpen, LayoutTemplate, AlertCircle, Minus, Bold, Italic, Strikethrough, Loader2, Star, Calendar, Clock, Globe } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -1241,6 +1241,112 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
   );
 };
 
+const SeoEditor: React.FC<{ settings: ArticleSettings, onChange: (s: ArticleSettings) => void }> = ({ settings, onChange }) => {
+  const seo = settings.seo || { allowIndexing: true };
+
+  const updateSeo = (updates: Partial<SeoFields>) => {
+    onChange({ ...settings, seo: { ...seo, ...updates } });
+  };
+
+  const focusKeywordsString = (seo.focusKeywords || []).join(', ');
+  const internalLinksString = (seo.internalLinks || []).join('\n');
+
+  return (
+    <div className="mt-8 mb-6 bg-white p-5 rounded-md border border-stone-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+      <div className="flex items-center gap-2 mb-4">
+        <Globe size={14} className="text-stone-400" />
+        <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">
+          SEO Panel
+        </label>
+      </div>
+
+      <div className="space-y-4">
+        {/* Meta Title */}
+        <div>
+          <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Meta Title (Optional)</label>
+          <input
+            type="text"
+            value={seo.metaTitle || ''}
+            onChange={(e) => updateSeo({ metaTitle: e.target.value })}
+            className="w-full p-2 border border-stone-200 rounded bg-white text-stone-900 font-sans text-sm focus:border-stone-800 focus:outline-none placeholder:text-stone-300"
+            placeholder="Overrides article title if set"
+          />
+        </div>
+
+        {/* Meta Description */}
+        <div>
+          <div className="flex justify-between mb-1">
+            <label className="block text-[10px] font-bold text-stone-500 uppercase">Meta Description</label>
+            <span className={`text-[10px] font-mono ${seo.metaDescription?.length && seo.metaDescription.length > 160 ? 'text-red-500' : 'text-stone-400'}`}>
+              {(seo.metaDescription || '').length}/160
+            </span>
+          </div>
+          <textarea
+            value={seo.metaDescription || ''}
+            onChange={(e) => updateSeo({ metaDescription: e.target.value })}
+            rows={3}
+            className="w-full p-2 border border-stone-200 rounded bg-white text-stone-900 font-sans text-sm focus:border-stone-800 focus:outline-none placeholder:text-stone-300 resize-none"
+            placeholder="Short summary for search engines (overrides excerpt)"
+          />
+        </div>
+
+        {/* Focus Keywords */}
+        <div>
+          <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Focus Keywords</label>
+          <input
+            type="text"
+            value={focusKeywordsString}
+            onChange={(e) => updateSeo({ focusKeywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+            className="w-full p-2 border border-stone-200 rounded bg-white text-stone-900 font-sans text-sm focus:border-stone-800 focus:outline-none placeholder:text-stone-300"
+            placeholder="comma, separated, keywords"
+          />
+        </div>
+
+        {/* Canonical URL */}
+        <div>
+          <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Canonical URL Override</label>
+          <input
+            type="text"
+            value={seo.canonical || ''}
+            onChange={(e) => updateSeo({ canonical: e.target.value })}
+            className="w-full p-2 border border-stone-200 rounded bg-white text-stone-900 font-sans text-sm focus:border-stone-800 focus:outline-none placeholder:text-stone-300"
+            placeholder="https://..."
+          />
+        </div>
+
+        {/* Internal Links */}
+        <div>
+          <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Internal Links (Notes)</label>
+          <textarea
+            value={internalLinksString}
+            onChange={(e) => updateSeo({ internalLinks: e.target.value.split('\n').filter(Boolean) })}
+            rows={3}
+            className="w-full p-2 border border-stone-200 rounded bg-white text-stone-900 font-sans text-sm focus:border-stone-800 focus:outline-none placeholder:text-stone-300 resize-none"
+            placeholder="One link per line (for reference only)"
+          />
+        </div>
+
+        {/* Indexing Toggle */}
+        <div className="flex items-center justify-between p-3 bg-stone-50 rounded border border-stone-200">
+          <div>
+            <label className="text-sm font-bold text-stone-900 block">Allow Indexing</label>
+            <p className="text-[10px] text-stone-500">If disabled, adds noindex meta tag.</p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={seo.allowIndexing !== false} // default true
+              onChange={(e) => updateSeo({ allowIndexing: e.target.checked })}
+              className="sr-only peer"
+            />
+            <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-stone-900"></div>
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const SortableBlockItem: React.FC<any> = (props) => {
   const {
     attributes,
@@ -1477,6 +1583,8 @@ export const AdminBuilder: React.FC<AdminBuilderProps> = ({
           <p className="text-sm mt-2">Add one from the toolbar above.</p>
         </div>
       )}
+
+      <SeoEditor settings={settings} onChange={setSettings} />
 
       {/* Publish Action Area */}
       <div className="mt-12 pt-6 border-t border-stone-200 flex flex-col items-end gap-2">

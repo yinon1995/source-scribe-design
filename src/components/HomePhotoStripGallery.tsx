@@ -93,12 +93,7 @@ const HomePhotoStripGallery = ({ itemsOverride }: HomePhotoStripGalleryProps = {
                     />
                 </div>
 
-                {/* Hint for mobile */}
-                {items.length > 3 && (
-                    <p className="text-center text-muted-foreground text-sm mt-6">
-                        Faites défiler pour voir plus →
-                    </p>
-                )}
+
             </div>
 
             {/* Lightbox */}

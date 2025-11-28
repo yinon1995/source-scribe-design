@@ -172,6 +172,12 @@ const AdminNew = () => {
         // Optional fields
         excerpt: subtitle,
         sources: payload.references.map(r => `${r.title} — ${r.publisher || ''}`).filter(Boolean),
+        // SEO
+        seoTitle: payload.settings.seo?.metaTitle,
+        seoDescription: payload.settings.seo?.metaDescription,
+        canonicalUrl: payload.settings.seo?.canonical,
+        searchAliases: payload.settings.seo?.focusKeywords, // stored as array
+        allowIndexing: payload.settings.seo?.allowIndexing,
       };
 
       const res = await fetch("/api/publish", {

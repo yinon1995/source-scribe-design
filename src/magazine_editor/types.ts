@@ -32,6 +32,16 @@ export interface ArticleSettings {
     date?: string; // YYYY-MM-DD
     readingMinutes?: number | null;
     category?: "Beauté & cosmétique" | "Commerces & lieux" | "Événementiel";
+    seo?: SeoFields;
+}
+
+export interface SeoFields {
+    metaTitle?: string;
+    metaDescription?: string;
+    focusKeywords?: string[]; // stored as array
+    internalLinks?: string[]; // stored as array
+    canonical?: string;
+    allowIndexing?: boolean; // default true
 }
 
 export interface BlockContent {

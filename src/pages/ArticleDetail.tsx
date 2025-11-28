@@ -26,6 +26,22 @@ const ArticleDetail = () => {
     const previousKeywords = upsertMetaTag("keywords", keywords);
     const previousCanonical = upsertCanonicalLink(canonicalSource);
 
+    // Robots
+    const robotsContent = post.allowIndexing === false ? "noindex, nofollow" : "index, follow";
+    const previousRobots = upsertMetaTag("robots", robotsContent);
+
+    // Open Graph
+    const previousOgTitle = upsertPropertyTag("og:title", metaTitle);
+    const previousOgDesc = upsertPropertyTag("og:description", description);
+    const imageUrl = post.heroImage
+      ? (post.heroImage.startsWith('http') || post.heroImage.startsWith('data:') ? post.heroImage : `${window.location.origin}${post.heroImage}`)
+      : "";
+    const previousOgImage = upsertPropertyTag("og:image", imageUrl);
+    const previousOgUrl = upsertPropertyTag("og:url", canonicalSource);
+
+    // Twitter
+    const previousTwitterCard = upsertMetaTag("twitter:card", "summary_large_image");
+
     document.title = `${metaTitle} | À la Brestoise`;
 
     return () => {
@@ -33,19 +49,26 @@ const ArticleDetail = () => {
       upsertMetaTag("description", previousDescription);
       upsertMetaTag("keywords", previousKeywords);
       upsertCanonicalLink(previousCanonical);
+      upsertMetaTag("robots", previousRobots);
+      upsertPropertyTag("og:title", previousOgTitle);
+      upsertPropertyTag("og:description", previousOgDesc);
+      upsertPropertyTag("og:image", previousOgImage);
+      upsertPropertyTag("og:url", previousOgUrl);
+      upsertMetaTag("twitter:card", previousTwitterCard);
     };
   }, [post]);
 
   // Check for Magazine Editor State
   const magazineState = useMemo(() => {
     if (!post?.body) return null;
-    const match = post.body.match(/^<!-- MAGAZINE_EDITOR_STATE: (.*?) -->/);
+    // Match comment at start of string, allowing for optional whitespace/newlines
+    const match = post.body.match(/^\s*<!-- MAGAZINE_EDITOR_STATE: (.*?) -->/s);
     if (match) {
       try {
         return JSON.parse(match[1]) as {
           blocks: ArticleBlock[];
           references: Reference[];
-          settings?: ArticleSettings; // Settings might be inside or we might need to reconstruct
+          settings?: ArticleSettings;
         };
       } catch (e) {
         console.error("Failed to parse magazine state", e);
@@ -111,6 +134,23 @@ function upsertMetaTag(name: string, content?: string) {
   if (!tag) {
     tag = document.createElement("meta");
     tag.setAttribute("name", name);
+    document.head.appendChild(tag);
+  }
+  const previous = tag.getAttribute("content") ?? undefined;
+  if (content && content.length > 0) {
+    tag.setAttribute("content", content);
+  } else {
+    tag.removeAttribute("content");
+  }
+  return previous;
+}
+
+function upsertPropertyTag(property: string, content?: string) {
+  if (typeof document === "undefined") return content ?? undefined;
+  let tag = document.querySelector(`meta[property="${property}"]`) as HTMLMetaElement | null;
+  if (!tag) {
+    tag = document.createElement("meta");
+    tag.setAttribute("property", property);
     document.head.appendChild(tag);
   }
   const previous = tag.getAttribute("content") ?? undefined;
