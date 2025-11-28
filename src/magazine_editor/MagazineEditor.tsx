@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ArticleBlock, Reference, ArticleSettings } from './types';
 import { AdminBuilder } from './components/AdminBuilder';
 import { PreviewLayoutEditor } from './preview/PreviewLayoutEditor';
-import { Eye, Edit3, ArrowLeft, Loader2 } from 'lucide-react';
+import { Eye, Edit3, ArrowLeft, Loader2, Save } from 'lucide-react';
 
 const DEFAULT_SETTINGS: ArticleSettings = {
     headerEnabled: true,
@@ -31,10 +31,16 @@ interface MagazineEditorProps {
         references: Reference[];
         settings: ArticleSettings;
     }) => Promise<void> | void;
+    onSaveDraft?: (payload: {
+        blocks: ArticleBlock[];
+        tags: string[];
+        references: Reference[];
+        settings: ArticleSettings;
+    }) => Promise<void> | void;
     onBack?: () => void;
 }
 
-export default function MagazineEditor({ initialData, onPublish, onBack }: MagazineEditorProps) {
+export default function MagazineEditor({ initialData, onPublish, onSaveDraft, onBack }: MagazineEditorProps) {
     const hydratedRef = useRef(false);
     const [blocks, setBlocks] = useState<ArticleBlock[]>(initialData?.blocks || []);
     const [tags, setTags] = useState<string[]>(initialData?.tags || []);
@@ -43,6 +49,7 @@ export default function MagazineEditor({ initialData, onPublish, onBack }: Magaz
     const [isPreviewMode, setIsPreviewMode] = useState(false);
     const [showPublishModal, setShowPublishModal] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
+    const [isSavingDraft, setIsSavingDraft] = useState(false);
 
     // Hydration Effect (Runs ONCE)
     useEffect(() => {
@@ -69,6 +76,18 @@ export default function MagazineEditor({ initialData, onPublish, onBack }: Magaz
             console.error("Publish failed", error);
         } finally {
             setIsPublishing(false);
+        }
+    };
+
+    const handleSaveDraftClick = async () => {
+        if (!onSaveDraft) return;
+        setIsSavingDraft(true);
+        try {
+            await onSaveDraft({ blocks, tags, references, settings });
+        } catch (error) {
+            console.error("Draft save failed", error);
+        } finally {
+            setIsSavingDraft(false);
         }
     };
 
@@ -151,6 +170,20 @@ export default function MagazineEditor({ initialData, onPublish, onBack }: Magaz
                             setSettings={setSettings}
                             onRequestPublish={handleRequestPublish}
                         />
+
+                        {/* Draft Button at the bottom */}
+                        {onSaveDraft && (
+                            <div className="max-w-[1000px] mx-auto mt-12 mb-20 flex justify-center">
+                                <button
+                                    onClick={handleSaveDraftClick}
+                                    disabled={isSavingDraft}
+                                    className="flex items-center gap-2 px-6 py-3 bg-white border border-stone-300 text-stone-600 rounded-full shadow-sm hover:bg-stone-50 hover:text-stone-900 hover:border-stone-400 transition-all disabled:opacity-50"
+                                >
+                                    {isSavingDraft ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                                    <span className="font-bold uppercase tracking-wider text-xs">Enregistrer comme brouillon</span>
+                                </button>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <div className="animate-fade-in flex flex-col justify-center items-center pt-4 md:pt-12">
