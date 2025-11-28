@@ -208,8 +208,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ignore
   }
 
-  // GET: List drafts
+  // GET: List drafts or Get specific draft
   if (req.method === "GET") {
+    const slugFromQuery = typeof req.query?.slug === "string" ? String(req.query.slug) : "";
+
+    if (slugFromQuery) {
+      // Get specific draft
+      try {
+        const articlePath = `content/drafts/${slugFromQuery}.json`;
+        const existing = await githubGet(articlePath);
+        if (existing && existing.content) {
+          const decoded = Buffer.from(String(existing.content), "base64").toString("utf8");
+          const parsed = JSON.parse(decoded);
+          respond(res, 200, { success: true, article: parsed });
+        } else {
+          respond(res, 404, { success: false, error: "Brouillon introuvable" });
+        }
+      } catch (e: any) {
+        console.error("[drafts] GET article error", e);
+        respond(res, 500, { success: false, error: e.message });
+      }
+      return;
+    }
+
+    // List drafts
     try {
       const indexPath = `content/drafts/index.json`;
       const existing = await githubGet(indexPath);

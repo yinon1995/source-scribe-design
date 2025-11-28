@@ -11,6 +11,7 @@ const AdminNew = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editSlug = searchParams.get("slug");
+  const source = searchParams.get("source"); // 'draft' or undefined
   const isEditing = !!editSlug;
 
   const [initialData, setInitialData] = useState<{
@@ -31,80 +32,174 @@ const AdminNew = () => {
       return;
     }
 
-    if (isEditing && editSlug) {
-      try {
-        const existing = getPostBySlug(editSlug);
-        if (existing) {
-          // Try to rehydrate editor state from body comment
-          let loadedBlocks: ArticleBlock[] = [];
-          let loadedReferences: Reference[] = [];
-          let loadedSettings: Partial<ArticleSettings> | undefined;
+    const loadContent = async () => {
+      if (isEditing && editSlug) {
+        try {
+          let existing: any = null;
 
-          const stateMatch = existing.body.match(/^<!-- MAGAZINE_EDITOR_STATE: (.*?) -->/);
-          if (stateMatch) {
+          if (source === 'draft') {
+            // Load from Draft API
             try {
-              const state = JSON.parse(stateMatch[1]);
-              if (Array.isArray(state.blocks)) loadedBlocks = state.blocks;
-              if (Array.isArray(state.references)) loadedReferences = state.references;
-              if (state.settings) loadedSettings = state.settings;
+              const res = await fetch(`/api/drafts?slug=${editSlug}`, {
+                headers: { Authorization: `Bearer ${token}` }
+              });
+              if (res.ok) {
+                const data = await res.json();
+                if (data.success && data.article) {
+                  existing = data.article;
+                  toast.info("Brouillon chargé");
+                }
+              }
             } catch (e) {
-              console.error("Failed to parse editor state", e);
+              console.error("Failed to load draft", e);
             }
+          } else {
+            // Load from Published Content
+            existing = getPostBySlug(editSlug);
           }
 
-          setInitialData({
-            blocks: loadedBlocks,
-            tags: Array.isArray(existing.tags) ? existing.tags : [],
-            references: loadedReferences,
-            settings: {
-              ...(loadedSettings || {
-                headerEnabled: true,
-                headerText: 'À la Brestoise',
-                footerEnabled: false,
-                footerText: ''
-              }),
-              // Always override metadata with current frontmatter to ensure consistency
-              featured: (existing as any).featured || false,
-              date: existing.date ? new Date(existing.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-              readingMinutes: existing.readingMinutes || null,
-              category: (existing.category as any) || "Commerces & lieux",
+          if (existing) {
+            // Try to rehydrate editor state from body comment
+            let loadedBlocks: ArticleBlock[] = [];
+            let loadedReferences: Reference[] = [];
+            let loadedSettings: Partial<ArticleSettings> | undefined;
+
+            const stateMatch = existing.body.match(/^<!-- MAGAZINE_EDITOR_STATE: (.*?) -->/);
+            if (stateMatch) {
+              try {
+                const state = JSON.parse(stateMatch[1]);
+                if (Array.isArray(state.blocks)) loadedBlocks = state.blocks;
+                if (Array.isArray(state.references)) loadedReferences = state.references;
+                if (state.settings) loadedSettings = state.settings;
+              } catch (e) {
+                console.error("Failed to parse editor state", e);
+              }
             }
-          });
-          toast.info("Article chargé - utilisez le nouvel éditeur pour le modifier");
-        } else {
-          toast.warning(`Article "${editSlug}" introuvable`);
-          setInitialData({
-            blocks: [],
-            tags: [],
-            references: [],
-            settings: {}
-          });
+
+            setInitialData({
+              blocks: loadedBlocks,
+              tags: Array.isArray(existing.tags) ? existing.tags : [],
+              references: loadedReferences,
+              settings: {
+                ...(loadedSettings || {
+                  headerEnabled: true,
+                  headerText: 'À la Brestoise',
+                  footerEnabled: false,
+                  footerText: ''
+                }),
+                // Always override metadata with current frontmatter to ensure consistency
+                featured: (existing as any).featured || false,
+                date: existing.date ? new Date(existing.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                readingMinutes: existing.readingMinutes || null,
+                category: (existing.category as any) || "Commerces & lieux",
+              }
+            });
+            if (source !== 'draft') {
+              toast.info("Article chargé - utilisez le nouvel éditeur pour le modifier");
+            }
+          } else {
+            toast.warning(`Article "${editSlug}" introuvable`);
+            setInitialData({
+              blocks: [],
+              tags: [],
+              references: [],
+              settings: {}
+            });
+          }
+        } catch (error) {
+          console.error("Erreur lors du chargement de l'article:", error);
+          toast.error("Impossible de charger l'article");
         }
-      } catch (error) {
-        console.error("Erreur lors du chargement de l'article:", error);
-        toast.error("Impossible de charger l'article");
+      } else {
+        // New article
+        setInitialData({
+          blocks: [],
+          tags: [],
+          references: [],
+          settings: {
+            headerEnabled: true,
+            headerText: 'À la Brestoise',
+            footerEnabled: false,
+            // Metadata defaults for new article
+            featured: false,
+            date: new Date().toISOString().split('T')[0],
+            readingMinutes: null,
+            category: "Commerces & lieux",
+          }
+        });
       }
-    } else {
-      // New article
-      setInitialData({
-        blocks: [],
-        tags: [],
-        references: [],
-        settings: {
-          headerEnabled: true,
-          headerText: 'À la Brestoise',
-          footerEnabled: false,
-          // Metadata defaults for new article
-          featured: false,
-          date: new Date().toISOString().split('T')[0],
-          readingMinutes: null,
-          category: "Commerces & lieux",
-        }
-      });
+      setLoading(false);
+    };
+
+    loadContent();
+  }, [editSlug, isEditing, navigate, source]);
+
+  const preparePayload = (payload: {
+    blocks: ArticleBlock[];
+    tags: string[];
+    references: Reference[];
+    settings: ArticleSettings;
+  }) => {
+    // Convert magazine editor format to site's JsonArticle format
+    // Extract title from first title block
+    const titleBlock = payload.blocks.find(b => b.type === 'title');
+    const title = titleBlock?.content.title || 'Untitled';
+    const subtitle = titleBlock?.content.subtitle || '';
+
+    // Generate slug from title
+    const slug = title
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)+/g, "");
+
+    // Compile blocks to markdown body
+    let body = compileBlocksToMarkdown(payload.blocks);
+
+    // Embed editor state for rehydration
+    const editorState = {
+      blocks: payload.blocks,
+      references: payload.references,
+      settings: payload.settings
+    };
+    // Prepend hidden comment
+    body = `<!-- MAGAZINE_EDITOR_STATE: ${JSON.stringify(editorState)} -->\n\n${body}`;
+
+    // Use metadata reading time if provided, otherwise estimate from body
+    let readingMinutes = payload.settings.readingMinutes;
+    if (!readingMinutes) {
+      const words = body
+        .replace(/[`*_#>!\[\]\(\)`~\-]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .split(" ")
+        .filter(Boolean).length;
+      readingMinutes = Math.max(1, Math.round(words / 200));
     }
 
-    setLoading(false);
-  }, [editSlug, isEditing, navigate]);
+    return {
+      title,
+      slug,
+      category: payload.settings.category || "Commerces & lieux",
+      tags: payload.tags,
+      body,
+      author: "À la Brestoise",
+      date: payload.settings.date || new Date().toISOString().split('T')[0],
+      readingMinutes,
+      // Metadata
+      featured: payload.settings.featured || false,
+      // Optional fields
+      excerpt: subtitle,
+      sources: payload.references.map(r => `${r.title} — ${r.publisher || ''}`).filter(Boolean),
+      // SEO
+      seoTitle: payload.settings.seo?.metaTitle,
+      seoDescription: payload.settings.seo?.metaDescription,
+      canonicalUrl: payload.settings.seo?.canonical,
+      searchAliases: payload.settings.seo?.focusKeywords, // stored as array
+      allowIndexing: payload.settings.seo?.allowIndexing,
+    };
+  };
 
   const handlePublish = async (payload: {
     blocks: ArticleBlock[];
@@ -120,65 +215,7 @@ const AdminNew = () => {
     }
 
     try {
-      // Convert magazine editor format to site's JsonArticle format
-      // Extract title from first title block
-      const titleBlock = payload.blocks.find(b => b.type === 'title');
-      const title = titleBlock?.content.title || 'Untitled';
-      const subtitle = titleBlock?.content.subtitle || '';
-
-      // Generate slug from title
-      const slug = title
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/\p{Diacritic}/gu, "")
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)+/g, "");
-
-      // Compile blocks to markdown body
-      let body = compileBlocksToMarkdown(payload.blocks);
-
-      // Embed editor state for rehydration
-      const editorState = {
-        blocks: payload.blocks,
-        references: payload.references,
-        settings: payload.settings
-      };
-      // Prepend hidden comment
-      body = `<!-- MAGAZINE_EDITOR_STATE: ${JSON.stringify(editorState)} -->\n\n${body}`;
-
-      // Use metadata reading time if provided, otherwise estimate from body
-      let readingMinutes = payload.settings.readingMinutes;
-      if (!readingMinutes) {
-        const words = body
-          .replace(/[`*_#>!\[\]\(\)`~\-]/g, " ")
-          .replace(/\s+/g, " ")
-          .trim()
-          .split(" ")
-          .filter(Boolean).length;
-        readingMinutes = Math.max(1, Math.round(words / 200));
-      }
-
-      const articlePayload = {
-        title,
-        slug,
-        category: payload.settings.category || "Commerces & lieux",
-        tags: payload.tags,
-        body,
-        author: "À la Brestoise",
-        date: payload.settings.date || new Date().toISOString().split('T')[0],
-        readingMinutes,
-        // Metadata
-        featured: payload.settings.featured || false,
-        // Optional fields
-        excerpt: subtitle,
-        sources: payload.references.map(r => `${r.title} — ${r.publisher || ''}`).filter(Boolean),
-        // SEO
-        seoTitle: payload.settings.seo?.metaTitle,
-        seoDescription: payload.settings.seo?.metaDescription,
-        canonicalUrl: payload.settings.seo?.canonical,
-        searchAliases: payload.settings.seo?.focusKeywords, // stored as array
-        allowIndexing: payload.settings.seo?.allowIndexing,
-      };
+      const articlePayload = preparePayload(payload);
 
       const res = await fetch("/api/publish", {
         method: "POST",
@@ -207,11 +244,9 @@ const AdminNew = () => {
 
       if (!res.ok || !responseBody?.success) {
         let message = responseBody?.error || "Publication impossible";
-
         // Add detailed error information
         const details: string[] = [];
         details.push(`HTTP ${res.status}`);
-
         if (responseBody?.fieldErrors) {
           const fieldErr = Object.entries(responseBody.fieldErrors)
             .map(([field, msg]) => `${field}: ${msg}`)
@@ -220,14 +255,24 @@ const AdminNew = () => {
         } else if (responseBody?.details?.message) {
           details.push(responseBody.details.message);
         }
-
         if (details.length > 0) {
           message += `\n${details.join(" — ")}`;
         }
-
         toast.error(message);
         console.error("[admin] Publication échouée", res.status, responseBody);
         return;
+      }
+
+      // If published successfully, delete the draft if it existed
+      if (source === 'draft') {
+        try {
+          await fetch(`/api/drafts?slug=${editSlug}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` }
+          });
+        } catch (e) {
+          console.error("Failed to cleanup draft after publish", e);
+        }
       }
 
       toast.success("Article publié avec succès !");
@@ -235,6 +280,50 @@ const AdminNew = () => {
     } catch (error: any) {
       toast.error("Erreur réseau — réessayez.");
       console.error("[admin] Erreur réseau publication", error);
+    }
+  };
+
+  const handleSaveDraft = async (payload: {
+    blocks: ArticleBlock[];
+    tags: string[];
+    references: Reference[];
+    settings: ArticleSettings;
+  }) => {
+    const token = getAdminToken();
+    if (!token) {
+      toast.error("Session administrateur expirée");
+      return;
+    }
+
+    try {
+      const articlePayload = preparePayload(payload);
+
+      // Validate minimal requirements for draft
+      if (!articlePayload.title) {
+        toast.error("Le titre est obligatoire pour enregistrer un brouillon.");
+        return;
+      }
+
+      const res = await fetch("/api/drafts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(articlePayload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(`Erreur: ${err.error || "Impossible d'enregistrer le brouillon"}`);
+        return;
+      }
+
+      toast.success("Brouillon enregistré");
+
+    } catch (error) {
+      console.error("Draft save error", error);
+      toast.error("Erreur réseau lors de la sauvegarde du brouillon");
     }
   };
 
@@ -255,6 +344,7 @@ const AdminNew = () => {
         <MagazineEditor
           initialData={initialData}
           onPublish={handlePublish}
+          onSaveDraft={handleSaveDraft}
           onBack={() => navigate("/admin")}
         />
       )}
