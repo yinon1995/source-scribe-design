@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Search, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { site } from "@/lib/siteContent";
 const Navigation = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [open, setOpen] = useState(false);
 
   function handleSearchClick() {
     const currentSearch = searchParams.get("search") ?? "";
@@ -68,7 +70,7 @@ const Navigation = () => {
           </div>
 
           {/* Mobile Navigation */}
-          <Sheet>
+          <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild className="md:hidden">
               <Button variant="ghost" size="icon">
                 <Menu className="h-5 w-5" />
@@ -76,26 +78,28 @@ const Navigation = () => {
             </SheetTrigger>
             <SheetContent side="right" className="w-[300px] sm:w-[400px]">
               <nav className="flex flex-col gap-4 mt-8">
-                <Link to="/" className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2">
+                <Link to="/" onClick={() => setOpen(false)} className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2">
                   {site.nav.accueil}
                 </Link>
-                <Link to="/articles" className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2">
+                <Link to="/articles" onClick={() => setOpen(false)} className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2">
                   {site.nav.articles}
                 </Link>
-                <Link to="/a-propos" className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2">
+                <Link to="/a-propos" onClick={() => setOpen(false)} className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2">
                   {site.nav.aPropos}
                 </Link>
-                <Link to="/services" className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2">
+                <Link to="/services" onClick={() => setOpen(false)} className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2">
                   {site.nav.services}
                 </Link>
                 <Link
                   to="/avis"
+                  onClick={() => setOpen(false)}
                   className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2"
                 >
                   {site.nav.avis}
                 </Link>
                 <Link
                   to="/contact"
+                  onClick={() => setOpen(false)}
                   className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2"
                 >
                   {site.nav.contact}
