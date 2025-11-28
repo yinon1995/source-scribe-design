@@ -520,9 +520,9 @@ export const PreviewLayoutEditor: React.FC<PreviewLayoutEditorProps> = ({
                         if (!hasLeft && !hasRight) return null;
 
                         return (
-                            <div key={`section-${sIdx}`} className="flex gap-x-8">
+                            <div key={`section-${sIdx}`} className="flex flex-col md:flex-row gap-y-8 md:gap-y-0 md:gap-x-8">
                                 {/* Left Column */}
-                                <div className="w-0 flex-1 flex flex-col gap-y-8">
+                                <div className="w-full md:w-0 flex-1 flex flex-col gap-y-8">
                                     {section.left.map(block => (
                                         <BlockWrapper
                                             key={block.id}
@@ -541,7 +541,7 @@ export const PreviewLayoutEditor: React.FC<PreviewLayoutEditorProps> = ({
                                 </div>
 
                                 {/* Right Column */}
-                                <div className="w-0 flex-1 flex flex-col gap-y-8">
+                                <div className="w-full md:w-0 flex-1 flex flex-col gap-y-8">
                                     {section.right.map(block => (
                                         <BlockWrapper
                                             key={block.id}
