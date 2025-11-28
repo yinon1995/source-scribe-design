@@ -58,6 +58,7 @@ export interface BlockContent {
     dropCap?: boolean;
     heading?: string;
     textLayout?: TextLayout; // Legacy alias for layout
+    textAlign?: "left" | "right" | "center" | "justify";
 
     // Image Block specific
     imageUrl?: string;

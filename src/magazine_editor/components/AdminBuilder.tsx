@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AdminBuilderProps, ArticleBlock, BlockType, TextLayout, Reference, ArticleSettings, SeoFields } from '../types';
-import { Trash2, ArrowUp, ArrowDown, Type, Image as ImageIcon, MessageSquare, Heading, List, X, Upload, GripVertical, AlignLeft, AlignCenter, AlignRight, Plus, Hash, Link as LinkIcon, Quote, BookOpen, LayoutTemplate, AlertCircle, Minus, Bold, Italic, Strikethrough, Loader2, Star, Calendar, Clock, Globe } from 'lucide-react';
+import { Trash2, ArrowUp, ArrowDown, Type, Image as ImageIcon, MessageSquare, Heading, List, X, Upload, GripVertical, AlignLeft, AlignCenter, AlignRight, AlignJustify, Plus, Hash, Link as LinkIcon, Quote, BookOpen, LayoutTemplate, AlertCircle, Minus, Bold, Italic, Strikethrough, Loader2, Star, Calendar, Clock, Globe } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -731,6 +731,45 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                   title="Strikethrough (Selection)"
                 >
                   <Strikethrough size={14} />
+                </button>
+
+                <div className="w-px h-4 bg-stone-300 mx-1"></div>
+
+                <button
+                  type="button"
+                  onClick={() => updateBlock(block.id, { textAlign: 'left' })}
+                  onPointerDownCapture={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                  className={`p-1.5 hover:bg-white hover:text-stone-900 rounded-sm transition-colors ${block.content.textAlign === 'left' ? 'text-stone-900 bg-white shadow-sm' : 'text-stone-600'}`}
+                  title="Align Left"
+                >
+                  <AlignLeft size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateBlock(block.id, { textAlign: 'center' })}
+                  onPointerDownCapture={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                  className={`p-1.5 hover:bg-white hover:text-stone-900 rounded-sm transition-colors ${block.content.textAlign === 'center' ? 'text-stone-900 bg-white shadow-sm' : 'text-stone-600'}`}
+                  title="Align Center"
+                >
+                  <AlignCenter size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateBlock(block.id, { textAlign: 'right' })}
+                  onPointerDownCapture={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                  className={`p-1.5 hover:bg-white hover:text-stone-900 rounded-sm transition-colors ${block.content.textAlign === 'right' ? 'text-stone-900 bg-white shadow-sm' : 'text-stone-600'}`}
+                  title="Align Right"
+                >
+                  <AlignRight size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateBlock(block.id, { textAlign: 'justify' })}
+                  onPointerDownCapture={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                  className={`p-1.5 hover:bg-white hover:text-stone-900 rounded-sm transition-colors ${block.content.textAlign === 'justify' ? 'text-stone-900 bg-white shadow-sm' : 'text-stone-600'}`}
+                  title="Justify"
+                >
+                  <AlignJustify size={14} />
                 </button>
 
                 <div className="w-px h-4 bg-stone-300 mx-1"></div>

@@ -28,41 +28,41 @@ interface BlockRendererProps {
 
 // Helper to split content into paragraphs and lists
 const parseTextBlocks = (text: string) => {
-    const lines = text.split('\n');
-    const result: { type: 'p' | 'ul', content: string[] }[] = [];
-    
-    let currentList: string[] = [];
-    let currentPara: string[] = [];
-    
-    const flushPara = () => {
-        if (currentPara.length) {
-            result.push({ type: 'p', content: [...currentPara] });
-            currentPara = [];
-        }
-    };
-    
-    const flushList = () => {
-        if (currentList.length) {
-            result.push({ type: 'ul', content: [...currentList] });
-            currentList = [];
-        }
-    };
-    
-    lines.forEach(line => {
-        const isList = /^\s*[-*•]\s/.test(line);
-        if (isList) {
-            flushPara();
-            currentList.push(line.replace(/^\s*[-*•]\s/, ''));
-        } else {
-            flushList();
-            currentPara.push(line);
-        }
-    });
-    
-    flushPara();
-    flushList();
-    
-    return result;
+  const lines = text.split('\n');
+  const result: { type: 'p' | 'ul', content: string[] }[] = [];
+
+  let currentList: string[] = [];
+  let currentPara: string[] = [];
+
+  const flushPara = () => {
+    if (currentPara.length) {
+      result.push({ type: 'p', content: [...currentPara] });
+      currentPara = [];
+    }
+  };
+
+  const flushList = () => {
+    if (currentList.length) {
+      result.push({ type: 'ul', content: [...currentList] });
+      currentList = [];
+    }
+  };
+
+  lines.forEach(line => {
+    const isList = /^\s*[-*•]\s/.test(line);
+    if (isList) {
+      flushPara();
+      currentList.push(line.replace(/^\s*[-*•]\s/, ''));
+    } else {
+      flushList();
+      currentPara.push(line);
+    }
+  });
+
+  flushPara();
+  flushList();
+
+  return result;
 };
 
 // Renders individual blocks. 
@@ -98,17 +98,17 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({ block, className, renderT
 
       return (
         <div className={`${wrapperClass} flex flex-col`}>
-          <figure 
+          <figure
             className={`relative block transition-[width] duration-300 ease-out ${alignSelfClass}`}
             style={{ width: `min(100%, ${widthPercent}%)` }}
           >
             <div className="w-full overflow-hidden rounded-sm bg-stone-100">
-               <img 
-                 src={content.imageUrl} 
-                 alt={content.caption || 'Article image'}
-                 className="w-full h-auto block"
-                 loading="lazy"
-               /> 
+              <img
+                src={content.imageUrl}
+                alt={content.caption || 'Article image'}
+                className="w-full h-auto block"
+                loading="lazy"
+              />
             </div>
             {content.caption && (
               <figcaption className={`${TEXT_STYLES.caption} w-full`}>
@@ -124,13 +124,13 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({ block, className, renderT
       // Otherwise calculate based on text layout preference.
       let textGridClass = className;
       if (!textGridClass) {
-         // Fallback logic for standalone text blocks
-         const activeLayout = content.layout || content.textLayout || 'two_thirds';
-         // DEBUG: Log layout to trace
-         console.log("TEXT_LAYOUT_RENDER", block.id, activeLayout);
-         textGridClass = getGridColumnClass(activeLayout);
+        // Fallback logic for standalone text blocks
+        const activeLayout = content.layout || content.textLayout || 'two_thirds';
+        // DEBUG: Log layout to trace
+        console.log("TEXT_LAYOUT_RENDER", block.id, activeLayout);
+        textGridClass = getGridColumnClass(activeLayout);
       }
-      
+
       const parsedBlocks = parseTextBlocks(content.text || '');
 
       return (
@@ -138,27 +138,27 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({ block, className, renderT
           {content.heading && (
             <h2 className={TEXT_STYLES.h2}>{content.heading}</h2>
           )}
-          <div className={`${TEXT_STYLES.body}`}>
+          <div className={`${TEXT_STYLES.body}`} style={{ textAlign: content.textAlign }}>
             {parsedBlocks.map((b, i) => {
-               if (b.type === 'ul') {
-                   return (
-                       <ul key={i} className="mt-4 mb-4 pl-6 list-disc space-y-2">
-                          {b.content.map((item, k) => (
-                             <li key={k} className="text-stone-700 leading-relaxed marker:text-stone-400">
-                                {renderText ? renderText(item) : item}
-                             </li>
-                          ))}
-                       </ul>
-                   );
-               } else {
-                   const textContent = b.content.join('\n');
-                   const isFirstBlock = i === 0;
-                   return (
-                     <p key={i} className={isFirstBlock && content.dropCap ? 'first-letter:text-6xl first-letter:font-serif first-letter:font-medium first-letter:float-left first-letter:mr-3 first-letter:mt-[-4px] first-letter:text-stone-900' : ''}>
-                       {renderText ? renderText(textContent) : textContent}
-                     </p>
-                   );
-               }
+              if (b.type === 'ul') {
+                return (
+                  <ul key={i} className="mt-4 mb-4 pl-6 list-disc space-y-2">
+                    {b.content.map((item, k) => (
+                      <li key={k} className="text-stone-700 leading-relaxed marker:text-stone-400">
+                        {renderText ? renderText(item) : item}
+                      </li>
+                    ))}
+                  </ul>
+                );
+              } else {
+                const textContent = b.content.join('\n');
+                const isFirstBlock = i === 0;
+                return (
+                  <p key={i} className={isFirstBlock && content.dropCap ? 'first-letter:text-6xl first-letter:font-serif first-letter:font-medium first-letter:float-left first-letter:mr-3 first-letter:mt-[-4px] first-letter:text-stone-900' : ''}>
+                    {renderText ? renderText(textContent) : textContent}
+                  </p>
+                );
+              }
             })}
           </div>
         </div>
@@ -202,17 +202,17 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({ block, className, renderT
     case 'divider':
       const style = content.dividerStyle || 'thin';
       const width = content.dividerWidth || 'content';
-      
+
       let borderClass = 'bg-stone-200 h-px';
       if (style === 'bold') borderClass = 'bg-stone-300 h-[2px]';
       if (style === 'dashed') borderClass = 'bg-transparent border-t border-dashed border-stone-300 h-px';
-      
+
       const wrapperClassDiv = className || 'col-span-1 md:col-span-12';
       const innerWidthClass = width === 'content' ? 'w-[min(680px,100%)] mx-auto' : 'w-full';
-      
+
       return (
         <div className={`${wrapperClassDiv} py-8 flex items-center justify-center`}>
-           <div className={`${innerWidthClass} ${borderClass}`}></div>
+          <div className={`${innerWidthClass} ${borderClass}`}></div>
         </div>
       );
 
@@ -232,7 +232,7 @@ const FlowSection: React.FC<FlowSectionProps> = ({ direction, textBlocks, imgBlo
   // CONFIGURATION
   // Left Flow: Rail (5) | Text (7)
   // Right Flow: Text (7) | Rail (5)
-  
+
   // FIX: Let Text Block layout preference override the default direction derived from the image.
   const textPreference = textBlocks.find(b => {
     const l = b.content.layout || b.content.textLayout;
@@ -244,11 +244,11 @@ const FlowSection: React.FC<FlowSectionProps> = ({ direction, textBlocks, imgBlo
   if (textPreference) {
     const layout = textPreference.content.layout || textPreference.content.textLayout;
     if (layout === 'left_third') {
-       // User wants Text on LEFT. In this component, Text Left = Image Right = direction 'right'
-       effectiveDirection = 'right';
+      // User wants Text on LEFT. In this component, Text Left = Image Right = direction 'right'
+      effectiveDirection = 'right';
     } else if (layout === 'right_third') {
-       // User wants Text on RIGHT. In this component, Text Right = Image Left = direction 'left'
-       effectiveDirection = 'left';
+      // User wants Text on RIGHT. In this component, Text Right = Image Left = direction 'left'
+      effectiveDirection = 'left';
     }
   }
 
@@ -302,7 +302,7 @@ const FlowSection: React.FC<FlowSectionProps> = ({ direction, textBlocks, imgBlo
 const TOKEN_REGEX = /(\[[^\]]+\]\([^)]+\))|(\[\^[a-zA-Z0-9_-]+\])|(\*\*(?!\s)[\s\S]+?\*\*)|(\*(?!\s)[\s\S]+?\*)|(~~(?!\s)[\s\S]+?~~)/g;
 
 export const ArticleRenderer: React.FC<ArticleRendererProps> = ({ blocks, tags, references, settings }) => {
-  
+
   // 1. Calculate Citation Order based on occurrence in text blocks
   const citationOrder = React.useMemo(() => {
     if (!references || references.length === 0) return new Map<string, number>();
@@ -331,79 +331,79 @@ export const ArticleRenderer: React.FC<ArticleRendererProps> = ({ blocks, tags, 
   // 2. Render Text Helper
   const renderRichText = (text: string) => {
     if (!text) return null;
-    
+
     // Iterate manually via matchAll to avoid split capturing group issues
     const elements: React.ReactNode[] = [];
     let lastIndex = 0;
-    
+
     const matches = [...text.matchAll(TOKEN_REGEX)];
-    
+
     matches.forEach((match, i) => {
-        const fullMatch = match[0];
-        const linkMatch = match[1]; // [text](url)
-        const citeMatch = match[2]; // [^id]
-        const boldMatch = match[3]; // **text**
-        const italicMatch = match[4]; // *text*
-        const strikeMatch = match[5]; // ~~text~~
-        
-        // Push text before match
-        if (match.index! > lastIndex) {
-            elements.push(text.substring(lastIndex, match.index));
+      const fullMatch = match[0];
+      const linkMatch = match[1]; // [text](url)
+      const citeMatch = match[2]; // [^id]
+      const boldMatch = match[3]; // **text**
+      const italicMatch = match[4]; // *text*
+      const strikeMatch = match[5]; // ~~text~~
+
+      // Push text before match
+      if (match.index! > lastIndex) {
+        elements.push(text.substring(lastIndex, match.index));
+      }
+
+      if (linkMatch) {
+        // Parse [text](url)
+        const linkParts = linkMatch.match(/\[([^\]]+)\]\(([^)]+)\)/);
+        if (linkParts) {
+          elements.push(
+            <a key={`link-${i}`} href={linkParts[2]} target="_blank" rel="noopener noreferrer" className="text-stone-900 border-b border-stone-300 hover:border-stone-900 transition-colors cursor-pointer">
+              {linkParts[1]}
+            </a>
+          );
+        } else {
+          elements.push(fullMatch);
         }
-        
-        if (linkMatch) {
-            // Parse [text](url)
-            const linkParts = linkMatch.match(/\[([^\]]+)\]\(([^)]+)\)/);
-            if (linkParts) {
-                elements.push(
-                    <a key={`link-${i}`} href={linkParts[2]} target="_blank" rel="noopener noreferrer" className="text-stone-900 border-b border-stone-300 hover:border-stone-900 transition-colors cursor-pointer">
-                        {linkParts[1]}
-                    </a>
-                );
-            } else {
-                elements.push(fullMatch);
-            }
-        } else if (citeMatch) {
-            // Parse [^id]
-            const id = citeMatch.replace('[^', '').replace(']', '');
-            const number = citationOrder.get(id);
-            if (number) {
-                elements.push(
-                    <sup key={`cite-${i}`} className="inline-block ml-0.5 -top-0.5 leading-none">
-                        <a 
-                          href={`#ref-${id}`} 
-                          id={`cite-${id}`} // Anchor for back-linking
-                          className="text-[10px] font-bold text-stone-500 hover:text-stone-900 transition-colors bg-stone-100 px-0.5 rounded-sm"
-                        >
-                            {number}
-                        </a>
-                    </sup>
-                );
-            } else {
-                 elements.push(fullMatch); // Invalid citation
-            }
-        } else if (boldMatch) {
-            elements.push(<strong key={`b-${i}`} className="font-bold text-stone-900">{boldMatch.slice(2, -2)}</strong>);
-        } else if (italicMatch) {
-            elements.push(<em key={`i-${i}`} className="italic">{italicMatch.slice(1, -1)}</em>);
-        } else if (strikeMatch) {
-            elements.push(<del key={`s-${i}`} className="line-through decoration-stone-400 decoration-1 opacity-70">{strikeMatch.slice(2, -2)}</del>);
+      } else if (citeMatch) {
+        // Parse [^id]
+        const id = citeMatch.replace('[^', '').replace(']', '');
+        const number = citationOrder.get(id);
+        if (number) {
+          elements.push(
+            <sup key={`cite-${i}`} className="inline-block ml-0.5 -top-0.5 leading-none">
+              <a
+                href={`#ref-${id}`}
+                id={`cite-${id}`} // Anchor for back-linking
+                className="text-[10px] font-bold text-stone-500 hover:text-stone-900 transition-colors bg-stone-100 px-0.5 rounded-sm"
+              >
+                {number}
+              </a>
+            </sup>
+          );
+        } else {
+          elements.push(fullMatch); // Invalid citation
         }
-        
-        lastIndex = match.index! + fullMatch.length;
+      } else if (boldMatch) {
+        elements.push(<strong key={`b-${i}`} className="font-bold text-stone-900">{boldMatch.slice(2, -2)}</strong>);
+      } else if (italicMatch) {
+        elements.push(<em key={`i-${i}`} className="italic">{italicMatch.slice(1, -1)}</em>);
+      } else if (strikeMatch) {
+        elements.push(<del key={`s-${i}`} className="line-through decoration-stone-400 decoration-1 opacity-70">{strikeMatch.slice(2, -2)}</del>);
+      }
+
+      lastIndex = match.index! + fullMatch.length;
     });
-    
+
     // Push remaining text
     if (lastIndex < text.length) {
-        elements.push(text.substring(lastIndex));
+      elements.push(text.substring(lastIndex));
     }
-    
+
     return elements;
   };
 
   const renderSections = () => {
     const rendered = [];
-    
+
     // Grouping Logic
     let currentRun: ArticleBlock[] = [];
     let currentRunDirection: 'left' | 'right' | null = null;
@@ -412,11 +412,11 @@ export const ArticleRenderer: React.FC<ArticleRendererProps> = ({ blocks, tags, 
       if (currentRun.length === 0) return;
 
       const flowImages = currentRun.filter(b => b.type === 'image');
-      
+
       if (flowImages.length > 0 && currentRunDirection) {
         // Render as Flow Section
         rendered.push(
-          <FlowSection 
+          <FlowSection
             key={`flow-${currentRun[0].id}`}
             direction={currentRunDirection}
             textBlocks={currentRun.filter(b => b.type === 'text')}
@@ -440,7 +440,7 @@ export const ArticleRenderer: React.FC<ArticleRendererProps> = ({ blocks, tags, 
       const isText = block.type === 'text';
       const isImage = block.type === 'image';
       const pos = block.content.position || 'center';
-      
+
       const isSideImage = isImage && (pos === 'left' || pos === 'right');
 
       if (isText || isSideImage) {
@@ -463,95 +463,95 @@ export const ArticleRenderer: React.FC<ArticleRendererProps> = ({ blocks, tags, 
         rendered.push(<BlockRenderer key={block.id} block={block} renderText={renderRichText} />);
       }
     }
-    
+
     flushRun();
 
     return rendered;
   };
 
   const getOrderedReferences = () => {
-      if (citationOrder.size === 0) return [];
-      const ordered: { number: number; ref: any }[] = [];
-      citationOrder.forEach((num, id) => {
-          const refDef = references?.find(r => r.id === id);
-          if (refDef) {
-              ordered.push({ number: num, ref: refDef });
-          }
-      });
-      return ordered.sort((a, b) => a.number - b.number);
+    if (citationOrder.size === 0) return [];
+    const ordered: { number: number; ref: any }[] = [];
+    citationOrder.forEach((num, id) => {
+      const refDef = references?.find(r => r.id === id);
+      if (refDef) {
+        ordered.push({ number: num, ref: refDef });
+      }
+    });
+    return ordered.sort((a, b) => a.number - b.number);
   };
-  
+
   const orderedRefs = getOrderedReferences();
 
   return (
     <article lang="en" className="relative w-full max-w-[1200px] mx-auto bg-[#fcfbf9] p-6 md:p-12 lg:p-16 pb-24 md:pb-32 shadow-[0_10px_40px_rgba(0,0,0,0.08)] border border-stone-200/60 min-h-[90vh]">
-       {/* Grain Texture Overlay */}
-       <div className="absolute inset-0 pointer-events-none opacity-[0.03] z-0 mix-blend-multiply" 
-            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}>
-       </div>
+      {/* Grain Texture Overlay */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.03] z-0 mix-blend-multiply"
+        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}>
+      </div>
 
-       {/* Article Header (Calligraphy) */}
-       {settings?.headerEnabled && settings.headerText && (
-         <header className="relative z-10 text-center mb-12 pb-6 border-b border-stone-200/60">
-           <span className="font-calligraphy text-4xl md:text-5xl text-stone-900 leading-tight">
-             {settings.headerText}
-           </span>
-         </header>
-       )}
+      {/* Article Header (Calligraphy) */}
+      {settings?.headerEnabled && settings.headerText && (
+        <header className="relative z-10 text-center mb-12 pb-6 border-b border-stone-200/60">
+          <span className="font-calligraphy text-4xl md:text-5xl text-stone-900 leading-tight">
+            {settings.headerText}
+          </span>
+        </header>
+      )}
 
-       {/* Article Hashtags / Metadata */}
-       {tags && tags.length > 0 && (
-          <div className="relative z-10 flex flex-wrap justify-center gap-3 mb-12 mt-2">
-            {tags.map(tag => (
-              <span key={tag} className="font-sans text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-stone-400">
-                #{tag}
-              </span>
-            ))}
-          </div>
-       )}
+      {/* Article Hashtags / Metadata */}
+      {tags && tags.length > 0 && (
+        <div className="relative z-10 flex flex-wrap justify-center gap-3 mb-12 mt-2">
+          {tags.map(tag => (
+            <span key={tag} className="font-sans text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-stone-400">
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Main Grid Container */}
       <div className="relative z-10 grid grid-cols-1 md:grid-cols-4 lg:grid-cols-12 gap-y-10 lg:gap-y-12 lg:gap-x-8 items-start">
         {renderSections()}
-        
+
         {/* References Footer */}
         {orderedRefs.length > 0 && (
-            <div className="col-span-1 md:col-span-12 lg:col-span-7 lg:col-start-1 mt-16 pt-8 border-t border-stone-200">
-                <h3 className={TEXT_STYLES.h3}>References</h3>
-                <div className="mt-4 space-y-3">
-                    {orderedRefs.map(({ number, ref }) => (
-                        <div key={ref.id} id={`ref-${ref.id}`} className="flex gap-3 text-sm font-sans text-stone-600">
-                            <span className="font-bold text-stone-400 select-none min-w-[20px]">{number}.</span>
-                            <div className="flex-1">
-                                <span className="font-bold text-stone-800">{ref.title}</span>. 
-                                {ref.publisher && <span className="text-stone-500 italic"> {ref.publisher}</span>}
-                                {ref.date && <span className="text-stone-500">, {ref.date}</span>}.
-                                {ref.url && (
-                                    <a href={ref.url} target="_blank" rel="noopener noreferrer" className="ml-1 text-stone-400 hover:text-stone-900 underline decoration-stone-300">
-                                        Link
-                                    </a>
-                                )}
-                                {/* Back link jumps to the FIRST occurrence anchor */}
-                                <a href={`#cite-${ref.id}`} className="ml-2 text-stone-300 hover:text-blue-500 no-underline" title="Back to citation">
-                                    ↩
-                                </a>
-                            </div>
-                        </div>
-                    ))}
+          <div className="col-span-1 md:col-span-12 lg:col-span-7 lg:col-start-1 mt-16 pt-8 border-t border-stone-200">
+            <h3 className={TEXT_STYLES.h3}>References</h3>
+            <div className="mt-4 space-y-3">
+              {orderedRefs.map(({ number, ref }) => (
+                <div key={ref.id} id={`ref-${ref.id}`} className="flex gap-3 text-sm font-sans text-stone-600">
+                  <span className="font-bold text-stone-400 select-none min-w-[20px]">{number}.</span>
+                  <div className="flex-1">
+                    <span className="font-bold text-stone-800">{ref.title}</span>.
+                    {ref.publisher && <span className="text-stone-500 italic"> {ref.publisher}</span>}
+                    {ref.date && <span className="text-stone-500">, {ref.date}</span>}.
+                    {ref.url && (
+                      <a href={ref.url} target="_blank" rel="noopener noreferrer" className="ml-1 text-stone-400 hover:text-stone-900 underline decoration-stone-300">
+                        Link
+                      </a>
+                    )}
+                    {/* Back link jumps to the FIRST occurrence anchor */}
+                    <a href={`#cite-${ref.id}`} className="ml-2 text-stone-300 hover:text-blue-500 no-underline" title="Back to citation">
+                      ↩
+                    </a>
+                  </div>
                 </div>
+              ))}
             </div>
+          </div>
         )}
       </div>
-      
+
       {/* Article Footer (Calligraphy) */}
       {settings?.footerEnabled && settings.footerText && (
-         <footer className="relative z-10 text-center mt-20 pt-6 border-t border-stone-200/60 pb-8">
-           <span className="font-calligraphy text-2xl md:text-3xl text-stone-600 leading-tight">
-             {settings.footerText}
-           </span>
-         </footer>
+        <footer className="relative z-10 text-center mt-20 pt-6 border-t border-stone-200/60 pb-8">
+          <span className="font-calligraphy text-2xl md:text-3xl text-stone-600 leading-tight">
+            {settings.footerText}
+          </span>
+        </footer>
       )}
-      
+
       {/* Web Footer Mark (In-Paper) - Hidden on Print */}
       <div className="web-footer-mark absolute bottom-6 right-6 md:bottom-12 md:right-12 text-[10px] md:text-xs text-stone-400 font-sans select-none print:hidden">
         © Nolwenn - À la Brestoise
