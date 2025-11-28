@@ -900,6 +900,7 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                 value={block.content.text || ''}
                 onChange={(e) => updateBlock(block.id, { text: e.target.value })}
                 className="w-full p-3 border border-stone-200 rounded-b-sm rounded-t-none font-body text-sm min-h-[120px] focus:ring-1 focus:ring-stone-400 focus:outline-none bg-stone-50/50 -mt-px relative z-10"
+                style={{ textAlign: block.content.textAlign }}
                 placeholder="Write your article text here..."
               />
             </div>

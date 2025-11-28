@@ -130,7 +130,7 @@ const BlockRenderer: React.FC<{ block: ArticleBlock, refNumberMap?: Record<strin
             return (
                 <div>
                     {content.heading && <h2 className={TEXT_STYLES.h2}>{renderRichText(content.heading, refNumberMap)}</h2>}
-                    <div className={`${TEXT_STYLES.body}`}>
+                    <div className={`${TEXT_STYLES.body}`} style={{ textAlign: content.textAlign }}>
                         {parsedBlocks.map((b, i) => {
                             if (b.type === 'ul') {
                                 return (
