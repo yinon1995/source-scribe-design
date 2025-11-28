@@ -83,7 +83,6 @@ const ArticleDetail = () => {
   if (!post) {
     return (
       <div className="min-h-screen bg-background">
-        <Navigation />
         <section className="py-20">
           <div className="container mx-auto px-4 text-center">
             <h1 className="text-3xl font-display font-semibold mb-4">Article introuvable</h1>
@@ -99,7 +98,6 @@ const ArticleDetail = () => {
     <div className="min-h-screen bg-background">
       {magazineState ? (
         <>
-          <Navigation />
           <div className="pt-20 pb-10">
             <MagazineArticleView
               blocks={magazineState.blocks}
