@@ -249,9 +249,10 @@ async function readJsonBody<T = Record<string, unknown>>(req: VercelRequest): Pr
 }
 
 function sendValidationError(res: VercelResponse, fieldErrors: Record<string, string>) {
+  const details = Object.values(fieldErrors).join(" ");
   respond(res, 422, {
     success: false,
-    error: "Certains champs sont invalides.",
+    error: `Certains champs sont invalides. ${details}`,
     fieldErrors,
     errors: fieldErrors,
   });
@@ -437,34 +438,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         article.category = normalizedCategory;
       }
     }
-    const bodyValue = typeof article.body === "string" ? article.body : "";
-    const trimmedBodyValue = bodyValue.trim();
-    if (!trimmedBodyValue) {
-      fieldErrors.body = "Le contenu de l’article est obligatoire.";
-    } else if (bodyValue.length > MAX_ARTICLE_BODY_LENGTH) {
-      fieldErrors.body = `Le contenu est trop long (max ${MAX_ARTICLE_BODY_LENGTH} caractères).`;
-    } else {
-      article.body = bodyValue;
+
+    // Validate Slug early
+    const normalizedSlugInput = slugify(String(article.slug || article.title || ""));
+    if (!normalizedSlugInput) {
+      fieldErrors.slug = "Slug manquant";
     }
-    article.bodyFont = normalizeBodyFont(article.bodyFont);
+    article.slug = normalizedSlugInput;
+    const slug = normalizedSlugInput;
+
     if (article.date) {
       const d = new Date(article.date);
       if (isNaN(d.getTime())) fieldErrors.date = "La date n’est pas valide.";
     }
+
+    // Return early if basic fields are invalid (don't process images yet)
     if (Object.keys(fieldErrors).length > 0) {
       sendValidationError(res, fieldErrors);
       return;
     }
-
-    article.featured = article.featured === true;
-
-    const normalizedSlugInput = slugify(String(article.slug || article.title || ""));
-    if (!normalizedSlugInput) {
-      sendValidationError(res, { slug: "Slug manquant" });
-      return;
-    }
-    article.slug = normalizedSlugInput;
-    const slug = normalizedSlugInput;
 
     // If missing credentials, gracefully report ok:false and keep draft
     if (!GITHUB_REPO || !GITHUB_TOKEN) {
@@ -495,6 +487,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // ignore; proceed to attempt writes which will surface detailed errors
     }
 
+    // --- IMAGE PROCESSING START ---
+    // Moved before body length check to allow large base64 images to be converted to URLs
     try {
       // Ensure readingMinutes exists (compute as fallback)
       function estimateMinutes(text: string, wpm = 200) {
@@ -510,9 +504,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ? Number(article.readingMinutes)
         : estimateMinutes(`${article.excerpt || ""}\n\n${article.body || ""}`);
 
-      // --- IMAGE PROCESSING START ---
       // Parse editor state, upload images, and rewrite URLs
-      let processedBody = article.body;
+      let processedBody = typeof article.body === "string" ? article.body : "";
       let coverImage = normalizeImageUrl(article.cover) ?? normalizeImageUrl((article as any).heroImage);
 
       const stateMatch = processedBody.match(/^<!-- MAGAZINE_EDITOR_STATE: (.*?) -->/s);
@@ -523,10 +516,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let stateChanged = false;
             const replacements: Array<{ old: string, new: string }> = [];
 
-            // Helper to hash string (simple DJB2 or similar if crypto not avail, but we can use simple random for now or import crypto)
-            // Since this is Node env (Vercel function), we can use crypto
+            // Helper to hash string
             const crypto = require('crypto');
-            const hashString = (str: string) => crypto.createHash('sha1').update(str).digest('hex').substring(0, 12);
+            const hashString = (str: string) => crypto.createHash('sha1').update(str).digest('hex').substring(0, 16);
 
             for (const block of editorState.blocks) {
               if (block.type === 'image' && block.content?.imageUrl?.startsWith('data:image/')) {
@@ -534,33 +526,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const matches = dataUrl.match(/^data:(image\/([a-zA-Z+]+));base64,(.+)$/);
 
                 if (matches) {
-                  const mimeType = matches[1];
-                  const extension = matches[2].replace('jpeg', 'jpg');
+                  // Fix extension mapping
+                  let extension = matches[2];
+                  if (extension === 'jpeg') extension = 'jpg';
+                  if (extension === 'svg+xml') extension = 'svg';
+
                   const base64Data = matches[3];
 
                   // Create stable filename based on content hash
                   const filename = hashString(base64Data);
-                  const publicPath = `images/articles/${slug}/${filename}.${extension}`;
+                  const publicPath = `images/articles/${slug}/img_${filename}.${extension}`;
                   const fullPublicUrl = `/${publicPath}`;
 
                   // Upload to GitHub
-                  // We can't use githubPut directly here because it expects a full path from root, which is fine.
-                  // But we need to handle the upload asynchronously.
-                  // We'll await it.
                   try {
                     // Check if exists first to avoid re-uploading same image
                     const existing = await githubGet(`public/${publicPath}`);
                     if (!existing) {
-                      // Upload file
-                      // githubPut expects content as string, and it base64 encodes it.
-                      // But our content is ALREADY base64.
-                      // githubPut: body: JSON.stringify({ content: toBase64(content) ... })
-                      // We need to bypass toBase64 if we already have base64.
-                      // Let's modify githubPut or just call fetch directly here for images.
-                      // Actually, githubPut takes `content` string and calls `toBase64`.
-                      // If we pass raw binary string it might work, but we have base64.
-                      // Let's just do a direct fetch call here to avoid modifying githubPut contract for now.
-
                       const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${encodeGitHubPath(`public/${publicPath}`)}`;
                       await fetch(url, {
                         method: "PUT",
@@ -604,11 +586,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               processedBody = processedBody.replace(stateMatch[0], `<!-- MAGAZINE_EDITOR_STATE: ${newStateString} -->`);
 
               // 2. Update markdown references (global replace of data URLs)
-              // We do this carefully to avoid breaking other things, but data URLs are distinct.
               for (const { old, new: newUrl } of replacements) {
-                // Escape special regex chars in old dataUrl if we used regex, but string.replaceAll is better
-                // Node 15+ supports replaceAll. Vercel likely supports it.
-                // Fallback to split/join if unsure.
                 processedBody = processedBody.split(old).join(newUrl);
               }
 
@@ -619,114 +597,143 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           console.error("[publish] Failed to process editor state images", e);
         }
       }
-      // --- IMAGE PROCESSING END ---
 
-      const cover = coverImage;
-      const featured = article.featured === true;
-      const articleForWrite = {
-        ...article,
-        cover: cover,
-        featured,
-        readingMinutes,
-        sources: Array.isArray(article.sources) ? article.sources : [],
-      } as Article & { readingMinutes: number };
+      // Update article with processed body and cover
+      article.cover = coverImage;
+      article.readingMinutes = readingMinutes;
 
-      type Meta = Pick<Article, "title" | "slug" | "category" | "tags" | "cover" | "excerpt" | "date"> & {
-        readingMinutes?: number;
-        featured?: boolean;
-        heroImage?: string;
-      };
-      const meta: Meta = {
-        title: articleForWrite.title,
-        slug: articleForWrite.slug,
-        category: articleForWrite.category,
-        tags: articleForWrite.tags || [],
-        cover: articleForWrite.cover || "",
-        heroImage: articleForWrite.cover || "",
-        excerpt: articleForWrite.excerpt || "",
-        date: articleForWrite.date || new Date().toISOString(),
-        readingMinutes,
-        featured,
-      };
+    } catch (e) {
+      console.error("[publish] Image processing error", e);
+    }
+    // --- IMAGE PROCESSING END ---
 
-      const indexPath = `content/articles/index.json`;
-      let list: Meta[] = [];
-      try {
-        const existing = await githubGet(indexPath);
-        if (existing && existing.content) {
-          const decoded = Buffer.from(String(existing.content), "base64").toString("utf8");
-          const parsed = JSON.parse(decoded);
-          if (Array.isArray(parsed)) list = parsed as Meta[];
-        }
-      } catch {
-        // start fresh if anything goes wrong reading
+    // Validate Body Length (AFTER image processing)
+    const bodyValue = typeof article.body === "string" ? article.body : "";
+    const trimmedBodyValue = bodyValue.trim();
+    if (!trimmedBodyValue) {
+      fieldErrors.body = "Le contenu de l’article est obligatoire.";
+    } else if (bodyValue.length > MAX_ARTICLE_BODY_LENGTH) {
+      fieldErrors.body = `Le contenu est trop long (max ${MAX_ARTICLE_BODY_LENGTH} caractères).`;
+    } else {
+      article.body = bodyValue;
+    }
+
+    article.bodyFont = normalizeBodyFont(article.bodyFont);
+
+    if (Object.keys(fieldErrors).length > 0) {
+      sendValidationError(res, fieldErrors);
+      return;
+    }
+
+    article.featured = article.featured === true;
+
+    // Prepare for write
+    const cover = article.cover;
+    const featured = article.featured === true;
+    const readingMinutes = article.readingMinutes;
+
+    const articleForWrite = {
+      ...article,
+      cover: cover,
+      featured,
+      readingMinutes,
+      sources: Array.isArray(article.sources) ? article.sources : [],
+    } as Article & { readingMinutes: number };
+
+    type Meta = Pick<Article, "title" | "slug" | "category" | "tags" | "cover" | "excerpt" | "date"> & {
+      readingMinutes?: number;
+      featured?: boolean;
+      heroImage?: string;
+    };
+    const meta: Meta = {
+      title: articleForWrite.title,
+      slug: articleForWrite.slug,
+      category: articleForWrite.category,
+      tags: articleForWrite.tags || [],
+      cover: articleForWrite.cover || "",
+      heroImage: articleForWrite.cover || "",
+      excerpt: articleForWrite.excerpt || "",
+      date: articleForWrite.date || new Date().toISOString(),
+      readingMinutes,
+      featured,
+    };
+
+    const indexPath = `content/articles/index.json`;
+    let list: Meta[] = [];
+    try {
+      const existing = await githubGet(indexPath);
+      if (existing && existing.content) {
+        const decoded = Buffer.from(String(existing.content), "base64").toString("utf8");
+        const parsed = JSON.parse(decoded);
+        if (Array.isArray(parsed)) list = parsed as Meta[];
       }
+    } catch {
+      // start fresh if anything goes wrong reading
+    }
 
-      const existedBefore = list.some((item) => item.slug === slug);
-      const nextList = list
-        .filter((item) => item.slug !== meta.slug)
-        .concat(meta)
-        .sort((a, b) => {
-          const left = b.date || "";
-          const right = a.date || "";
-          return left.localeCompare(right);
-        });
-      const commitMessage = existedBefore
-        ? `chore(cms): update article ${slug}`
-        : `feat(article): publish ${slug} from admin`;
-
-      const articlePath = `content/articles/${slug}.json`;
-      const putArticleRes = await githubPut(articlePath, JSON.stringify(articleForWrite, null, 2), commitMessage);
-      const putIndexRes = await githubPut(indexPath, JSON.stringify(nextList, null, 2), commitMessage);
-
-      // Build commit/links payload
-      const commitSha: string | undefined = putIndexRes?.commit?.sha || putArticleRes?.commit?.sha;
-      const commitUrl: string | undefined = putIndexRes?.commit?.html_url || putArticleRes?.commit?.html_url;
-
-      const deploy = await triggerVercelDeployIfConfigured();
-      const statusCode = existedBefore ? 200 : 201;
-      respond(res, statusCode, {
-        success: true,
-        slug,
-        url: `${SITE_URL}/articles/${slug}`,
-        commit: commitSha ? { sha: commitSha, url: commitUrl } : undefined,
-        files: { article: articlePath, index: indexPath },
-        deployTriggered: deploy.triggered,
-        deploy,
+    const existedBefore = list.some((item) => item.slug === slug);
+    const nextList = list
+      .filter((item) => item.slug !== meta.slug)
+      .concat(meta)
+      .sort((a, b) => {
+        const left = b.date || "";
+        const right = a.date || "";
+        return left.localeCompare(right);
       });
-      return;
-    } catch (e: any) {
-      const message = e?.message ? String(e.message) : String(e);
-      // Try to extract status code if present in the message like "GitHub PUT 422: ..."
-      const m = /GitHub\s+[A-Z]+\s+(\d{3})/.exec(message);
-      const status = m ? Number(m[1]) : undefined;
-      console.error("[publish] GitHub error", { repo: GITHUB_REPO, branch: PUBLISH_BRANCH, message });
-      sendError(res, 502, "Erreur GitHub, vérifiez le dépôt / la branche / le token.", {
-        detailsMessage: status ? `${status} ${message}` : message,
-      });
-      return;
-    }
-  }
+    const commitMessage = existedBefore
+      ? `chore(cms): update article ${slug}`
+      : `feat(article): publish ${slug} from admin`;
 
-  try {
-    if (req.method === "OPTIONS") {
-      respond(res, 200, { success: true });
-      return;
-    }
-    if (req.method === "DELETE") {
-      await handleDelete();
-      return;
-    }
-    if (req.method === "POST") {
-      await handlePublish();
-      return;
-    }
-    respond(res, 405, { success: false, error: "Méthode non autorisée" });
-  } catch (err) {
-    console.error("[publish] Unhandled error:", err);
-    const message = err instanceof Error ? err.message : "Erreur serveur interne";
-    respond(res, 500, { success: false, error: message || "Erreur serveur interne" });
+    const articlePath = `content/articles/${slug}.json`;
+    const putArticleRes = await githubPut(articlePath, JSON.stringify(articleForWrite, null, 2), commitMessage);
+    const putIndexRes = await githubPut(indexPath, JSON.stringify(nextList, null, 2), commitMessage);
+
+    // Build commit/links payload
+    const commitSha: string | undefined = putIndexRes?.commit?.sha || putArticleRes?.commit?.sha;
+    const commitUrl: string | undefined = putIndexRes?.commit?.html_url || putArticleRes?.commit?.html_url;
+
+    const deploy = await triggerVercelDeployIfConfigured();
+    const statusCode = existedBefore ? 200 : 201;
+    respond(res, statusCode, {
+      success: true,
+      slug,
+      url: `${SITE_URL}/articles/${slug}`,
+      commit: commitSha ? { sha: commitSha, url: commitUrl } : undefined,
+      files: { article: articlePath, index: indexPath },
+      deployTriggered: deploy.triggered,
+      deploy,
+    });
+    return;
+  } catch (e: any) {
+    const message = e?.message ? String(e.message) : String(e);
+    // Try to extract status code if present in the message like "GitHub PUT 422: ..."
+    const m = /GitHub\s+[A-Z]+\s+(\d{3})/.exec(message);
+    const status = m ? Number(m[1]) : undefined;
+    console.error("[publish] GitHub error", { repo: GITHUB_REPO, branch: PUBLISH_BRANCH, message });
+    sendError(res, 502, "Erreur GitHub, vérifiez le dépôt / la branche / le token.", {
+      detailsMessage: status ? `${status} ${message}` : message,
+    });
+    return;
   }
 }
 
-
+try {
+  if (req.method === "OPTIONS") {
+    respond(res, 200, { success: true });
+    return;
+  }
+  if (req.method === "DELETE") {
+    await handleDelete();
+    return;
+  }
+  if (req.method === "POST") {
+    await handlePublish();
+    return;
+  }
+  respond(res, 405, { success: false, error: "Méthode non autorisée" });
+} catch (err) {
+  console.error("[publish] Unhandled error:", err);
+  const message = err instanceof Error ? err.message : "Erreur serveur interne";
+  respond(res, 500, { success: false, error: message || "Erreur serveur interne" });
+}
+}
