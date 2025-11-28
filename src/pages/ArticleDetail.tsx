@@ -115,12 +115,14 @@ const ArticleDetail = () => {
                 category: post.category as any,
               }}
             />
+            <ArticleSignature />
           </div>
         </>
       ) : (
         <>
           <ArticleContent article={post} journalMode={true} />
           <SignatureBlock />
+          <ArticleSignature />
         </>
       )}
       <Footer />
@@ -182,3 +184,16 @@ function upsertCanonicalLink(href?: string) {
 }
 
 
+
+function ArticleSignature() {
+  return (
+    <div className="mt-16 flex justify-center">
+      <img
+        src="/signature/nolwenn-signature.png"
+        alt="Signature À la Brestoise — Nolwenn"
+        className="max-w-[520px] w-[80%] h-auto opacity-95"
+        loading="lazy"
+      />
+    </div>
+  );
+}
