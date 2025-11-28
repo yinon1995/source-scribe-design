@@ -13,7 +13,28 @@ import { site } from "@/lib/siteContent";
 import { createLead } from "@/lib/inboxClient";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { CATEGORY_OPTIONS, normalizeCategory, postsIndex } from "@/lib/content";
+import { CATEGORY_OPTIONS, normalizeCategory, postsIndex, getPostBySlug } from "@/lib/content";
+
+function getCoverFromMagazineBody(body?: string): string | null {
+  if (!body) return null;
+  const m = body.match(/^\s*<!--\s*MAGAZINE_EDITOR_STATE:\s*(.*?)\s*-->/s);
+  if (!m?.[1]) return null;
+  try {
+    const state = JSON.parse(m[1]);
+    const blocks = Array.isArray(state?.blocks) ? state.blocks : [];
+    for (const b of blocks) {
+      const v =
+        (typeof b?.src === "string" && b.src) ||
+        (typeof b?.imageUrl === "string" && b.imageUrl) ||
+        (typeof b?.content?.src === "string" && b.content.src) ||
+        (typeof b?.content?.imageUrl === "string" && b.content.imageUrl);
+      if (typeof v === "string" && v.length > 0) return v;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 const Index = () => {
   const categories = useMemo(() => ["Tous", ...CATEGORY_OPTIONS], []);
@@ -29,16 +50,20 @@ const Index = () => {
           post.featured === true,
       )
       .sort((a, b) => (a.date < b.date ? 1 : -1))
-      .map((post) => ({
-        title: post.title,
-        excerpt: (post.summary ?? "").trim() || `Découvrez ${post.title}`,
-        image: post.heroImage,
-        category: normalizeCategory(post.category),
-        readTime: `${post.readingMinutes ?? 1} min`,
-        slug: post.slug as string,
-        tags: post.tags ?? [],
-        featured: true,
-      }));
+      .map((post) => {
+        const fullPost = getPostBySlug(post.slug);
+        const magazineCover = getCoverFromMagazineBody(fullPost?.body);
+        return {
+          title: post.title,
+          excerpt: (post.summary ?? "").trim() || `Découvrez ${post.title}`,
+          image: magazineCover || post.heroImage,
+          category: normalizeCategory(post.category),
+          readTime: `${post.readingMinutes ?? 1} min`,
+          slug: post.slug as string,
+          tags: post.tags ?? [],
+          featured: true,
+        };
+      });
   }, []);
 
   const filteredArticles = activeCategory === "Tous"

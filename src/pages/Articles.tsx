@@ -9,7 +9,29 @@ import {
   CATEGORY_OPTIONS,
   normalizeCategory,
   postsIndex,
+  getPostBySlug,
 } from "@/lib/content";
+
+function getCoverFromMagazineBody(body?: string): string | null {
+  if (!body) return null;
+  const m = body.match(/^\s*<!--\s*MAGAZINE_EDITOR_STATE:\s*(.*?)\s*-->/s);
+  if (!m?.[1]) return null;
+  try {
+    const state = JSON.parse(m[1]);
+    const blocks = Array.isArray(state?.blocks) ? state.blocks : [];
+    for (const b of blocks) {
+      const v =
+        (typeof b?.src === "string" && b.src) ||
+        (typeof b?.imageUrl === "string" && b.imageUrl) ||
+        (typeof b?.content?.src === "string" && b.content.src) ||
+        (typeof b?.content?.imageUrl === "string" && b.content.imageUrl);
+      if (typeof v === "string" && v.length > 0) return v;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 type ArticleCardData = {
   title: string;
@@ -55,8 +77,10 @@ const Articles = () => {
         const tags = Array.isArray(post.tags) ? post.tags : [];
         const category = normalizeCategory(post.category);
         const featured = post.featured === true;
+        const fullPost = getPostBySlug(post.slug);
+        const magazineCover = getCoverFromMagazineBody(fullPost?.body);
         const excerpt = post.summary ?? "";
-        const heroImage = post.heroImage;
+        const heroImage = magazineCover || post.heroImage;
 
         const joinedFields = [
           post.title,
