@@ -72,6 +72,15 @@ export default function MagazineEditor({ initialData, onPublish, onBack }: Magaz
         }
     };
 
+    const handleReorderBlocks = (fromIndex: number, toIndex: number) => {
+        setBlocks(prev => {
+            const newBlocks = [...prev];
+            const [moved] = newBlocks.splice(fromIndex, 1);
+            newBlocks.splice(toIndex, 0, moved);
+            return newBlocks;
+        });
+    };
+
     return (
         <div className="min-h-screen bg-[#e8e6e1] text-stone-900 font-sans selection:bg-stone-300 selection:text-stone-900">
 
@@ -132,6 +141,8 @@ export default function MagazineEditor({ initialData, onPublish, onBack }: Magaz
                         <AdminBuilder
                             blocks={blocks}
                             setBlocks={setBlocks}
+                            onReorderBlocks={handleReorderBlocks}
+                            onUpdateBlock={updateBlock}
                             tags={tags}
                             setTags={setTags}
                             references={references}
@@ -165,6 +176,7 @@ export default function MagazineEditor({ initialData, onPublish, onBack }: Magaz
                             articleId="default"
                             blocks={blocks}
                             onUpdateBlock={updateBlock}
+                            onReorderBlocks={handleReorderBlocks}
                             settings={settings}
                             references={references}
                         />
@@ -208,6 +220,11 @@ export default function MagazineEditor({ initialData, onPublish, onBack }: Magaz
                     </div>
                 </div>
             )}
+
+            {/* Debug: Block Order Hash */}
+            <div className="fixed bottom-1 right-1 bg-black/50 text-white text-[9px] font-mono px-1 rounded z-[9999] pointer-events-none">
+                Order: {blocks.map(b => b.id.slice(0, 3)).join('-')}
+            </div>
 
         </div>
     );

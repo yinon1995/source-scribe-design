@@ -5,8 +5,8 @@ import { Trash2, ArrowUp, ArrowDown, Type, Image as ImageIcon, MessageSquare, He
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { getPlacement, setPlacement } from '../lib/layoutStore';
 import { Placement } from '../preview/types';
+import { fileToDataUrl } from '../lib/imageUtils';
 
 const TagsEditor: React.FC<{ tags: string[], onChange: (tags: string[]) => void }> = ({ tags, onChange }) => {
   const [inputVal, setInputVal] = useState(tags.join(', '));
@@ -645,8 +645,7 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
   };
 
   const renderInputs = () => {
-    // Read from store to sync
-    const storePlacement = getPlacement('default', block.id);
+    // Read directly from block content (SSOT)
 
     switch (block.type) {
       case 'title':
@@ -676,9 +675,7 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
         );
 
       case 'text':
-        const currentLayout = storePlacement
-          ? mapPlacementToLayout(storePlacement)
-          : (block.content.layout || block.content.textLayout);
+        const currentLayout = block.content.layout || block.content.textLayout || 'two_thirds';
 
         return (
           <div className="space-y-3" onPointerDownCapture={stopProp}>
@@ -686,7 +683,6 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
               current={currentLayout}
               onChange={(layout) => {
                 updateBlock(block.id, { layout: layout });
-                setPlacement('default', block.id, mapLayoutToPlacement(layout));
               }}
             />
 
@@ -965,9 +961,7 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
         );
 
       case 'image':
-        const currentPos = storePlacement
-          ? mapPlacementToPosition(storePlacement)
-          : (block.content.position || 'center');
+        const currentPos = block.content.position || 'center';
         const currentScale = block.content.scale ?? 1.0;
 
         return (
@@ -1002,10 +996,11 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                           URL.revokeObjectURL(block.content.imageUrl);
                         }
 
-                        const objectUrl = URL.createObjectURL(file);
-                        updateBlock(block.id, {
-                          imageUrl: objectUrl,
-                          imageFileName: file.name
+                        fileToDataUrl(file).then((dataUrl) => {
+                          updateBlock(block.id, {
+                            imageUrl: dataUrl,
+                            imageFileName: file.name
+                          });
                         });
                       }}
                     />
@@ -1031,7 +1026,6 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                           e.stopPropagation();
                           const newPos = opt.val as any;
                           updateBlock(block.id, { position: newPos });
-                          setPlacement('default', block.id, mapPositionToPlacement(newPos));
                         }}
                         className={`flex-1 flex justify-center py-1.5 rounded-sm transition-all ${currentPos === opt.val ? 'bg-stone-800 text-white shadow-sm' : 'text-stone-400 hover:text-stone-600 hover:bg-stone-100'
                           }`}
@@ -1122,12 +1116,12 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
             {/* Visual Preview in Editor */}
             <div className="mt-4 p-4 bg-stone-50 rounded border border-stone-100 flex justify-center">
               <div className={`
-                     w-full 
-                     ${(block.content.dividerStyle || 'thin') === 'thin' ? 'h-px bg-stone-300' : ''}
-                     ${block.content.dividerStyle === 'bold' ? 'h-[2px] bg-stone-800' : ''}
-                     ${block.content.dividerStyle === 'dashed' ? 'border-t border-dashed border-stone-300' : ''}
-                     ${(block.content.dividerWidth || 'content') === 'content' ? 'max-w-[50%]' : 'w-full'}
-                   `}></div>
+                             w-full 
+                             ${(block.content.dividerStyle || 'thin') === 'thin' ? 'h-px bg-stone-300' : ''}
+                             ${block.content.dividerStyle === 'bold' ? 'h-[2px] bg-stone-800' : ''}
+                             ${block.content.dividerStyle === 'dashed' ? 'border-t border-dashed border-stone-300' : ''}
+                             ${(block.content.dividerWidth || 'content') === 'content' ? 'max-w-[50%]' : 'w-full'}
+                           `}></div>
             </div>
           </div>
         );
@@ -1370,7 +1364,8 @@ const SortableBlockItem: React.FC<any> = (props) => {
 };
 
 export const AdminBuilder: React.FC<AdminBuilderProps> = ({
-  blocks, setBlocks, tags, setTags, references, setReferences, settings, setSettings, onRequestPublish
+  blocks, setBlocks, tags, setTags, references, setReferences, settings, setSettings, onRequestPublish,
+  onReorderBlocks, onUpdateBlock
 }) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [insertAfterId, setInsertAfterId] = useState<string | null>(null);
@@ -1386,17 +1381,23 @@ export const AdminBuilder: React.FC<AdminBuilderProps> = ({
     const { active, over } = event;
 
     if (active.id !== over?.id) {
-      setBlocks((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over?.id);
+      const oldIndex = blocks.findIndex((item) => item.id === active.id);
+      const newIndex = blocks.findIndex((item) => item.id === over?.id);
 
-        return arrayMove(items, oldIndex, newIndex);
-      });
+      if (onReorderBlocks) {
+        onReorderBlocks(oldIndex, newIndex);
+      } else {
+        setBlocks((items) => arrayMove(items, oldIndex, newIndex));
+      }
     }
   };
 
   const updateBlock = (id: string, updates: Partial<ArticleBlock['content']>) => {
-    setBlocks(prev => prev.map(b => b.id === id ? { ...b, content: { ...b.content, ...updates } } : b));
+    if (onUpdateBlock) {
+      onUpdateBlock(id, updates);
+    } else {
+      setBlocks(prev => prev.map(b => b.id === id ? { ...b, content: { ...b.content, ...updates } } : b));
+    }
   };
 
   const removeBlock = (id: string) => {
@@ -1406,18 +1407,22 @@ export const AdminBuilder: React.FC<AdminBuilderProps> = ({
   };
 
   const moveBlock = (id: string, direction: 'up' | 'down') => {
-    setBlocks(prev => {
-      const index = prev.findIndex(b => b.id === id);
-      if (index === -1) return prev;
-      if (direction === 'up' && index === 0) return prev;
-      if (direction === 'down' && index === prev.length - 1) return prev;
+    const index = blocks.findIndex(b => b.id === id);
+    if (index === -1) return;
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === blocks.length - 1) return;
 
-      const newBlocks = [...prev];
-      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
 
-      [newBlocks[index], newBlocks[targetIndex]] = [newBlocks[targetIndex], newBlocks[index]];
-      return newBlocks;
-    });
+    if (onReorderBlocks) {
+      onReorderBlocks(index, targetIndex);
+    } else {
+      setBlocks(prev => {
+        const newBlocks = [...prev];
+        [newBlocks[index], newBlocks[targetIndex]] = [newBlocks[targetIndex], newBlocks[index]];
+        return newBlocks;
+      });
+    }
   };
 
   const createNewBlock = (type: BlockType): ArticleBlock => {

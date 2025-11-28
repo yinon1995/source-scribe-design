@@ -308,6 +308,7 @@ interface PreviewLayoutEditorProps {
     blocks: ArticleBlock[];
     readOnly?: boolean;
     onUpdateBlock?: (id: string, updates: Partial<ArticleBlock['content']>) => void;
+    onReorderBlocks?: (fromIndex: number, toIndex: number) => void;
     settings?: ArticleSettings;
     references?: Reference[];
 }
@@ -317,11 +318,13 @@ export const PreviewLayoutEditor: React.FC<PreviewLayoutEditorProps> = ({
     blocks,
     readOnly = false,
     onUpdateBlock,
+    onReorderBlocks,
     settings,
     references
 }) => {
 
     // 1. ISOLATE: Create immutable copy of blocks to ensure NO leakage to Builder
+    // We keep this for now to prevent accidental mutations, but we rely on the order of 'blocks' prop.
     const blocksRO = useMemo(() => {
         return blocks.map(b => {
             // Deep freeze in dev to catch mutations
@@ -337,44 +340,10 @@ export const PreviewLayoutEditor: React.FC<PreviewLayoutEditorProps> = ({
 
     const blockMap = useMemo(() => new Map(blocksRO.map(b => [b.id, b])), [blocksRO]);
 
-    // 2. STATE: Local layout state (ONLY for order now, placement comes from block)
-    const [layout, setLayout] = useState<PreviewLayout>({ order: [], placementById: {} });
+    // 2. STATE: Only drag state needed now
     const [draggedId, setDraggedId] = useState<string | null>(null);
 
-    // 3. SYNC: Load order from local storage
-    useEffect(() => {
-        try {
-            const savedKey = `previewLayout:${articleId}`;
-            const savedJson = localStorage.getItem(savedKey);
-            const saved: PreviewLayout = savedJson ? JSON.parse(savedJson) : { order: [], placementById: {} };
-
-            const currentIds = new Set(blocksRO.map(b => b.id));
-
-            // Filter out deleted
-            let newOrder = saved.order.filter(id => currentIds.has(id));
-
-            // Append new
-            blocksRO.forEach(b => {
-                if (!newOrder.includes(b.id)) newOrder.push(b.id);
-            });
-
-            // Ignore saved placements! We now derive them.
-            setLayout({ order: newOrder, placementById: {} });
-        } catch (e) {
-            console.error("Failed to load layout", e);
-        }
-    }, [articleId, blocksRO]);
-
-    // 4. PERSIST (Order only)
-    const saveOrder = useCallback((newOrder: string[]) => {
-        const newLayout = { order: newOrder, placementById: {} };
-        setLayout(newLayout);
-        if (!readOnly) {
-            localStorage.setItem(`previewLayout:${articleId}`, JSON.stringify(newLayout));
-        }
-    }, [articleId, readOnly]);
-
-    // 5. HELPER: Derive Placement from Block Content (SSOT)
+    // 3. HELPER: Derive Placement from Block Content (SSOT)
     const getDerivedPlacement = useCallback((id: string): Placement => {
         const block = blockMap.get(id);
         if (!block) return 'full';
@@ -393,7 +362,7 @@ export const PreviewLayoutEditor: React.FC<PreviewLayoutEditorProps> = ({
         return 'full';
     }, [blockMap]);
 
-    // 6. UPDATE: Write back to Block Content + Store (for Builder sync)
+    // 4. UPDATE: Write back to Block Content (SSOT)
     const handleUpdatePlacement = (id: string, p: Placement) => {
         if (!onUpdateBlock) return;
         const block = blockMap.get(id);
@@ -412,15 +381,9 @@ export const PreviewLayoutEditor: React.FC<PreviewLayoutEditorProps> = ({
 
             onUpdateBlock(id, { layout: newLayout });
         }
-
-        // 2. Update Layout Store (Legacy Sync) - Essential so AdminBuilder reflects the change immediately
-        // because AdminBuilder reads from layoutStore to determine active button state.
-        if (!readOnly) {
-            setStorePlacement(articleId, id, p);
-        }
     };
 
-    // 7. DRAG HANDLERS
+    // 5. DRAG HANDLERS
     const handleDragStart = (e: React.DragEvent, id: string) => {
         setDraggedId(id);
         e.dataTransfer.effectAllowed = 'move';
@@ -438,32 +401,29 @@ export const PreviewLayoutEditor: React.FC<PreviewLayoutEditorProps> = ({
             return;
         }
 
-        const oldIndex = layout.order.indexOf(draggedId);
-        const newIndex = layout.order.indexOf(targetId);
+        // Use blocksRO (which mirrors blocks prop) to find indices
+        const oldIndex = blocksRO.findIndex(b => b.id === draggedId);
+        const newIndex = blocksRO.findIndex(b => b.id === targetId);
 
-        if (oldIndex !== -1 && newIndex !== -1) {
-            const newOrder = [...layout.order];
-            newOrder.splice(oldIndex, 1);
-            newOrder.splice(newIndex, 0, draggedId);
-            saveOrder(newOrder);
+        if (oldIndex !== -1 && newIndex !== -1 && onReorderBlocks) {
+            onReorderBlocks(oldIndex, newIndex);
         }
         setDraggedId(null);
     };
 
-    // 8. BUILD SECTIONS (for independent column stacking) using shared helper
+    // 6. BUILD SECTIONS (for independent column stacking) using shared helper
+    // We pass blocksRO directly, as it is the ordered list from props
     const sections = useMemo(() => {
-        const orderedBlocks = layout.order.map(id => blockMap.get(id)).filter((b): b is ArticleBlock => !!b);
-        return buildLayoutSections(orderedBlocks);
-    }, [layout.order, blockMap]);
+        return buildLayoutSections(blocksRO);
+    }, [blocksRO]);
 
-    // 9. COMPUTE CITATIONS
+    // 7. COMPUTE CITATIONS
     const { usedRefIds, refNumberMap } = useMemo(() => {
         // Use ordered blocks for correct citation numbering order
-        const orderedBlocks = layout.order.map(id => blockMap.get(id)).filter((b): b is ArticleBlock => !!b);
-        const ids = collectCitedReferenceIds(orderedBlocks);
+        const ids = collectCitedReferenceIds(blocksRO);
         const map = buildReferenceNumberMap(ids);
         return { usedRefIds: ids, refNumberMap: map };
-    }, [layout.order, blockMap]);
+    }, [blocksRO]);
 
 
     return (

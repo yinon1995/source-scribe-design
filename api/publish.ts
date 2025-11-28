@@ -509,7 +509,119 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const readingMinutes = Number(article.readingMinutes) > 0
         ? Number(article.readingMinutes)
         : estimateMinutes(`${article.excerpt || ""}\n\n${article.body || ""}`);
-      const cover = normalizeImageUrl(article.cover) ?? normalizeImageUrl((article as any).heroImage);
+
+      // --- IMAGE PROCESSING START ---
+      // Parse editor state, upload images, and rewrite URLs
+      let processedBody = article.body;
+      let coverImage = normalizeImageUrl(article.cover) ?? normalizeImageUrl((article as any).heroImage);
+
+      const stateMatch = processedBody.match(/^<!-- MAGAZINE_EDITOR_STATE: (.*?) -->/s);
+      if (stateMatch) {
+        try {
+          const editorState = JSON.parse(stateMatch[1]);
+          if (editorState && Array.isArray(editorState.blocks)) {
+            let stateChanged = false;
+            const replacements: Array<{ old: string, new: string }> = [];
+
+            // Helper to hash string (simple DJB2 or similar if crypto not avail, but we can use simple random for now or import crypto)
+            // Since this is Node env (Vercel function), we can use crypto
+            const crypto = require('crypto');
+            const hashString = (str: string) => crypto.createHash('sha1').update(str).digest('hex').substring(0, 12);
+
+            for (const block of editorState.blocks) {
+              if (block.type === 'image' && block.content?.imageUrl?.startsWith('data:image/')) {
+                const dataUrl = block.content.imageUrl;
+                const matches = dataUrl.match(/^data:(image\/([a-zA-Z+]+));base64,(.+)$/);
+
+                if (matches) {
+                  const mimeType = matches[1];
+                  const extension = matches[2].replace('jpeg', 'jpg');
+                  const base64Data = matches[3];
+
+                  // Create stable filename based on content hash
+                  const filename = hashString(base64Data);
+                  const publicPath = `images/articles/${slug}/${filename}.${extension}`;
+                  const fullPublicUrl = `/${publicPath}`;
+
+                  // Upload to GitHub
+                  // We can't use githubPut directly here because it expects a full path from root, which is fine.
+                  // But we need to handle the upload asynchronously.
+                  // We'll await it.
+                  try {
+                    // Check if exists first to avoid re-uploading same image
+                    const existing = await githubGet(`public/${publicPath}`);
+                    if (!existing) {
+                      // Upload file
+                      // githubPut expects content as string, and it base64 encodes it.
+                      // But our content is ALREADY base64.
+                      // githubPut: body: JSON.stringify({ content: toBase64(content) ... })
+                      // We need to bypass toBase64 if we already have base64.
+                      // Let's modify githubPut or just call fetch directly here for images.
+                      // Actually, githubPut takes `content` string and calls `toBase64`.
+                      // If we pass raw binary string it might work, but we have base64.
+                      // Let's just do a direct fetch call here to avoid modifying githubPut contract for now.
+
+                      const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${encodeGitHubPath(`public/${publicPath}`)}`;
+                      await fetch(url, {
+                        method: "PUT",
+                        headers: {
+                          Accept: "application/vnd.github+json",
+                          Authorization: `token ${GITHUB_TOKEN}`,
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                          message: `feat(assets): upload image for ${slug}`,
+                          content: base64Data, // Already base64
+                          branch: PUBLISH_BRANCH,
+                          committer: { name: "A la Brestoise bot", email: "bot@alabrestoise.local" },
+                        }),
+                      });
+                      console.log(`[publish] Uploaded image: ${publicPath}`);
+                    } else {
+                      console.log(`[publish] Image already exists: ${publicPath}`);
+                    }
+
+                    // Update Block
+                    block.content.imageUrl = fullPublicUrl;
+                    stateChanged = true;
+                    replacements.push({ old: dataUrl, new: fullPublicUrl });
+
+                    // If this was the cover/hero, update it too
+                    if (coverImage === dataUrl) {
+                      coverImage = fullPublicUrl;
+                    }
+
+                  } catch (err) {
+                    console.error(`[publish] Failed to upload image ${filename}`, err);
+                  }
+                }
+              }
+            }
+
+            if (stateChanged) {
+              // 1. Update the JSON state comment
+              const newStateString = JSON.stringify(editorState);
+              processedBody = processedBody.replace(stateMatch[0], `<!-- MAGAZINE_EDITOR_STATE: ${newStateString} -->`);
+
+              // 2. Update markdown references (global replace of data URLs)
+              // We do this carefully to avoid breaking other things, but data URLs are distinct.
+              for (const { old, new: newUrl } of replacements) {
+                // Escape special regex chars in old dataUrl if we used regex, but string.replaceAll is better
+                // Node 15+ supports replaceAll. Vercel likely supports it.
+                // Fallback to split/join if unsure.
+                processedBody = processedBody.split(old).join(newUrl);
+              }
+
+              article.body = processedBody;
+            }
+          }
+        } catch (e) {
+          console.error("[publish] Failed to process editor state images", e);
+        }
+      }
+      // --- IMAGE PROCESSING END ---
+
+      const cover = coverImage;
       const featured = article.featured === true;
       const articleForWrite = {
         ...article,

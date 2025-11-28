@@ -1119,3 +1119,17 @@ All colors MUST be HSL.
     animation: none !important;
   }
 }
+
+/* Justified text block utility */
+.prose-justify {
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+}
+
+@media (max-width: 640px) {
+  .prose-justify {
+    text-align: left;
+    hyphens: none;
+  }
+}

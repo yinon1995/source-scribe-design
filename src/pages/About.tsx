@@ -18,16 +18,15 @@ const About = () => {
             <h1 className="text-4xl md:text-5xl font-display font-bold text-foreground">
               À propos
             </h1>
-            <div className="space-y-6 text-center max-w-3xl mx-auto">
-              <p className="text-2xl font-display font-semibold text-foreground">
+            <div className="space-y-6 max-w-[65ch] mx-auto">
+              <p className="text-2xl font-display font-semibold text-foreground text-center">
                 {aboutContent.aboutTitle}
               </p>
               {aboutContent.aboutBody.map((paragraph, index) => (
-                <p key={index} className="text-xl text-muted-foreground leading-relaxed">
+                <p key={index} className="text-xl text-muted-foreground leading-relaxed prose-justify">
                   {paragraph}
                 </p>
               ))}
-
             </div>
 
             {/* Approach Section - Justified Block */}

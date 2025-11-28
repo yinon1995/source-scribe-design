@@ -103,6 +103,8 @@ export interface ArticleRendererProps {
 export interface AdminBuilderProps {
     blocks: ArticleBlock[];
     setBlocks: React.Dispatch<React.SetStateAction<ArticleBlock[]>>;
+    onReorderBlocks?: (fromIndex: number, toIndex: number) => void;
+    onUpdateBlock?: (id: string, updates: Partial<BlockContent>) => void;
     tags: string[];
     setTags: React.Dispatch<React.SetStateAction<string[]>>;
     references: Reference[];
@@ -110,4 +112,11 @@ export interface AdminBuilderProps {
     settings: ArticleSettings;
     setSettings: React.Dispatch<React.SetStateAction<ArticleSettings>>;
     onRequestPublish?: () => void;
+}
+
+export interface EditorDocument {
+    blocks: ArticleBlock[];
+    tags: string[];
+    references: Reference[];
+    settings: ArticleSettings;
 }
