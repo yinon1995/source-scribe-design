@@ -90,6 +90,20 @@ const AdminDashboard = () => {
 								</Button>
 							</CardContent>
 						</Card>
+
+						<Card className="flex flex-col justify-between">
+							<CardHeader>
+								<CardTitle>Gérer la galerie</CardTitle>
+							</CardHeader>
+							<CardContent className="flex flex-col gap-3">
+								<p className="text-sm text-muted-foreground">
+									Ajouter, supprimer ou remplacer les images de la galerie.
+								</p>
+								<Button variant="default" size="default" className="self-start" onClick={() => navigate("/admin/galerie")}>
+									Ouvrir la galerie
+								</Button>
+							</CardContent>
+						</Card>
 					</div>
 				</div>
 			</main>
