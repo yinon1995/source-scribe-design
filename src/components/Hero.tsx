@@ -40,6 +40,20 @@ const Hero = () => {
     loadHeroImages();
   }, []);
 
+  // Auto-rotation logic
+  useEffect(() => {
+    if (heroImages.length <= 1) return;
+
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (mediaQuery.matches) return;
+
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % heroImages.length);
+    }, 6000);
+
+    return () => clearInterval(interval);
+  }, [heroImages.length]);
+
   const nextImage = () => {
     setCurrentIndex((prev) => (prev + 1) % heroImages.length);
   };
@@ -78,6 +92,27 @@ const Hero = () => {
     setSubmitted(false);
     setDialogOpen(false);
   }
+
+  // Calculate visible cards
+  const getVisibleCards = () => {
+    if (heroImages.length === 0) return [];
+    if (heroImages.length === 1) return [{ index: 0, img: heroImages[0], position: 0 }];
+
+    const cards = [];
+    // Always show up to 3 cards if possible
+    const count = Math.min(heroImages.length, 3);
+
+    for (let i = 0; i < count; i++) {
+      const actualIndex = (currentIndex + i) % heroImages.length;
+      cards.push({
+        index: actualIndex,
+        img: heroImages[actualIndex],
+        position: i // 0 = front, 1 = middle, 2 = back
+      });
+    }
+    // Reverse so the back cards render first (z-index stacking by DOM order, though we'll use z-index explicitly too)
+    return cards.reverse();
+  };
 
   return (
     <section className="relative py-20 md:py-32 overflow-hidden">
@@ -173,39 +208,51 @@ const Hero = () => {
             </div>
           </div>
 
-          {/* Hero Image */}
-          <div className="relative group">
-            <div className="aspect-[4/5] rounded-3xl overflow-hidden shadow-xl relative bg-muted">
-              <img
-                key={heroImages[currentIndex]} // Key forces re-render for animation if needed, or just src update
-                src={heroImages[currentIndex]}
-                alt="Portrait professionnel"
-                className="w-full h-full object-cover transition-opacity duration-500"
-              />
-
-              {/* Fan Control */}
-              {heroImages.length > 1 && (
-                <button
-                  onClick={nextImage}
-                  aria-label="Image suivante"
-                  className="absolute top-6 right-6 w-12 h-12 flex items-center justify-center cursor-pointer hover:opacity-100 opacity-80 transition-opacity z-10"
-                >
-                  <div className="relative w-8 h-8">
-                    {/* Card 1 (Bottom) */}
-                    <div className="absolute top-0 left-0 w-6 h-8 bg-white/40 rounded-sm transform rotate-[-10deg] translate-x-[-2px] translate-y-[2px] border border-white/20 shadow-sm"></div>
-                    {/* Card 2 (Middle) */}
-                    <div className="absolute top-0 left-0 w-6 h-8 bg-white/60 rounded-sm transform rotate-[5deg] translate-x-[2px] border border-white/30 shadow-sm"></div>
-                    {/* Card 3 (Top) */}
-                    <div className="absolute top-0 left-0 w-6 h-8 bg-white/90 rounded-sm transform rotate-[20deg] translate-x-[6px] translate-y-[-2px] border border-white/40 shadow-sm flex items-center justify-center">
-                      {/* Tiny arrow */}
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-black/50 w-3 h-3 transform rotate-[-20deg]">
-                        <path d="M9 18l6-6-6-6" />
-                      </svg>
-                    </div>
-                  </div>
-                </button>
+          {/* Hero Image / Fan Stack */}
+          <div className="relative group perspective-1000">
+            <div
+              className={cn(
+                "relative aspect-[4/5] w-full max-w-md mx-auto",
+                heroImages.length > 1 ? "cursor-pointer" : ""
               )}
+              onClick={heroImages.length > 1 ? nextImage : undefined}
+              role={heroImages.length > 1 ? "button" : undefined}
+              aria-label={heroImages.length > 1 ? "Image suivante" : undefined}
+              tabIndex={heroImages.length > 1 ? 0 : undefined}
+              onKeyDown={(e) => {
+                if (heroImages.length > 1 && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  nextImage();
+                }
+              }}
+            >
+              {getVisibleCards().map((card) => (
+                <div
+                  key={`${card.index}-${card.position}`} // Re-keying ensures animation triggers on position change
+                  className="absolute inset-0 rounded-3xl overflow-hidden shadow-xl transition-all duration-700 ease-in-out bg-muted"
+                  style={{
+                    zIndex: 30 - card.position * 10, // Front = 30, Middle = 20, Back = 10
+                    transform: `
+                                translateX(${card.position * 12}px) 
+                                translateY(${card.position * -12}px) 
+                                scale(${1 - card.position * 0.05})
+                            `,
+                    opacity: 1 - card.position * 0.15, // Slight fade for back cards
+                  }}
+                >
+                  <img
+                    src={card.img}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                  {/* Overlay to darken back cards slightly more for depth */}
+                  {card.position > 0 && (
+                    <div className="absolute inset-0 bg-black/10 pointer-events-none" />
+                  )}
+                </div>
+              ))}
             </div>
+
             {/* Decorative arch */}
             <div className="absolute -top-8 -right-8 w-32 h-32 border border-border rounded-full opacity-50 -z-10"></div>
           </div>
