@@ -10,6 +10,7 @@ import HomePhotoStripGallery from "@/components/HomePhotoStripGallery";
 import Footer from "@/components/Footer";
 import { getAdminToken } from "@/lib/adminSession";
 import { fileToCompressedDataURL } from "../magazine_editor/lib/imageUtils";
+import defaultHeroImage from "@/assets/hero-portrait.jpeg";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -55,7 +56,11 @@ const AdminGallery = () => {
 
                 if (!res.ok) {
                     console.error(`API GET failed: ${res.status}`);
-                    setConfig(galleryConfigLocal as GalleryConfig);
+                    const fallback = { ...galleryConfigLocal } as GalleryConfig;
+                    if (!fallback.homeHeroImages || fallback.homeHeroImages.length === 0) {
+                        fallback.homeHeroImages = [defaultHeroImage];
+                    }
+                    setConfig(fallback);
                     setIsLocalMode(true);
                     setLoading(false);
                     return;
@@ -64,14 +69,26 @@ const AdminGallery = () => {
                 const json = await res.json();
 
                 if (json.success && json.data) {
-                    setConfig(json.data);
+                    const loadedConfig = json.data;
+                    if (!loadedConfig.homeHeroImages || loadedConfig.homeHeroImages.length === 0) {
+                        loadedConfig.homeHeroImages = [defaultHeroImage];
+                    }
+                    setConfig(loadedConfig);
                     setIsLocalMode(json.source === "fs" || json.source === "empty");
                 } else {
-                    setConfig(galleryConfigLocal as GalleryConfig);
+                    const fallback = { ...galleryConfigLocal } as GalleryConfig;
+                    if (!fallback.homeHeroImages || fallback.homeHeroImages.length === 0) {
+                        fallback.homeHeroImages = [defaultHeroImage];
+                    }
+                    setConfig(fallback);
                 }
             } catch (error) {
                 console.error("Failed to load gallery:", error);
-                setConfig(galleryConfigLocal as GalleryConfig);
+                const fallback = { ...galleryConfigLocal } as GalleryConfig;
+                if (!fallback.homeHeroImages || fallback.homeHeroImages.length === 0) {
+                    fallback.homeHeroImages = [defaultHeroImage];
+                }
+                setConfig(fallback);
                 setIsLocalMode(true);
             } finally {
                 setLoading(false);
