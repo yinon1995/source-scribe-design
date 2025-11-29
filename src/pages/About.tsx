@@ -56,11 +56,17 @@ const About = () => {
                   <h3 className="text-xl font-display font-semibold text-foreground">
                     {aboutContent.valuesTitle}
                   </h3>
-                  <ul className="space-y-2 text-muted-foreground">
+                  <ul className="mt-4 space-y-3">
                     {aboutContent.valuesItems.map((item, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>{item}</span>
+                      <li
+                        key={index}
+                        className="relative pl-6 leading-relaxed text-muted-foreground
+                                   before:content-[''] before:absolute before:left-0
+                                   before:top-[0.85em] before:-translate-y-1/2
+                                   before:h-1.5 before:w-1.5 before:rounded-full
+                                   before:bg-muted-foreground/60"
+                      >
+                        {item}
                       </li>
                     ))}
                   </ul>

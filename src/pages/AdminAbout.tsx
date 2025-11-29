@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { Plus, Trash2, ArrowUp, ArrowDown, Upload } from "lucide-react";
+import { Plus, Trash2, ArrowUp, ArrowDown, Upload, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -134,66 +134,86 @@ const AdminAbout = () => {
     });
   }
 
+  async function uploadFile(file: File): Promise<string> {
+    if (!file.type.startsWith("image/")) {
+      throw new Error("Veuillez sélectionner une image.");
+    }
+
+    const token = getAdminToken();
+    if (!token) {
+      throw new Error("Session expirée.");
+    }
+
+    // 1. Convert to base64 for upload
+    const base64 = await fileToCompressedDataURL(file);
+    const content = base64.split(",")[1]; // Remove data:image/...;base64, prefix
+
+    // 2. Generate filename
+    const ext = file.name.split(".").pop() || "jpg";
+    const fileName = `about-${Date.now()}.${ext}`;
+
+    // 3. Upload via API
+    const res = await fetch("/api/upload-image", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        slug: "about",
+        fileName,
+        content,
+        encoding: "base64",
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error("Erreur lors de l'upload.");
+    }
+
+    const data = await res.json();
+    if (!data.ok || !data.path) {
+      throw new Error(data.error || "Erreur lors de l'upload.");
+    }
+
+    return data.path;
+  }
+
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const file = files[0];
-    if (!file.type.startsWith("image/")) {
-      toast.error("Veuillez sélectionner une image.");
-      return;
-    }
-
     try {
-      const token = getAdminToken();
-      if (!token) {
-        toast.error("Session expirée.");
-        return;
-      }
-
-      // 1. Convert to base64 for upload
-      const base64 = await fileToCompressedDataURL(file);
-      const content = base64.split(",")[1]; // Remove data:image/...;base64, prefix
-
-      // 2. Generate filename
-      const ext = file.name.split(".").pop() || "jpg";
-      const fileName = `about-${Date.now()}.${ext}`;
-
-      // 3. Upload via API
-      const res = await fetch("/api/upload-image", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          slug: "about",
-          fileName,
-          content,
-          encoding: "base64",
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error("Erreur lors de l'upload.");
-      }
-
-      const data = await res.json();
-      if (!data.ok || !data.path) {
-        throw new Error(data.error || "Erreur lors de l'upload.");
-      }
-
-      // 4. Add to state
+      const path = await uploadFile(files[0]);
       setForm((prev) => ({
         ...prev,
-        aboutImages: [...prev.aboutImages, data.path],
+        aboutImages: [...prev.aboutImages, path],
       }));
       toast.success("Image ajoutée !");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Impossible d'uploader l'image.");
+      toast.error(err.message || "Impossible d'uploader l'image.");
     } finally {
-      // Reset input
+      e.target.value = "";
+    }
+  }
+
+  async function handleReplaceImage(index: number, e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      const path = await uploadFile(files[0]);
+      setForm((prev) => {
+        const next = [...prev.aboutImages];
+        next[index] = path;
+        return { ...prev, aboutImages: next };
+      });
+      toast.success("Image remplacée !");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Impossible de remplacer l'image.");
+    } finally {
       e.target.value = "";
     }
   }
@@ -369,6 +389,17 @@ const AdminAbout = () => {
                     <div key={index} className="relative group aspect-[3/4] bg-muted rounded-lg overflow-hidden border border-border">
                       <img src={src} alt="" className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <label className="cursor-pointer">
+                          <div className="h-8 w-8 bg-secondary text-secondary-foreground hover:bg-secondary/80 inline-flex items-center justify-center rounded-md transition-colors" title="Remplacer">
+                            <RefreshCw className="h-4 w-4" />
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleReplaceImage(index, e)}
+                          />
+                        </label>
                         <Button
                           type="button"
                           variant="secondary"
@@ -445,7 +476,7 @@ function mapContentToForm(content: AboutContent): FormState {
     valuesItems: [...content.valuesItems],
     approachTitle: content.approachTitle,
     approachBody: content.approachBody,
-    aboutImages: content.aboutImages || [],
+    aboutImages: content.aboutImages ?? [],
   };
 }
 
