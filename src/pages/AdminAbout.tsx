@@ -11,6 +11,7 @@ import { getAdminToken } from "@/lib/adminSession";
 import type { AboutContent } from "../../shared/aboutContent";
 import { DEFAULT_ABOUT_CONTENT } from "../../shared/aboutContent";
 import { fileToCompressedDataURL } from "../magazine_editor/lib/imageUtils";
+import heroImage from "@/assets/hero-portrait.jpeg";
 
 type FormState = {
   aboutTitle: string;
@@ -469,6 +470,12 @@ const AdminAbout = () => {
 };
 
 function mapContentToForm(content: AboutContent): FormState {
+  const images = Array.isArray(content.aboutImages) && content.aboutImages.length > 0
+    ? content.aboutImages
+    : (content as any).aboutImage
+      ? [(content as any).aboutImage]
+      : [heroImage];
+
   return {
     aboutTitle: content.aboutTitle,
     aboutBodyText: content.aboutBody.join("\n\n"),
@@ -476,11 +483,7 @@ function mapContentToForm(content: AboutContent): FormState {
     valuesItems: [...content.valuesItems],
     approachTitle: content.approachTitle,
     approachBody: content.approachBody,
-    aboutImages: Array.isArray(content.aboutImages)
-      ? content.aboutImages
-      : (content as any).aboutImage
-        ? [(content as any).aboutImage]
-        : [],
+    aboutImages: images,
   };
 }
 
