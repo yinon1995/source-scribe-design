@@ -5,10 +5,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { ArrowUp, ArrowDown, Trash2, Upload, AlertCircle } from "lucide-react";
+import { ArrowUp, ArrowDown, Trash2, Upload, AlertCircle, RefreshCw } from "lucide-react";
 import HomePhotoStripGallery from "@/components/HomePhotoStripGallery";
 import Footer from "@/components/Footer";
 import { getAdminToken } from "@/lib/adminSession";
+import { fileToCompressedDataURL } from "../magazine_editor/lib/imageUtils";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -33,6 +34,7 @@ type GalleryItem = {
 type GalleryConfig = {
     title: string;
     items: GalleryItem[];
+    homeHeroImages?: string[];
 };
 
 const AdminGallery = () => {
@@ -40,6 +42,7 @@ const AdminGallery = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [uploading, setUploading] = useState(false);
     const [config, setConfig] = useState<GalleryConfig>({ title: "Galerie", items: [] });
     const [isLocalMode, setIsLocalMode] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -146,6 +149,122 @@ const AdminGallery = () => {
         setConfig({ ...config, items: updated });
     };
 
+    // --- Hero Image Logic ---
+
+    async function uploadFile(file: File): Promise<string> {
+        if (!file.type.startsWith("image/")) {
+            throw new Error("Veuillez sélectionner une image.");
+        }
+
+        const token = getAdminToken();
+        if (!token) {
+            throw new Error("Session expirée.");
+        }
+
+        // 1. Convert to base64 for upload
+        const base64 = await fileToCompressedDataURL(file);
+        const content = base64.split(",")[1];
+
+        // 2. Generate filename
+        const ext = file.name.split(".").pop() || "jpg";
+        const fileName = `hero-${Date.now()}.${ext}`;
+
+        // 3. Upload via API
+        const res = await fetch("/api/upload-image", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                slug: "home",
+                fileName,
+                content,
+                encoding: "base64",
+            }),
+        });
+
+        if (!res.ok) {
+            throw new Error("Erreur lors de l'upload.");
+        }
+
+        const data = await res.json();
+        if (!data.ok || !data.path) {
+            throw new Error(data.error || "Erreur lors de l'upload.");
+        }
+
+        const path = data.path;
+        if (!path.startsWith("/") && !path.startsWith("http")) {
+            throw new Error("Chemin d'image invalide retourné par le serveur.");
+        }
+
+        return path;
+    }
+
+    async function handleHeroUpload(e: React.ChangeEvent<HTMLInputElement>) {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        try {
+            setUploading(true);
+            const path = await uploadFile(files[0]);
+            setConfig((prev) => ({
+                ...prev,
+                homeHeroImages: [...(prev.homeHeroImages || []), path],
+            }));
+            toast.success("Image d'ouverture ajoutée !");
+        } catch (err: any) {
+            console.error(err);
+            toast.error(err.message || "Impossible d'uploader l'image.");
+        } finally {
+            setUploading(false);
+            e.target.value = "";
+        }
+    }
+
+    async function handleReplaceHero(index: number, e: React.ChangeEvent<HTMLInputElement>) {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        try {
+            setUploading(true);
+            const path = await uploadFile(files[0]);
+            setConfig((prev) => {
+                const next = [...(prev.homeHeroImages || [])];
+                next[index] = path;
+                return { ...prev, homeHeroImages: next };
+            });
+            toast.success("Image remplacée !");
+        } catch (err: any) {
+            console.error(err);
+            toast.error(err.message || "Impossible de remplacer l'image.");
+        } finally {
+            setUploading(false);
+            e.target.value = "";
+        }
+    }
+
+    function removeHero(index: number) {
+        setConfig((prev) => ({
+            ...prev,
+            homeHeroImages: (prev.homeHeroImages || []).filter((_, i) => i !== index),
+        }));
+    }
+
+    function moveHero(index: number, direction: "up" | "down") {
+        setConfig((prev) => {
+            const newImages = [...(prev.homeHeroImages || [])];
+            if (direction === "up" && index > 0) {
+                [newImages[index], newImages[index - 1]] = [newImages[index - 1], newImages[index]];
+            } else if (direction === "down" && index < newImages.length - 1) {
+                [newImages[index], newImages[index + 1]] = [newImages[index + 1], newImages[index]];
+            }
+            return { ...prev, homeHeroImages: newImages };
+        });
+    }
+
+    // --- End Hero Image Logic ---
+
     const handleSaveClick = () => {
         setShowConfirmModal(true);
     };
@@ -244,10 +363,78 @@ const AdminGallery = () => {
 
                     <div className="grid lg:grid-cols-2 gap-6">
                         {/* Left: Editor */}
-                        <div className="space-y-4">
+                        <div className="space-y-8">
+                            {/* Hero Images Section */}
+                            <Card className="p-4">
+                                <h2 className="font-medium mb-4">Image d'ouverture (Accueil)</h2>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                                    {(config.homeHeroImages || []).map((src, index) => (
+                                        <div key={index} className="relative group aspect-[4/5] bg-muted rounded-lg overflow-hidden border border-border">
+                                            <img src={src} alt="" className="w-full h-full object-cover" />
+                                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                                <label className="cursor-pointer">
+                                                    <div className="h-8 w-8 bg-secondary text-secondary-foreground hover:bg-secondary/80 inline-flex items-center justify-center rounded-md transition-colors" title="Remplacer">
+                                                        <RefreshCw className="h-4 w-4" />
+                                                    </div>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        className="hidden"
+                                                        onChange={(e) => handleReplaceHero(index, e)}
+                                                    />
+                                                </label>
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    size="icon"
+                                                    className="h-8 w-8"
+                                                    onClick={() => moveHero(index, "up")}
+                                                    disabled={index === 0}
+                                                    title="Monter"
+                                                >
+                                                    <ArrowUp className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    size="icon"
+                                                    className="h-8 w-8"
+                                                    onClick={() => moveHero(index, "down")}
+                                                    disabled={index === (config.homeHeroImages?.length || 0) - 1}
+                                                    title="Descendre"
+                                                >
+                                                    <ArrowDown className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="destructive"
+                                                    size="icon"
+                                                    className="h-8 w-8"
+                                                    onClick={() => removeHero(index)}
+                                                    title="Supprimer"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <label className="flex flex-col items-center justify-center aspect-[4/5] border-2 border-dashed border-muted-foreground/25 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                                        <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                                        <span className="text-sm text-muted-foreground font-medium">Ajouter</span>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={handleHeroUpload}
+                                        />
+                                    </label>
+                                </div>
+                            </Card>
+
+                            {/* Gallery Section */}
                             <Card className="p-4">
                                 <div className="flex items-center justify-between mb-4">
-                                    <span className="font-medium">Images ({config.items.length}/{MAX_ITEMS})</span>
+                                    <span className="font-medium">Galerie ({config.items.length}/{MAX_ITEMS})</span>
                                     <div>
                                         <input
                                             ref={fileInputRef}
@@ -263,7 +450,7 @@ const AdminGallery = () => {
                                             size="sm"
                                         >
                                             <Upload className="w-4 h-4 mr-2" />
-                                            Ajouter des images
+                                            Ajouter
                                         </Button>
                                     </div>
                                 </div>
@@ -334,18 +521,18 @@ const AdminGallery = () => {
                             {/* Save Button */}
                             <Button
                                 onClick={handleSaveClick}
-                                disabled={saving}
+                                disabled={saving || uploading}
                                 className="w-full"
                                 size="lg"
                             >
-                                {saving ? "Sauvegarde..." : "Enregistrer"}
+                                {uploading ? "Upload en cours..." : saving ? "Sauvegarde..." : "Enregistrer"}
                             </Button>
                         </div>
 
                         {/* Right: Preview */}
                         <div>
-                            <Card className="p-4">
-                                <h2 className="font-medium mb-3">Aperçu</h2>
+                            <Card className="p-4 sticky top-24">
+                                <h2 className="font-medium mb-3">Aperçu Galerie</h2>
                                 <div className="border border-border rounded overflow-hidden">
                                     <HomePhotoStripGallery itemsOverride={config.items} />
                                 </div>
@@ -361,7 +548,7 @@ const AdminGallery = () => {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Enregistrer la galerie ?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Cette action mettra à jour la galerie de la page d’accueil.
+                            Cette action mettra à jour la galerie et l'image d'ouverture de la page d’accueil.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

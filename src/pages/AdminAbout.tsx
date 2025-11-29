@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { Plus, Trash2, ArrowUp, ArrowDown, Upload, RefreshCw } from "lucide-react";
+import { Plus, Trash2, ArrowUp, ArrowDown, Upload, RefreshCw, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -137,10 +137,6 @@ const AdminAbout = () => {
 
   const [uploading, setUploading] = useState(false);
 
-  // ... (existing useEffect)
-
-  // ... (existing helper functions)
-
   async function uploadFile(file: File): Promise<string> {
     if (!file.type.startsWith("image/")) {
       throw new Error("Veuillez sélectionner une image.");
@@ -276,6 +272,17 @@ const AdminAbout = () => {
 
   return (
     <div className="space-y-8">
+      <div className="flex items-center">
+        <Button
+          variant="ghost"
+          onClick={() => navigate("/admin")}
+          className="gap-2 pl-0 hover:pl-2 transition-all"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Retour au tableau de bord
+        </Button>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Mettre à jour la section « À propos »</CardTitle>
@@ -556,5 +563,3 @@ function normalizeForm(form: FormState): { ok: true; content: AboutContent } | {
 }
 
 export default AdminAbout;
-
-

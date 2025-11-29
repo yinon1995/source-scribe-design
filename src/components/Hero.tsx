@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import heroImage from "@/assets/hero-portrait.jpeg";
+import defaultHeroImage from "@/assets/hero-portrait.jpeg";
 import { site } from "@/lib/siteContent";
 import { Link } from "react-router-dom";
 import { createLead } from "@/lib/inboxClient";
+import { cn } from "@/lib/utils";
 
 const Hero = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -17,6 +18,32 @@ const Hero = () => {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  // Hero images logic
+  const [heroImages, setHeroImages] = useState<string[]>([defaultHeroImage]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    async function loadHeroImages() {
+      try {
+        const res = await fetch("/api/homeGallery");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data?.homeHeroImages && Array.isArray(json.data.homeHeroImages) && json.data.homeHeroImages.length > 0) {
+            setHeroImages(json.data.homeHeroImages);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load hero images", e);
+      }
+    }
+    loadHeroImages();
+  }, []);
+
+  const nextImage = () => {
+    setCurrentIndex((prev) => (prev + 1) % heroImages.length);
+  };
+
   const emailValid = /\S+@\S+\.\S+/.test(email);
   const subjectValid = subject.trim().length > 0;
   const messageValid = message.trim().length > 0;
@@ -63,15 +90,15 @@ const Hero = () => {
                 {site.hero.title}
               </h1>
             </div>
-            
+
             <p className="text-lg text-muted-foreground max-w-lg leading-relaxed">
               {site.hero.subtitle}
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
               <Link to={site.hero.ctaHref}>
-                <Button 
-                  size="lg" 
+                <Button
+                  size="lg"
                   className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-8 transition duration-200 hover:opacity-90"
                 >
                   {site.hero.ctaLabel}
@@ -79,9 +106,9 @@ const Hero = () => {
               </Link>
               <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button 
-                    size="lg" 
-                    variant="outline" 
+                  <Button
+                    size="lg"
+                    variant="outline"
                     className="rounded-full px-8 border-2 transition-colors duration-200 hover:opacity-90"
                   >
                     Proposer un sujet
@@ -147,16 +174,40 @@ const Hero = () => {
           </div>
 
           {/* Hero Image */}
-          <div className="relative">
-            <div className="aspect-[4/5] rounded-3xl overflow-hidden shadow-xl">
+          <div className="relative group">
+            <div className="aspect-[4/5] rounded-3xl overflow-hidden shadow-xl relative bg-muted">
               <img
-                src={heroImage}
+                key={heroImages[currentIndex]} // Key forces re-render for animation if needed, or just src update
+                src={heroImages[currentIndex]}
                 alt="Portrait professionnel"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-opacity duration-500"
               />
+
+              {/* Fan Control */}
+              {heroImages.length > 1 && (
+                <button
+                  onClick={nextImage}
+                  aria-label="Image suivante"
+                  className="absolute top-6 right-6 w-12 h-12 flex items-center justify-center cursor-pointer hover:opacity-100 opacity-80 transition-opacity z-10"
+                >
+                  <div className="relative w-8 h-8">
+                    {/* Card 1 (Bottom) */}
+                    <div className="absolute top-0 left-0 w-6 h-8 bg-white/40 rounded-sm transform rotate-[-10deg] translate-x-[-2px] translate-y-[2px] border border-white/20 shadow-sm"></div>
+                    {/* Card 2 (Middle) */}
+                    <div className="absolute top-0 left-0 w-6 h-8 bg-white/60 rounded-sm transform rotate-[5deg] translate-x-[2px] border border-white/30 shadow-sm"></div>
+                    {/* Card 3 (Top) */}
+                    <div className="absolute top-0 left-0 w-6 h-8 bg-white/90 rounded-sm transform rotate-[20deg] translate-x-[6px] translate-y-[-2px] border border-white/40 shadow-sm flex items-center justify-center">
+                      {/* Tiny arrow */}
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-black/50 w-3 h-3 transform rotate-[-20deg]">
+                        <path d="M9 18l6-6-6-6" />
+                      </svg>
+                    </div>
+                  </div>
+                </button>
+              )}
             </div>
             {/* Decorative arch */}
-            <div className="absolute -top-8 -right-8 w-32 h-32 border border-border rounded-full opacity-50"></div>
+            <div className="absolute -top-8 -right-8 w-32 h-32 border border-border rounded-full opacity-50 -z-10"></div>
           </div>
         </div>
       </div>

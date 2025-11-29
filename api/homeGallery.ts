@@ -12,6 +12,7 @@ type GalleryItem = {
 type GalleryConfig = {
     title: string;
     items: GalleryItem[];
+    homeHeroImages?: string[];
 };
 
 const GITHUB_REPO = process.env.GITHUB_REPO;
@@ -111,6 +112,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const title = payload?.title || "Galerie";
             const items = Array.isArray(payload?.items) ? payload.items : [];
+            const homeHeroImages = Array.isArray(payload?.homeHeroImages)
+                ? payload.homeHeroImages.filter((img: any) => typeof img === "string")
+                : [];
 
             if (items.length > MAX_ITEMS) {
                 respond(res, 422, { success: false, error: `Maximum ${MAX_ITEMS} images` });
@@ -129,7 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
             }
 
-            const config: GalleryConfig = { title, items: validatedItems };
+            const config: GalleryConfig = { title, items: validatedItems, homeHeroImages };
             const contentString = JSON.stringify(config, null, 2);
 
             // Write to GitHub
