@@ -135,6 +135,12 @@ const AdminAbout = () => {
     });
   }
 
+  const [uploading, setUploading] = useState(false);
+
+  // ... (existing useEffect)
+
+  // ... (existing helper functions)
+
   async function uploadFile(file: File): Promise<string> {
     if (!file.type.startsWith("image/")) {
       throw new Error("Veuillez sélectionner une image.");
@@ -177,7 +183,13 @@ const AdminAbout = () => {
       throw new Error(data.error || "Erreur lors de l'upload.");
     }
 
-    return data.path;
+    // Validate returned path
+    const path = data.path;
+    if (!path.startsWith("/") && !path.startsWith("http")) {
+      throw new Error("Chemin d'image invalide retourné par le serveur.");
+    }
+
+    return path;
   }
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -185,6 +197,7 @@ const AdminAbout = () => {
     if (!files || files.length === 0) return;
 
     try {
+      setUploading(true);
       const path = await uploadFile(files[0]);
       setForm((prev) => ({
         ...prev,
@@ -195,6 +208,7 @@ const AdminAbout = () => {
       console.error(err);
       toast.error(err.message || "Impossible d'uploader l'image.");
     } finally {
+      setUploading(false);
       e.target.value = "";
     }
   }
@@ -204,6 +218,7 @@ const AdminAbout = () => {
     if (!files || files.length === 0) return;
 
     try {
+      setUploading(true);
       const path = await uploadFile(files[0]);
       setForm((prev) => {
         const next = [...prev.aboutImages];
@@ -215,6 +230,7 @@ const AdminAbout = () => {
       console.error(err);
       toast.error(err.message || "Impossible de remplacer l'image.");
     } finally {
+      setUploading(false);
       e.target.value = "";
     }
   }
@@ -457,8 +473,8 @@ const AdminAbout = () => {
                 >
                   Annuler
                 </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving ? "Enregistrement…" : hasChanges ? "Enregistrer" : "Enregistrer"}
+                <Button type="submit" disabled={saving || uploading}>
+                  {uploading ? "Upload en cours..." : saving ? "Enregistrement…" : hasChanges ? "Enregistrer" : "Enregistrer"}
                 </Button>
               </div>
             </form>
