@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { Plus, Trash2, ArrowUp, ArrowDown, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { getAdminToken } from "@/lib/adminSession";
 import type { AboutContent } from "../../shared/aboutContent";
 import { DEFAULT_ABOUT_CONTENT } from "../../shared/aboutContent";
+import { fileToCompressedDataURL } from "../magazine_editor/lib/imageUtils";
 
 type FormState = {
   aboutTitle: string;
@@ -18,6 +19,7 @@ type FormState = {
   valuesItems: string[];
   approachTitle: string;
   approachBody: string;
+  aboutImages: string[];
 };
 
 const EMPTY_FORM: FormState = {
@@ -27,6 +29,7 @@ const EMPTY_FORM: FormState = {
   valuesItems: ["", "", ""],
   approachTitle: "",
   approachBody: "",
+  aboutImages: [],
 };
 
 const AdminAbout = () => {
@@ -110,6 +113,89 @@ const AdminAbout = () => {
       }
       return { ...prev, valuesItems: newItems };
     });
+  }
+
+  function removeImage(index: number) {
+    setForm((prev) => ({
+      ...prev,
+      aboutImages: prev.aboutImages.filter((_, i) => i !== index),
+    }));
+  }
+
+  function moveImage(index: number, direction: "up" | "down") {
+    setForm((prev) => {
+      const newImages = [...prev.aboutImages];
+      if (direction === "up" && index > 0) {
+        [newImages[index], newImages[index - 1]] = [newImages[index - 1], newImages[index]];
+      } else if (direction === "down" && index < newImages.length - 1) {
+        [newImages[index], newImages[index + 1]] = [newImages[index + 1], newImages[index]];
+      }
+      return { ...prev, aboutImages: newImages };
+    });
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    if (!file.type.startsWith("image/")) {
+      toast.error("Veuillez sélectionner une image.");
+      return;
+    }
+
+    try {
+      const token = getAdminToken();
+      if (!token) {
+        toast.error("Session expirée.");
+        return;
+      }
+
+      // 1. Convert to base64 for upload
+      const base64 = await fileToCompressedDataURL(file);
+      const content = base64.split(",")[1]; // Remove data:image/...;base64, prefix
+
+      // 2. Generate filename
+      const ext = file.name.split(".").pop() || "jpg";
+      const fileName = `about-${Date.now()}.${ext}`;
+
+      // 3. Upload via API
+      const res = await fetch("/api/upload-image", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          slug: "about",
+          fileName,
+          content,
+          encoding: "base64",
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Erreur lors de l'upload.");
+      }
+
+      const data = await res.json();
+      if (!data.ok || !data.path) {
+        throw new Error(data.error || "Erreur lors de l'upload.");
+      }
+
+      // 4. Add to state
+      setForm((prev) => ({
+        ...prev,
+        aboutImages: [...prev.aboutImages, data.path],
+      }));
+      toast.success("Image ajoutée !");
+    } catch (err) {
+      console.error(err);
+      toast.error("Impossible d'uploader l'image.");
+    } finally {
+      // Reset input
+      e.target.value = "";
+    }
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -276,6 +362,61 @@ const AdminAbout = () => {
                 </div>
               </section>
 
+              <section className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">Images</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {form.aboutImages.map((src, index) => (
+                    <div key={index} className="relative group aspect-[3/4] bg-muted rounded-lg overflow-hidden border border-border">
+                      <img src={src} alt="" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => moveImage(index, "up")}
+                          disabled={index === 0}
+                          title="Monter"
+                        >
+                          <ArrowUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => moveImage(index, "down")}
+                          disabled={index === form.aboutImages.length - 1}
+                          title="Descendre"
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => removeImage(index)}
+                          title="Supprimer"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  <label className="flex flex-col items-center justify-center aspect-[3/4] border-2 border-dashed border-muted-foreground/25 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                    <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                    <span className="text-sm text-muted-foreground font-medium">Ajouter une image</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                    />
+                  </label>
+                </div>
+              </section>
+
               <div className="flex flex-col sm:flex-row gap-3 justify-end">
                 <Button
                   type="button"
@@ -304,6 +445,7 @@ function mapContentToForm(content: AboutContent): FormState {
     valuesItems: [...content.valuesItems],
     approachTitle: content.approachTitle,
     approachBody: content.approachBody,
+    aboutImages: content.aboutImages || [],
   };
 }
 
@@ -317,6 +459,7 @@ function normalizeForm(form: FormState): { ok: true; content: AboutContent } | {
   const valuesItems = form.valuesItems.map((item) => item.trim()).filter(Boolean);
   const approachTitle = form.approachTitle.trim();
   const approachBody = form.approachBody.trim();
+  const aboutImages = form.aboutImages;
 
   if (!aboutTitle || aboutBody.length === 0) {
     return { ok: false, error: "Le texte principal doit contenir au moins un paragraphe." };
@@ -337,6 +480,7 @@ function normalizeForm(form: FormState): { ok: true; content: AboutContent } | {
       valuesItems,
       approachTitle,
       approachBody,
+      aboutImages,
     },
   };
 }

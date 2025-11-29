@@ -25,6 +25,7 @@ function sanitizeAboutContent(value: unknown): AboutContent | null {
   const valuesItems = isStringArray(obj.valuesItems) ? obj.valuesItems : [];
   const approachTitle = typeof obj.approachTitle === "string" ? obj.approachTitle : "";
   const approachBody = typeof obj.approachBody === "string" ? obj.approachBody : "";
+  const aboutImages = isStringArray(obj.aboutImages) ? obj.aboutImages : [];
 
   if (!aboutTitle || !aboutBody.length || !valuesTitle || !approachTitle || !approachBody) {
     return null;
@@ -37,6 +38,7 @@ function sanitizeAboutContent(value: unknown): AboutContent | null {
     valuesItems,
     approachTitle,
     approachBody,
+    aboutImages,
   };
 }
 

@@ -3,7 +3,8 @@
 type UploadBody = {
   slug?: string;
   fileName?: string;
-  content?: string; // base64
+  content?: string; // base64 or text
+  encoding?: "base64" | "utf8";
 };
 
 const REPO = process.env.GITHUB_REPO; // e.g. "nolwennrobet-lab/source-scribe-design"
@@ -32,12 +33,15 @@ async function githubGet(path: string) {
   return res.json();
 }
 
-async function githubPut(path: string, content: string, message: string) {
+async function githubPut(path: string, content: string, message: string, encoding: "base64" | "utf8" = "utf8") {
   if (!REPO || !TOKEN) throw new Error("Missing GitHub credentials");
   let sha: string | undefined;
   const existing = await githubGet(path);
   if (existing && typeof (existing as any).sha === "string") sha = (existing as any).sha;
   const url = `https://api.github.com/repos/${REPO}/contents/${encodeGitHubPath(path)}`;
+
+  const finalContent = encoding === "base64" ? content : toBase64(content);
+
   const res = await fetch(url, {
     method: "PUT",
     headers: {
@@ -47,7 +51,7 @@ async function githubPut(path: string, content: string, message: string) {
     },
     body: JSON.stringify({
       message,
-      content: toBase64(content),
+      content: finalContent,
       branch: BRANCH,
       sha,
       committer: { name: "A la Brestoise bot", email: "bot@alabrestoise.local" },
@@ -94,6 +98,8 @@ export default async function handler(req: any, res: any) {
   const slug = String(body?.slug || "").trim();
   const fileName = String(body?.fileName || "").trim();
   const content = String(body?.content || "").trim();
+  const encoding = body?.encoding === "base64" ? "base64" : "utf8";
+
   if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
     res.status(422).json({ ok: false, error: "Slug invalide." });
     return;
@@ -115,7 +121,7 @@ export default async function handler(req: any, res: any) {
 
   try {
     const path = `public/uploads/${slug}/${fileName}`;
-    await githubPut(path, content, `feat(assets): upload image for ${slug}`);
+    await githubPut(path, content, `feat(assets): upload image for ${slug}`, encoding);
     res.status(200).json({ ok: true, path: `/uploads/${slug}/${fileName}` });
   } catch (e: any) {
     const message = e?.message ? String(e.message) : String(e);

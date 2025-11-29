@@ -5,6 +5,7 @@ export type AboutContent = {
   valuesItems: string[];
   approachTitle: string;
   approachBody: string;
+  aboutImages?: string[];
 };
 
 export const DEFAULT_ABOUT_CONTENT: AboutContent = {

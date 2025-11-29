@@ -1,6 +1,8 @@
 import Footer from "@/components/Footer";
 import heroImage from "@/assets/hero-portrait.jpeg";
 import { getAboutContent } from "@/lib/about";
+import useEmblaCarousel from "embla-carousel-react";
+import { useEffect } from "react";
 
 const About = () => {
   const aboutContent = getAboutContent();
@@ -44,12 +46,8 @@ const About = () => {
 
           {/* Content */}
           <div className="grid md:grid-cols-2 gap-12 items-start mb-16">
-            <div className="aspect-[3/4] rounded-2xl overflow-hidden shadow-lg">
-              <img
-                src={heroImage}
-                alt="Portrait"
-                className="w-full h-full object-cover"
-              />
+            <div className="aspect-[3/4] rounded-2xl overflow-hidden shadow-lg relative">
+              <AboutImageCarousel images={aboutContent.aboutImages || []} />
             </div>
 
             <div className="space-y-6">
@@ -119,3 +117,54 @@ const About = () => {
 };
 
 export default About;
+
+function AboutImageCarousel({ images }: { images: string[] }) {
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, duration: 40 });
+
+  useEffect(() => {
+    if (!emblaApi || images.length <= 1) return;
+
+    // Auto-play
+    const interval = setInterval(() => {
+      emblaApi.scrollNext();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [emblaApi, images.length]);
+
+  if (images.length === 0) {
+    return (
+      <img
+        src={heroImage}
+        alt="Portrait"
+        className="w-full h-full object-cover"
+      />
+    );
+  }
+
+  if (images.length === 1) {
+    return (
+      <img
+        src={images[0]}
+        alt="Portrait"
+        className="w-full h-full object-cover"
+      />
+    );
+  }
+
+  return (
+    <div className="overflow-hidden h-full" ref={emblaRef}>
+      <div className="flex h-full">
+        {images.map((src, index) => (
+          <div className="flex-[0_0_100%] min-w-0 h-full relative" key={index}>
+            <img
+              src={src}
+              alt={`Portrait ${index + 1}`}
+              className="w-full h-full object-cover block"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

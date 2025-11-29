@@ -147,6 +147,9 @@ function sanitizeAboutContent(value: unknown): AboutContent | null {
     : [];
   const approachTitle = typeof obj.approachTitle === "string" ? obj.approachTitle : "";
   const approachBody = typeof obj.approachBody === "string" ? obj.approachBody : "";
+  const aboutImages = Array.isArray(obj.aboutImages)
+    ? obj.aboutImages.filter((entry): entry is string => typeof entry === "string")
+    : [];
 
   if (!aboutTitle || !aboutBody.length || !valuesTitle || !approachTitle || !approachBody) {
     return null;
@@ -159,6 +162,7 @@ function sanitizeAboutContent(value: unknown): AboutContent | null {
     valuesItems,
     approachTitle,
     approachBody,
+    aboutImages,
   };
 }
 
@@ -178,6 +182,9 @@ function normalizeAboutPayload(payload: unknown): { ok: true; content: AboutCont
     : [];
   const approachTitle = typeof obj.approachTitle === "string" ? obj.approachTitle.trim() : "";
   const approachBody = typeof obj.approachBody === "string" ? obj.approachBody.trim() : "";
+  const aboutImages = Array.isArray(obj.aboutImages)
+    ? obj.aboutImages.map((entry) => (typeof entry === "string" ? entry.trim() : "")).filter(Boolean)
+    : [];
 
   if (!aboutTitle || !aboutBody.length) return { ok: false, error: "Texte principal manquant." };
   if (!valuesTitle) return { ok: false, error: "Titre des valeurs manquant." };
@@ -192,6 +199,7 @@ function normalizeAboutPayload(payload: unknown): { ok: true; content: AboutCont
       valuesItems,
       approachTitle,
       approachBody,
+      aboutImages,
     },
   };
 }
