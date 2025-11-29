@@ -476,6 +476,17 @@ function mapContentToForm(content: AboutContent): FormState {
       ? [(content as any).aboutImage]
       : [heroImage];
 
+  // Sanitize loaded images
+  const sanitizedImages = images.filter(img =>
+    img &&
+    !img.startsWith('file:') &&
+    !img.startsWith('blob:') &&
+    (img.startsWith('http') || img.startsWith('/') || img.startsWith('data:image/'))
+  );
+
+  // Fallback to hero if all were invalid
+  const finalImages = sanitizedImages.length > 0 ? sanitizedImages : [heroImage];
+
   return {
     aboutTitle: content.aboutTitle,
     aboutBodyText: content.aboutBody.join("\n\n"),
@@ -483,7 +494,7 @@ function mapContentToForm(content: AboutContent): FormState {
     valuesItems: [...content.valuesItems],
     approachTitle: content.approachTitle,
     approachBody: content.approachBody,
-    aboutImages: images,
+    aboutImages: finalImages,
   };
 }
 
@@ -497,7 +508,12 @@ function normalizeForm(form: FormState): { ok: true; content: AboutContent } | {
   const valuesItems = form.valuesItems.map((item) => item.trim()).filter(Boolean);
   const approachTitle = form.approachTitle.trim();
   const approachBody = form.approachBody.trim();
-  const aboutImages = form.aboutImages;
+  const aboutImages = form.aboutImages.filter(img =>
+    img &&
+    !img.startsWith('file:') &&
+    !img.startsWith('blob:') &&
+    (img.startsWith('http') || img.startsWith('/') || img.startsWith('data:image/'))
+  );
 
   if (!aboutTitle || aboutBody.length === 0) {
     return { ok: false, error: "Le texte principal doit contenir au moins un paragraphe." };
