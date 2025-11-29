@@ -395,7 +395,7 @@ const AdminAbout = () => {
                           </div>
                           <input
                             type="file"
-                            accept="image/*"
+                            accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/avif,image/svg+xml,image/heic,image/heif"
                             className="hidden"
                             onChange={(e) => handleReplaceImage(index, e)}
                           />
@@ -440,7 +440,7 @@ const AdminAbout = () => {
                     <span className="text-sm text-muted-foreground font-medium">Ajouter une image</span>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/avif,image/svg+xml,image/heic,image/heif"
                       className="hidden"
                       onChange={handleImageUpload}
                     />
@@ -476,7 +476,11 @@ function mapContentToForm(content: AboutContent): FormState {
     valuesItems: [...content.valuesItems],
     approachTitle: content.approachTitle,
     approachBody: content.approachBody,
-    aboutImages: content.aboutImages ?? [],
+    aboutImages: Array.isArray(content.aboutImages)
+      ? content.aboutImages
+      : (content as any).aboutImage
+        ? [(content as any).aboutImage]
+        : [],
   };
 }
 

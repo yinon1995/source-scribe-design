@@ -16,6 +16,11 @@ export const fileToCompressedDataURL = async (
     maxDim = 1600,
     quality = 0.82
 ): Promise<string> => {
+    // Skip compression for non-raster or animated formats
+    if (file.type === 'image/gif' || file.type === 'image/svg+xml' || file.type === 'image/x-icon') {
+        return fileToDataUrl(file);
+    }
+
     return new Promise((resolve, reject) => {
         // Use createImageBitmap for efficient decoding
         createImageBitmap(file)
@@ -70,7 +75,10 @@ export const fileToCompressedDataURL = async (
                     quality
                 );
             })
-            .catch(reject);
+            .catch((err) => {
+                console.warn("Compression failed, falling back to original.", err);
+                fileToDataUrl(file).then(resolve).catch(reject);
+            });
     });
 };
 
