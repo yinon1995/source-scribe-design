@@ -26,7 +26,7 @@ function sanitizeAboutContent(value: unknown): AboutContent | null {
   const approachTitle = typeof obj.approachTitle === "string" ? obj.approachTitle : "";
   const approachBody = typeof obj.approachBody === "string" ? obj.approachBody : "";
 
-  if (!aboutTitle || !aboutBody.length || !valuesTitle || !valuesItems.length || !approachTitle || !approachBody) {
+  if (!aboutTitle || !aboutBody.length || !valuesTitle || !approachTitle || !approachBody) {
     return null;
   }
 

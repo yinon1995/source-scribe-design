@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -82,6 +83,32 @@ const AdminAbout = () => {
       const next = [...prev.valuesItems];
       next[index] = value;
       return { ...prev, valuesItems: next };
+    });
+  }
+
+  function addValueItem() {
+    setForm((prev) => ({
+      ...prev,
+      valuesItems: [...prev.valuesItems, ""],
+    }));
+  }
+
+  function removeValueItem(index: number) {
+    setForm((prev) => ({
+      ...prev,
+      valuesItems: prev.valuesItems.filter((_, i) => i !== index),
+    }));
+  }
+
+  function moveValueItem(index: number, direction: "up" | "down") {
+    setForm((prev) => {
+      const newItems = [...prev.valuesItems];
+      if (direction === "up" && index > 0) {
+        [newItems[index], newItems[index - 1]] = [newItems[index - 1], newItems[index]];
+      } else if (direction === "down" && index < newItems.length - 1) {
+        [newItems[index], newItems[index + 1]] = [newItems[index + 1], newItems[index]];
+      }
+      return { ...prev, valuesItems: newItems };
     });
   }
 
@@ -173,17 +200,58 @@ const AdminAbout = () => {
                     onChange={(e) => updateFormField("valuesTitle", e.target.value)}
                   />
                 </div>
-                <div className="grid md:grid-cols-3 gap-4">
+                <div className="space-y-3">
                   {form.valuesItems.map((value, index) => (
-                    <div key={index} className="space-y-2">
-                      <Label htmlFor={`value-${index}`}>Valeur {index + 1}</Label>
+                    <div key={index} className="flex gap-2 items-center">
                       <Input
-                        id={`value-${index}`}
                         value={value}
                         onChange={(e) => updateValueItem(index, e.target.value)}
+                        placeholder={`Valeur ${index + 1}`}
+                        className="flex-1"
                       />
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => moveValueItem(index, "up")}
+                          disabled={index === 0}
+                          title="Monter"
+                        >
+                          <ArrowUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => moveValueItem(index, "down")}
+                          disabled={index === form.valuesItems.length - 1}
+                          title="Descendre"
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => removeValueItem(index)}
+                          title="Supprimer"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addValueItem}
+                    className="gap-2"
+                  >
+                    <Plus className="h-4 w-4" /> Ajouter une valeur
+                  </Button>
                 </div>
               </section>
 
@@ -233,7 +301,7 @@ function mapContentToForm(content: AboutContent): FormState {
     aboutTitle: content.aboutTitle,
     aboutBodyText: content.aboutBody.join("\n\n"),
     valuesTitle: content.valuesTitle,
-    valuesItems: [...content.valuesItems, "", "", ""].slice(0, 3),
+    valuesItems: [...content.valuesItems],
     approachTitle: content.approachTitle,
     approachBody: content.approachBody,
   };
@@ -253,8 +321,8 @@ function normalizeForm(form: FormState): { ok: true; content: AboutContent } | {
   if (!aboutTitle || aboutBody.length === 0) {
     return { ok: false, error: "Le texte principal doit contenir au moins un paragraphe." };
   }
-  if (!valuesTitle || valuesItems.length < 3) {
-    return { ok: false, error: "Merci de renseigner les trois valeurs." };
+  if (!valuesTitle) {
+    return { ok: false, error: "Le titre des valeurs est requis." };
   }
   if (!approachTitle || !approachBody) {
     return { ok: false, error: "La section « approche » est incomplète." };

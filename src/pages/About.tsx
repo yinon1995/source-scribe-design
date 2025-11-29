@@ -53,19 +53,21 @@ const About = () => {
             </div>
 
             <div className="space-y-6">
-              <div className="space-y-4">
-                <h3 className="text-xl font-display font-semibold text-foreground">
-                  {aboutContent.valuesTitle}
-                </h3>
-                <ul className="space-y-2 text-muted-foreground">
-                  {aboutContent.valuesItems.map((item, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <span className="text-primary mt-1">•</span>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {aboutContent.valuesItems.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-xl font-display font-semibold text-foreground">
+                    {aboutContent.valuesTitle}
+                  </h3>
+                  <ul className="space-y-2 text-muted-foreground">
+                    {aboutContent.valuesItems.map((item, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <span className="text-primary mt-1">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
 

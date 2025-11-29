@@ -148,7 +148,7 @@ function sanitizeAboutContent(value: unknown): AboutContent | null {
   const approachTitle = typeof obj.approachTitle === "string" ? obj.approachTitle : "";
   const approachBody = typeof obj.approachBody === "string" ? obj.approachBody : "";
 
-  if (!aboutTitle || !aboutBody.length || !valuesTitle || !valuesItems.length || !approachTitle || !approachBody) {
+  if (!aboutTitle || !aboutBody.length || !valuesTitle || !approachTitle || !approachBody) {
     return null;
   }
 
@@ -180,7 +180,7 @@ function normalizeAboutPayload(payload: unknown): { ok: true; content: AboutCont
   const approachBody = typeof obj.approachBody === "string" ? obj.approachBody.trim() : "";
 
   if (!aboutTitle || !aboutBody.length) return { ok: false, error: "Texte principal manquant." };
-  if (!valuesTitle || valuesItems.length === 0) return { ok: false, error: "Liste des valeurs incomplète." };
+  if (!valuesTitle) return { ok: false, error: "Titre des valeurs manquant." };
   if (!approachTitle || !approachBody) return { ok: false, error: "Section approche manquante." };
 
   return {
