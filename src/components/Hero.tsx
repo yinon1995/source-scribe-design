@@ -212,7 +212,7 @@ const Hero = () => {
           <div className="relative group perspective-1000">
             <div
               className={cn(
-                "relative aspect-[4/5] w-full max-w-md mx-auto",
+                "relative aspect-[4/5] w-full max-w-lg mx-auto",
                 heroImages.length > 1 ? "cursor-pointer" : ""
               )}
               onClick={heroImages.length > 1 ? nextImage : undefined}
@@ -226,31 +226,61 @@ const Hero = () => {
                 }
               }}
             >
-              {getVisibleCards().map((card) => (
-                <div
-                  key={`${card.index}-${card.position}`} // Re-keying ensures animation triggers on position change
-                  className="absolute inset-0 rounded-3xl overflow-hidden shadow-xl transition-all duration-700 ease-in-out bg-muted"
-                  style={{
-                    zIndex: 30 - card.position * 10, // Front = 30, Middle = 20, Back = 10
-                    transform: `
-                                translateX(${card.position * 12}px) 
-                                translateY(${card.position * -12}px) 
-                                scale(${1 - card.position * 0.05})
-                            `,
-                    opacity: 1 - card.position * 0.15, // Slight fade for back cards
-                  }}
-                >
-                  <img
-                    src={card.img}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                  {/* Overlay to darken back cards slightly more for depth */}
-                  {card.position > 0 && (
-                    <div className="absolute inset-0 bg-black/10 pointer-events-none" />
-                  )}
+              {getVisibleCards().map((card) => {
+                // Specific transforms requested
+                let transform = "translate(0, 0) scale(1)";
+                let opacity = 1;
+
+                if (card.position === 1) {
+                  transform = "translate(14px, 10px) scale(0.98)";
+                  opacity = 0.85;
+                } else if (card.position === 2) {
+                  transform = "translate(28px, 20px) scale(0.96)";
+                  opacity = 0.7;
+                }
+
+                return (
+                  <div
+                    key={`${card.index}-${card.position}`}
+                    className="absolute inset-0 rounded-3xl overflow-hidden shadow-xl transition-all duration-700 ease-in-out bg-muted"
+                    style={{
+                      zIndex: 30 - card.position * 10,
+                      transform,
+                      opacity,
+                    }}
+                  >
+                    <img
+                      src={card.img}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                    {/* Overlay to darken back cards slightly more for depth */}
+                    {card.position > 0 && (
+                      <div className="absolute inset-0 bg-black/10 pointer-events-none" />
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Tiny Arrow Cue */}
+              {heroImages.length > 1 && (
+                <div className="absolute top-6 right-6 z-40 pointer-events-none">
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-white w-6 h-6 opacity-35 group-hover:opacity-70 transition-opacity"
+                  >
+                    <path d="M5 12h14" />
+                    <path d="m12 5 7 7-7 7" />
+                  </svg>
                 </div>
-              ))}
+              )}
             </div>
 
             {/* Decorative arch */}
