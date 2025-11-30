@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import LeadMetaGrid from "@/components/admin/LeadMetaGrid";
 import { toast } from "@/hooks/use-toast";
-import { fetchLeads, deleteLead } from "@/lib/inboxClient";
+import { fetchLeads, deleteLead, updateLeadStatus } from "@/lib/inboxClient";
+import { Checkbox } from "@/components/ui/checkbox";
 import { getAdminToken } from "@/lib/adminSession";
 import { formatLeadMessagePreview } from "@/lib/leadFormatting";
 import { ALL_LEAD_CATEGORIES, LEAD_CATEGORY_LABELS, type Lead, type LeadCategory } from "@/lib/inboxTypes";
@@ -98,6 +99,23 @@ const AdminInbox = () => {
     });
   }
 
+  async function handleStatusChange(lead: Lead, handled: boolean) {
+    if (!adminToken) return;
+
+    // Optimistic update
+    setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, handled } : l)));
+
+    const result = await updateLeadStatus(lead.id, handled, adminToken);
+    if (!result.success) {
+      // Revert
+      setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, handled: !handled } : l)));
+      toast({
+        title: "Mise à jour impossible",
+        description: result.error || "Une erreur est survenue.",
+      });
+    }
+  }
+
   return (
     <div className="space-y-6">
       <AdminBackButton />
@@ -153,6 +171,7 @@ const AdminInbox = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
+                    <TableHead>Traité</TableHead>
                     <TableHead>Catégorie</TableHead>
                     <TableHead>Source</TableHead>
                     <TableHead>Contact</TableHead>
@@ -165,6 +184,13 @@ const AdminInbox = () => {
                     <TableRow key={lead.id}>
                       <TableCell className="whitespace-nowrap align-top text-sm">
                         {formatter.format(new Date(lead.createdAt))}
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <Checkbox
+                          checked={!!lead.handled}
+                          onCheckedChange={(checked) => handleStatusChange(lead, checked === true)}
+                          aria-label="Marquer comme traité"
+                        />
                       </TableCell>
                       <TableCell className="align-top">
                         <Badge variant="secondary">{LEAD_CATEGORY_LABELS[lead.category]}</Badge>

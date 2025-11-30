@@ -3,12 +3,19 @@ import type { Lead, LeadCreateInput } from "./inboxTypes";
 const API_BASE = ((import.meta as any)?.env?.VITE_API_BASE || "").replace(/\/+$/, "");
 const INBOX_ENDPOINT = `${API_BASE}/api/inbox`;
 
-type LeadOperationResult<T = void> = {
+type LeadOperationResult<T = unknown> = {
   success: boolean;
   error?: string;
   lead?: Lead;
   leads?: Lead[];
 } & T;
+
+function normalizeLeads(payload: any): Lead[] {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.leads)) return payload.leads;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+}
 
 async function parseJson<T>(res: Response): Promise<T | null> {
   try {
@@ -55,14 +62,15 @@ export async function fetchLeads(
         Authorization: `Bearer ${adminToken.trim()}`,
       },
     });
-    const data = await parseJson<{ success: boolean; error?: string; leads?: Lead[] }>(res);
+    const data = await parseJson<any>(res);
     if (!res.ok || !data?.success) {
       return {
         success: false,
         error: data?.error || "Impossible de charger les demandes.",
       };
     }
-    return { success: true, leads: data.leads ?? [] };
+    const leads = normalizeLeads(data);
+    return { success: true, leads };
   } catch (error: any) {
     return {
       success: false,
@@ -94,6 +102,39 @@ export async function deleteLead(
       };
     }
     return { success: true };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error?.message || "Erreur réseau",
+    };
+  }
+}
+
+export async function updateLeadStatus(
+  id: string,
+  handled: boolean,
+  adminToken: string
+): Promise<LeadOperationResult> {
+  if (!adminToken?.trim()) {
+    return { success: false, error: "Jeton administrateur manquant." };
+  }
+  try {
+    const res = await fetch(INBOX_ENDPOINT, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken.trim()}`,
+      },
+      body: JSON.stringify({ id, handled }),
+    });
+    const data = await parseJson<{ success: boolean; error?: string; lead?: Lead }>(res);
+    if (!res.ok || !data?.success) {
+      return {
+        success: false,
+        error: data?.error || "Impossible de mettre à jour le statut.",
+      };
+    }
+    return { success: true, lead: data.lead };
   } catch (error: any) {
     return {
       success: false,

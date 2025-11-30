@@ -8,6 +8,13 @@ type ApiResponse<T> = {
   error?: string;
 } & T;
 
+function normalizeTestimonials(payload: any): Testimonial[] {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.testimonials)) return payload.testimonials;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+}
+
 async function parseJson<T>(res: Response): Promise<T | null> {
   try {
     return (await res.json()) as T;
@@ -25,13 +32,15 @@ export async function fetchTestimonials(adminToken?: string): Promise<Testimonia
     const res = await fetch(ENDPOINT, {
       headers,
     });
-    const data = await parseJson<ApiResponse<{ testimonials?: Testimonial[] }>>(res);
+    const data = await parseJson<any>(res);
     if (!res.ok || !data?.success) {
-      throw new Error(data?.error || "Impossible de charger les témoignages.");
+      // On error, return empty array as requested to prevent crashes
+      return [];
     }
-    return data.testimonials ?? [];
+    return normalizeTestimonials(data);
   } catch (error: any) {
-    throw new Error(error?.message || "Impossible de charger les témoignages.");
+    // On network/parse error, return empty array
+    return [];
   }
 }
 

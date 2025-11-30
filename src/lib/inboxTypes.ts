@@ -15,6 +15,7 @@ export type Lead = {
   message?: string;
   meta?: Record<string, unknown>;
   createdAt: string;
+  handled?: boolean;
 };
 
 export type LeadCreateInput = {

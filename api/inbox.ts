@@ -12,6 +12,7 @@ type Lead = {
   message?: string;
   meta?: Record<string, unknown>;
   createdAt: string;
+  handled?: boolean;
 };
 
 type ApiResponse<T extends Record<string, unknown> = Record<string, never>> = {
@@ -34,7 +35,7 @@ export const config = {
 
 function setCors(res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,PATCH,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 }
 
@@ -347,6 +348,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         respond(res, 502, {
           success: false,
           error: "Impossible de mettre à jour l’inbox.",
+          details: INCLUDE_ERROR_DETAILS ? err?.message : undefined,
+        });
+      }
+      return;
+    }
+
+    if (req.method === "PATCH") {
+      if (!authorizeAdmin(req, res)) return;
+      const check = ensureGithubConfig();
+      if (check.ok === false) {
+        respond(res, 503, {
+          success: false,
+          error: "Configuration GitHub manquante.",
+          missingEnv: check.missing,
+        });
+        return;
+      }
+      const { config } = check;
+      let body: any = {};
+      try {
+        body = await readJsonBody(req);
+      } catch (err: any) {
+        respond(res, 400, { success: false, error: "JSON invalide" });
+        return;
+      }
+      const { id, handled } = body;
+      if (!id || typeof handled !== "boolean") {
+        respond(res, 400, { success: false, error: "ID ou statut manquant" });
+        return;
+      }
+
+      try {
+        const leads = await readLeads(config);
+        const leadIndex = leads.findIndex((l) => l.id === id);
+        if (leadIndex === -1) {
+          respond(res, 404, { success: false, error: "Demande introuvable" });
+          return;
+        }
+
+        // Update only the handled status, keep everything else
+        leads[leadIndex] = { ...leads[leadIndex], handled };
+
+        await writeLeads(leads, `feat(inbox): update lead ${id} status`, config);
+        respond(res, 200, { success: true, lead: leads[leadIndex] });
+      } catch (err: any) {
+        respond(res, 502, {
+          success: false,
+          error: "Impossible de mettre à jour la demande.",
           details: INCLUDE_ERROR_DETAILS ? err?.message : undefined,
         });
       }
