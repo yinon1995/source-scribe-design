@@ -11,6 +11,8 @@ import {
   postsIndex,
   getPostBySlug,
 } from "@/lib/content";
+import { applySeo } from "@/lib/seo";
+import { site } from "@/lib/siteContent";
 
 function getCoverFromMagazineBody(body?: string): string | null {
   if (!body) return null;
@@ -52,6 +54,14 @@ const normalizeText = (value: string): string =>
     .replace(/[\u0300-\u036f]/g, "");
 
 const Articles = () => {
+  useEffect(() => {
+    applySeo({
+      title: `Tous les articles - ${site.name}`,
+      description: "Explorez l'ensemble des contenus par thématique ou recherchez un sujet précis.",
+      canonicalPath: "/articles",
+    });
+  }, []);
+
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();

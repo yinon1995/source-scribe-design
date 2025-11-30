@@ -25,6 +25,8 @@ import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import ReviewsPage from "./pages/ReviewsPage";
 
+import CookieBanner from "@/components/CookieBanner";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -33,6 +35,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <CookieBanner />
         <Navigation />
         <main className="pt-20">
           <Routes>

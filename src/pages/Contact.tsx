@@ -9,8 +9,18 @@ import { toast } from "sonner";
 import { type FormEvent, useState, useEffect } from "react";
 import { CONTACT_WHATSAPP_URL } from "@/config/contactFallback";
 import { createLead } from "@/lib/inboxClient";
+import { applySeo } from "@/lib/seo";
+import { site } from "@/lib/siteContent";
 
 const Contact = () => {
+  useEffect(() => {
+    applySeo({
+      title: `Contact - ${site.name}`,
+      description: "Un projet de collaboration ? Remplissez ce formulaire et je reviendrai vers vous rapidement.",
+      canonicalPath: "/contact",
+    });
+  }, []);
+
   const [loading, setLoading] = useState(false);
   const [projectType, setProjectType] = useState<string | undefined>(undefined);
   const [fullName, setFullName] = useState("");

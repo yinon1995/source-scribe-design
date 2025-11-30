@@ -1,83 +1,105 @@
 <!doctype html>
 <html lang="fr">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Google Tag Manager -->
-    <script>
-      (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-      new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-      'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-      })(window,document,'script','dataLayer','GTM-P5PX3JQT');
-    </script>
-    <!-- End Google Tag Manager -->
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Google Search Console verification -->
-    <meta
-      name="google-site-verification"
-      content="fW_c2TgXONX8n-fI0UjWUo5kKFXr2UbMIYveKSuvh14"
-    />
+  <!-- Google Consent Mode (must be before GTM) -->
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
 
-    <title>A la Brestoise — Articles élégants et fiables</title>
-    <meta
-      name="description"
-      content="Des articles à la Brestoise : Événements, Lieux et Bien-être"
-    />
-    <link rel="canonical" href="https://a-la-brestoise.vercel.app/" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
+    // 1. Default consent to denied
+    gtag('consent', 'default', {
+      'ad_storage': 'denied',
+      'analytics_storage': 'denied',
+      'ad_user_data': 'denied',
+      'ad_personalization': 'denied',
+      'wait_for_update': 500
+    });
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Alice&family=Josefin+Sans:wght@400;600&family=Libre+Baskerville:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;600&family=Raleway:wght@400;600&display=swap"
-      rel="stylesheet"
-    />
+    // 2. Check for stored consent and update immediately if found
+    try {
+      var stored = localStorage.getItem('abl_cookie_consent_v1');
+      if (stored) {
+        var c = JSON.parse(stored);
+        if (c) {
+          gtag('consent', 'update', {
+            'analytics_storage': c.analytics ? 'granted' : 'denied',
+            'ad_storage': c.marketing ? 'granted' : 'denied',
+            'ad_user_data': c.marketing ? 'granted' : 'denied',
+            'ad_personalization': c.marketing ? 'granted' : 'denied'
+          });
+        }
+      }
+    } catch (e) { }
+  </script>
 
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="__OG_URL__" />
-    <meta property="og:title" content="__OG_TITLE__" />
-    <meta property="og:description" content="__OG_DESC__" />
-    <meta property="og:image" content="__OG_IMAGE__" />
-    <meta property="og:image:secure_url" content="__OG_IMAGE__" />
+  <!-- Google Tag Manager -->
+  <script>
+    (function (w, d, s, l, i) {
+      w[l] = w[l] || []; w[l].push({
+        'gtm.start':
+          new Date().getTime(), event: 'gtm.js'
+      }); var f = d.getElementsByTagName(s)[0],
+        j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+          'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+    })(window, document, 'script', 'dataLayer', 'GTM-P5PX3JQT');
+  </script>
+  <!-- End Google Tag Manager -->
 
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="__OG_TITLE__" />
-    <meta name="twitter:description" content="__OG_DESC__" />
-    <meta name="twitter:image" content="__OG_IMAGE__" />
+  <!-- Google Search Console verification -->
+  <meta name="google-site-verification" content="fW_c2TgXONX8n-fI0UjWUo5kKFXr2UbMIYveKSuvh14" />
 
-    <!-- Google Analytics 4 (property G-J9R45GD7L3) -->
-    <script
-      async
-      src="https://www.googletagmanager.com/gtag/js?id=G-J9R45GD7L3"
-    ></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-J9R45GD7L3');
-    </script>
+  <title>A la Brestoise — Articles élégants et fiables</title>
+  <meta name="description" content="Des articles à la Brestoise : Événements, Lieux et Bien-être" />
+  <link rel="canonical" href="https://a-la-brestoise.vercel.app/" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
 
-    <!-- Vite entry -->
-    <script type="module" src="/src/main.tsx"></script>
-  </head>
-  <body>
-    <!-- Google Tag Manager (noscript) -->
-    <noscript>
-      <iframe
-        src="https://www.googletagmanager.com/ns.html?id=GTM-P5PX3JQT"
-        height="0"
-        width="0"
-        style="display:none;visibility:hidden"
-      ></iframe>
-    </noscript>
-    <!-- End Google Tag Manager (noscript) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap"
+    rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Alice&family=Josefin+Sans:wght@400;600&family=Libre+Baskerville:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;600&family=Raleway:wght@400;600&display=swap"
+    rel="stylesheet" />
 
-    <div id="root"></div>
-  </body>
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="__OG_URL__" />
+  <meta property="og:title" content="__OG_TITLE__" />
+  <meta property="og:description" content="__OG_DESC__" />
+  <meta property="og:image" content="__OG_IMAGE__" />
+  <meta property="og:image:secure_url" content="__OG_IMAGE__" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="__OG_TITLE__" />
+  <meta name="twitter:description" content="__OG_DESC__" />
+  <meta name="twitter:image" content="__OG_IMAGE__" />
+
+  <!-- Google Analytics 4 (property G-J9R45GD7L3) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-J9R45GD7L3"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-J9R45GD7L3');
+  </script>
+
+  <!-- Vite entry -->
+  <script type="module" src="/src/main.tsx"></script>
+</head>
+
+<body>
+  <!-- Google Tag Manager (noscript) -->
+  <noscript>
+    <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-P5PX3JQT" height="0" width="0"
+      style="display:none;visibility:hidden"></iframe>
+  </noscript>
+  <!-- End Google Tag Manager (noscript) -->
+
+  <div id="root"></div>
+</body>
+
 </html>

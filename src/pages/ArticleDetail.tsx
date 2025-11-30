@@ -2,6 +2,8 @@ import { useMemo, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import Footer from "@/components/Footer";
 import { getPostBySlug } from "@/lib/content";
+import { upsertJsonLd, removeJsonLd } from "@/lib/seo";
+import { site } from "@/lib/siteContent";
 import ArticleContent from "@/components/ArticleContent";
 import SignatureBlock from "@/components/SignatureBlock";
 import Navigation from "@/components/Navigation";
@@ -55,6 +57,81 @@ const ArticleDetail = () => {
       upsertPropertyTag("og:image", previousOgImage);
       upsertPropertyTag("og:url", previousOgUrl);
       upsertMetaTag("twitter:card", previousTwitterCard);
+      removeJsonLd("ld-article");
+      removeJsonLd("ld-breadcrumbs");
+    };
+  }, [post]);
+
+  useEffect(() => {
+    if (!post || typeof document === "undefined") return;
+
+    const origin = window.location.origin;
+    const articleUrl = `${origin}/articles/${post.slug}`;
+    const imageUrl = post.heroImage
+      ? (post.heroImage.startsWith('http') || post.heroImage.startsWith('data:') ? post.heroImage : `${origin}${post.heroImage}`)
+      : undefined;
+
+    // Article JSON-LD
+    const articleSchema = {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": post.title,
+      "description": post.seoDescription || post.summary,
+      "datePublished": post.date, // Assuming ISO string or compatible format
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": articleUrl
+      },
+      "url": articleUrl,
+      "image": imageUrl ? [imageUrl] : undefined,
+      "author": post.author ? {
+        "@type": "Person",
+        "name": post.author
+      } : {
+        "@type": "Organization",
+        "name": site.name,
+        "url": origin
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": site.name,
+        "url": origin
+      }
+    };
+
+    upsertJsonLd("ld-article", articleSchema);
+
+    // BreadcrumbList JSON-LD
+    const breadcrumbSchema = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": site.name,
+          "item": `${origin}/`
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Articles",
+          "item": `${origin}/articles`
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": post.title,
+          "item": articleUrl
+        }
+      ]
+    };
+
+    upsertJsonLd("ld-breadcrumbs", breadcrumbSchema);
+
+    return () => {
+      removeJsonLd("ld-article");
+      removeJsonLd("ld-breadcrumbs");
     };
   }, [post]);
 

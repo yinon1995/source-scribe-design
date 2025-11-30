@@ -4,15 +4,25 @@ import ReviewForm from "@/components/ReviewForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Camera, Sparkles } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { createLead } from "@/lib/inboxClient";
+import { applySeo } from "@/lib/seo";
+import { site } from "@/lib/siteContent";
 
 const Services = () => {
+  useEffect(() => {
+    applySeo({
+      title: `Services & Partenariats - ${site.name}`,
+      description: "Des prestations sur-mesure pour valoriser votre commerce, événement ou marque à travers des contenus éditoriaux de qualité.",
+      canonicalPath: "/services",
+    });
+  }, []);
+
   const services = [
     {
       icon: FileText,

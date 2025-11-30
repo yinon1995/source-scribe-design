@@ -3,9 +3,20 @@ import heroImage from "@/assets/hero-portrait.jpeg";
 import { getAboutContent } from "@/lib/about";
 import useEmblaCarousel from "embla-carousel-react";
 import { useEffect } from "react";
+import { applySeo } from "@/lib/seo";
+import { site } from "@/lib/siteContent";
 
 const About = () => {
   const aboutContent = getAboutContent();
+
+  useEffect(() => {
+    applySeo({
+      title: `À propos - ${site.name}`,
+      description: aboutContent.aboutTitle,
+      canonicalPath: "/a-propos",
+    });
+  }, [aboutContent]);
+
   const approachParagraphs = aboutContent.approachBody
     .split("\n")
     .map((paragraph) => paragraph.trim())

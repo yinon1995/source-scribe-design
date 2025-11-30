@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useEffect } from "react";
 import { useMemo } from "react";
 import Hero from "@/components/Hero";
 import ArticleCard from "@/components/ArticleCard";
@@ -14,6 +14,7 @@ import { createLead } from "@/lib/inboxClient";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { CATEGORY_OPTIONS, normalizeCategory, postsIndex, getPostBySlug } from "@/lib/content";
+import { applySeo } from "@/lib/seo";
 
 function getCoverFromMagazineBody(body?: string): string | null {
   if (!body) return null;
@@ -37,6 +38,14 @@ function getCoverFromMagazineBody(body?: string): string | null {
 }
 
 const Index = () => {
+  useEffect(() => {
+    applySeo({
+      title: `${site.name} - ${site.tagline}`,
+      description: site.hero.subtitle,
+      canonicalPath: "/",
+    });
+  }, []);
+
   const categories = useMemo(() => ["Tous", ...CATEGORY_OPTIONS], []);
 
   const [activeCategory, setActiveCategory] = useState("Tous");

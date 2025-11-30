@@ -1,8 +1,19 @@
 import Footer from "@/components/Footer";
 import TestimonialsSection from "@/components/TestimonialsSection";
 import ReviewForm from "@/components/ReviewForm";
+import { useEffect } from "react";
+import { applySeo } from "@/lib/seo";
+import { site } from "@/lib/siteContent";
 
 const ReviewsPage = () => {
+  useEffect(() => {
+    applySeo({
+      title: `Avis clients - ${site.name}`,
+      description: "Partagez votre expérience pour aider d’autres commerces, artisans et partenaires à connaître le studio.",
+      canonicalPath: "/avis",
+    });
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <section className="py-20">
