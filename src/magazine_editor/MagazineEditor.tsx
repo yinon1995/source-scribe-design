@@ -62,9 +62,17 @@ export default function MagazineEditor({ initialData, onPublish, onSaveDraft, on
         setBlocks(prev => prev.map(b => b.id === id ? { ...b, content: { ...b.content, ...updates } } : b));
     };
 
+    const hasBlobUrls = (blocks: ArticleBlock[]) => {
+        return blocks.some(b => b.type === 'image' && b.content.imageUrl?.startsWith('blob:'));
+    };
+
     const handleRequestPublish = () => {
         if (isChildBusy) {
             alert("Veuillez attendre la fin des téléchargements d'images.");
+            return;
+        }
+        if (hasBlobUrls(blocks)) {
+            alert("Erreur: Une image est en cours de traitement ou invalide (blob URL détectée). Veuillez réuploader l'image.");
             return;
         }
         setShowPublishModal(true);
@@ -88,6 +96,10 @@ export default function MagazineEditor({ initialData, onPublish, onSaveDraft, on
         if (!onSaveDraft) return;
         if (isChildBusy) {
             alert("Veuillez attendre la fin des téléchargements d'images.");
+            return;
+        }
+        if (hasBlobUrls(blocks)) {
+            alert("Erreur: Une image est en cours de traitement ou invalide (blob URL détectée). Veuillez réuploader l'image.");
             return;
         }
         setIsSavingDraft(true);

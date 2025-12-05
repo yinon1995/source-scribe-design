@@ -6,7 +6,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Placement } from '../preview/types';
-import { uploadImage, fileToCompressedDataURL } from '../lib/imageUtils';
+import { uploadImage } from '../lib/imageUtils';
 import { getAdminToken } from '../../lib/adminSession';
 
 const TagsEditor: React.FC<{ tags: string[], onChange: (tags: string[]) => void }> = ({ tags, onChange }) => {
@@ -472,12 +472,14 @@ interface BlockEditorProps {
   isUploading?: boolean;
   onUploadStart?: () => void;
   onUploadEnd?: () => void;
+  localPreviewUrl?: string;
+  onImageSelect?: (file: File) => void;
 }
 
 const BlockEditor: React.FC<BlockEditorProps> = ({
   block, updateBlock, removeBlock, moveBlock, isFirst, isLast,
   dragHandleProps, isSelected, onSelect, references, onAddReference,
-  isUploading, onUploadStart, onUploadEnd
+  isUploading, onUploadStart, onUploadEnd, localPreviewUrl, onImageSelect
 }) => {
 
   const stopProp = (e: React.SyntheticEvent) => e.stopPropagation();
@@ -831,363 +833,158 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                               </button>
                             ))}
                           </div>
-                          <button
-                            onClick={() => setCreateRefMode(true)}
-                            className="w-full py-1.5 mt-1 border border-dashed border-stone-300 text-stone-500 text-xs rounded hover:bg-stone-50 hover:text-stone-800 font-medium"
-                          >
-                            + Create New
-                          </button>
                         </>
                       ) : (
                         <div className="space-y-2">
                           <input
-                            className="w-full text-xs border border-stone-200 rounded p-1.5"
-                            placeholder="ID (e.g. who2024)"
+                            autoFocus
+                            type="text"
+                            placeholder="ID"
+                            className="w-full p-1.5 border border-stone-200 rounded text-xs"
                             value={newRefData.id}
                             onChange={e => setNewRefData({ ...newRefData, id: e.target.value })}
                           />
                           <input
-                            className="w-full text-xs border border-stone-200 rounded p-1.5"
+                            type="text"
                             placeholder="Title"
+                            className="w-full p-1.5 border border-stone-200 rounded text-xs"
                             value={newRefData.title}
                             onChange={e => setNewRefData({ ...newRefData, title: e.target.value })}
                           />
-                          <input
-                            className="w-full text-xs border border-stone-200 rounded p-1.5"
-                            placeholder="URL (Optional)"
-                            value={newRefData.url}
-                            onChange={e => setNewRefData({ ...newRefData, url: e.target.value })}
-                          />
-                          <div className="grid grid-cols-2 gap-2">
-                            <input
-                              className="w-full text-xs border border-stone-200 rounded p-1.5"
-                              placeholder="Publisher"
-                              value={newRefData.publisher}
-                              onChange={e => setNewRefData({ ...newRefData, publisher: e.target.value })}
-                            />
-                            <input
-                              className="w-full text-xs border border-stone-200 rounded p-1.5"
-                              placeholder="Date"
-                              value={newRefData.date}
-                              onChange={e => setNewRefData({ ...newRefData, date: e.target.value })}
-                            />
-                          </div>
-                          <div className="flex gap-2 pt-1">
-                            <button onClick={() => setCreateRefMode(false)} className="flex-1 py-1 text-xs text-stone-400 hover:text-stone-600">Back</button>
-                            <button
-                              onClick={handleCreateRef}
-                              disabled={!newRefData.id || !newRefData.title}
-                              className="flex-1 py-1 text-xs bg-stone-900 text-white rounded disabled:opacity-50"
-                            >
-                              Save & Insert
-                            </button>
-                          </div>
+                          <button
+                            onClick={handleCreateRef}
+                            className="w-full bg-stone-900 text-white p-1.5 rounded text-xs font-bold"
+                          >
+                            Add
+                          </button>
                         </div>
                       )}
                     </div>
                   )}
                 </div>
-
-                <div className="flex-1"></div>
-
-                <label className="flex items-center space-x-2 cursor-pointer px-2 py-1 hover:bg-stone-200 rounded transition-colors select-none">
-                  <input
-                    type="checkbox"
-                    checked={block.content.dropCap || false}
-                    onChange={(e) => updateBlock(block.id, { dropCap: e.target.checked })}
-                    className="accent-stone-900 cursor-pointer"
-                  />
-                  <span className="text-[10px] text-stone-600 font-bold uppercase tracking-wider cursor-pointer">Drop Cap</span>
-                </label>
               </div>
 
               <textarea
                 ref={textareaRef}
                 value={block.content.text || ''}
                 onChange={(e) => updateBlock(block.id, { text: e.target.value })}
-                className="w-full p-3 border border-stone-200 rounded-b-sm rounded-t-none font-body text-sm min-h-[120px] focus:ring-1 focus:ring-stone-400 focus:outline-none bg-stone-50/50 -mt-px relative z-10"
-                style={{ textAlign: block.content.textAlign }}
-                placeholder="Write your article text here..."
-              />
-            </div>
-
-            {missingCitations.length > 0 && (
-              <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded text-xs">
-                <AlertCircle size={14} />
-                <span>Missing references: {missingCitations.map(id => `[^${id}]`).join(', ')}</span>
-              </div>
-            )}
-          </div>
-        );
-
-      case 'sidebar':
-        const addGroup = () => {
-          const newItems = [...(block.content.sidebarItems || [])];
-          newItems.push({ heading: 'New Group', items: ['Item 1'] });
-          updateBlock(block.id, { sidebarItems: newItems });
-        };
-
-        return (
-          <div className="space-y-4" onPointerDownCapture={stopProp}>
-            <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1">Sidebar Content</label>
-
-            {block.content.sidebarItems?.map((group, groupIdx) => (
-              <div key={groupIdx} className="bg-stone-50 p-3 rounded border border-stone-200 relative">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newItems = block.content.sidebarItems?.filter((_, i) => i !== groupIdx);
-                    updateBlock(block.id, { sidebarItems: newItems });
-                  }}
-                  className="absolute top-2 right-2 text-stone-400 hover:text-red-500"
-                >
-                  <X size={12} />
-                </button>
-
-                <input
-                  type="text"
-                  value={group.heading}
-                  onChange={(e) => {
-                    const newItems = [...(block.content.sidebarItems || [])];
-                    newItems[groupIdx].heading = e.target.value;
-                    updateBlock(block.id, { sidebarItems: newItems });
-                  }}
-                  className="w-full bg-transparent border-b border-stone-300 text-xs font-bold uppercase tracking-wider mb-2 focus:outline-none"
-                  placeholder="Group Title"
-                />
-
-                <textarea
-                  value={group.items.join('\n')}
-                  onChange={(e) => {
-                    const newItems = [...(block.content.sidebarItems || [])];
-                    newItems[groupIdx].items = e.target.value.split('\n');
-                    updateBlock(block.id, { sidebarItems: newItems });
-                  }}
-                  className="w-full text-xs font-sans text-stone-600 bg-transparent focus:outline-none"
-                  rows={3}
-                  placeholder="List items (one per line)"
-                />
-                <p className="text-[10px] text-stone-400 mt-1">One item per line</p>
-              </div>
-            ))}
-
-            <button
-              type="button"
-              onClick={addGroup}
-              className="text-xs text-blue-600 font-medium hover:underline flex items-center gap-1"
-            >
-              <Plus size={12} /> Add Group
-            </button>
-          </div>
-        );
-
-      case 'quote':
-        return (
-          <div className="space-y-3" onPointerDownCapture={stopProp}>
-            <div>
-              <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1">Quote Text</label>
-              <textarea
-                value={block.content.quote || ''}
-                onChange={(e) => updateBlock(block.id, { quote: e.target.value })}
-                className="w-full p-2 border border-stone-200 rounded-sm font-serif text-lg italic focus:ring-1 focus:ring-stone-400 focus:outline-none bg-stone-50/50"
-                placeholder="Enter quote..."
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1">Author</label>
-              <input
-                type="text"
-                value={block.content.author || ''}
-                onChange={(e) => updateBlock(block.id, { author: e.target.value })}
-                className="w-full p-2 border-b border-stone-200 bg-white text-stone-900 focus:border-stone-800 focus:outline-none text-sm placeholder:text-stone-400"
-                placeholder="Quote author..."
+                className={`w-full p-4 bg-white border border-stone-200 border-t-0 rounded-b-sm min-h-[150px] font-serif text-lg leading-relaxed focus:border-stone-800 focus:outline-none resize-y ${block.content.textAlign === 'center' ? 'text-center' : block.content.textAlign === 'right' ? 'text-right' : block.content.textAlign === 'justify' ? 'text-justify' : 'text-left'}`}
+                placeholder="Write your story..."
               />
             </div>
           </div>
         );
 
       case 'image':
-        const currentPos = block.content.position || 'center';
-        const currentScale = block.content.scale ?? 1.0;
-
+        const displayUrl = localPreviewUrl || block.content.imageUrl;
         return (
-          <div className="space-y-4" onPointerDownCapture={stopProp}>
-            <div className="flex flex-col gap-3">
-              <div className="flex-1">
-                <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1">Image URL</label>
+          <div className="space-y-3" onPointerDownCapture={stopProp}>
+            <div className="relative group bg-stone-100 rounded-md overflow-hidden border border-stone-200 min-h-[200px] flex items-center justify-center">
+              {displayUrl ? (
+                <>
+                  <img
+                    src={displayUrl}
+                    alt="Preview"
+                    className="w-full h-auto max-h-[500px] object-contain"
+                  />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <label className="cursor-pointer bg-white text-stone-900 px-3 py-1.5 rounded-sm text-xs font-bold uppercase hover:bg-stone-100">
+                      Replace
+                      <input type="file" className="hidden" accept="image/*" onChange={(e) => e.target.files?.[0] && onImageSelect?.(e.target.files[0])} />
+                    </label>
+                  </div>
+                </>
+              ) : (
+                <label className="cursor-pointer flex flex-col items-center gap-2 p-8 text-stone-400 hover:text-stone-600 transition-colors">
+                  <Upload size={24} />
+                  <span className="text-xs font-bold uppercase">Upload Image</span>
+                  <input type="file" className="hidden" accept="image/*" onChange={(e) => e.target.files?.[0] && onImageSelect?.(e.target.files[0])} />
+                </label>
+              )}
+              {isUploading && (
+                <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+                  <Loader2 className="animate-spin text-stone-900" />
+                </div>
+              )}
+            </div>
+            <input
+              type="text"
+              value={block.content.caption || ''}
+              onChange={(e) => updateBlock(block.id, { caption: e.target.value })}
+              className="w-full p-2 border-b border-stone-200 font-sans text-xs text-center bg-transparent focus:border-stone-800 focus:outline-none"
+              placeholder="Image Caption (Optional)"
+            />
+          </div>
+        );
+
+      case 'quote':
+        return (
+          <div className="space-y-3" onPointerDownCapture={stopProp}>
+            <textarea
+              value={block.content.quote || ''}
+              onChange={(e) => updateBlock(block.id, { quote: e.target.value })}
+              className="w-full p-4 border-l-4 border-stone-900 bg-stone-50 font-serif text-xl italic focus:outline-none resize-none"
+              placeholder="Quote text..."
+              rows={3}
+            />
+            <input
+              type="text"
+              value={block.content.author || ''}
+              onChange={(e) => updateBlock(block.id, { author: e.target.value })}
+              className="w-full p-2 border-b border-stone-200 font-sans text-xs uppercase tracking-widest bg-transparent focus:border-stone-800 focus:outline-none"
+              placeholder="Author / Source"
+            />
+          </div>
+        );
+
+      case 'sidebar':
+        return (
+          <div className="p-4 bg-stone-100 border border-stone-200 rounded-md space-y-4" onPointerDownCapture={stopProp}>
+            <p className="text-xs font-bold uppercase text-stone-400">Sidebar Content</p>
+            {(block.content.sidebarItems || []).map((item, idx) => (
+              <div key={idx} className="space-y-2">
                 <input
                   type="text"
-                  value={block.content.imageUrl || ''}
-                  onChange={(e) => updateBlock(block.id, { imageUrl: e.target.value })}
-                  className="w-full p-2 border border-stone-200 rounded-sm text-xs font-mono focus:ring-1 focus:ring-stone-400 focus:outline-none bg-stone-50/50"
-                  placeholder="https://..."
+                  value={item.heading}
+                  onChange={(e) => {
+                    const newItems = [...(block.content.sidebarItems || [])];
+                    newItems[idx] = { ...newItems[idx], heading: e.target.value };
+                    updateBlock(block.id, { sidebarItems: newItems });
+                  }}
+                  className="w-full p-1 bg-transparent border-b border-stone-300 font-bold text-sm"
+                  placeholder="Section Heading"
                 />
-
-                {/* Local Upload */}
-                <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 mt-3">Or Upload File</label>
-                <div className="flex items-center gap-2">
-                  <label className="cursor-pointer bg-stone-100 hover:bg-stone-200 text-stone-600 px-3 py-2 rounded-sm text-xs font-medium transition-colors flex items-center gap-2">
-                    <Upload size={14} />
-                    <span>Choose File</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-
-                        // 1. Immediate Preview (Compressed Base64 for durability)
-                        // We use base64 so it can be saved as draft and handled by api/publish if client upload fails
-                        fileToCompressedDataURL(file).then((dataUrl) => {
-                          updateBlock(block.id, {
-                            imageUrl: dataUrl,
-                            imageFileName: file.name
-                          });
-                        });
-
-                        // 2. Upload
-                        if (onUploadStart) onUploadStart();
-                        try {
-                          const token = getAdminToken();
-                          const publicPath = await uploadImage(file, 'draft', token || undefined);
-
-                          updateBlock(block.id, {
-                            imageUrl: publicPath
-                          });
-                        } catch (err) {
-                          console.error("Upload failed", err);
-                          alert("Upload failed. Please try again.");
-                        } finally {
-                          if (onUploadEnd) onUploadEnd();
-                        }
-                      }}
-                    />
-                  </label>
-                  {block.content.imageFileName && <span className="text-[10px] text-stone-500 truncate max-w-[150px]">{block.content.imageFileName}</span>}
-                </div>
+                <textarea
+                  value={item.items.join('\n')}
+                  onChange={(e) => {
+                    const newItems = [...(block.content.sidebarItems || [])];
+                    newItems[idx] = { ...newItems[idx], items: e.target.value.split('\n') };
+                    updateBlock(block.id, { sidebarItems: newItems });
+                  }}
+                  className="w-full p-2 bg-white border border-stone-200 rounded text-sm"
+                  rows={3}
+                  placeholder="Items (one per line)"
+                />
               </div>
-
-              {/* Position & Scale Controls */}
-              <div className="flex items-center gap-4 mt-1 bg-stone-50 p-2 rounded border border-stone-100">
-                <div className="flex-1">
-                  <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-2">Position</label>
-                  <div className="flex bg-white rounded border border-stone-200 p-0.5">
-                    {[
-                      { val: 'left', icon: <AlignLeft size={14} /> },
-                      { val: 'center', icon: <AlignCenter size={14} /> },
-                      { val: 'right', icon: <AlignRight size={14} /> }
-                    ].map((opt) => (
-                      <button
-                        key={opt.val}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const newPos = opt.val as any;
-                          updateBlock(block.id, { position: newPos });
-                        }}
-                        className={`flex-1 flex justify-center py-1.5 rounded-sm transition-all ${currentPos === opt.val ? 'bg-stone-800 text-white shadow-sm' : 'text-stone-400 hover:text-stone-600 hover:bg-stone-100'
-                          }`}
-                        title={`Align ${opt.val}`}
-                      >
-                        {opt.icon}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[9px] text-stone-400 mt-1 leading-tight">
-                    Tip: Place next to text for side-by-side layout (Left/Right only)
-                  </p>
-                </div>
-
-                <div className="flex-1">
-                  <div className="flex justify-between items-center mb-2">
-                    <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider">Scale</label>
-                    <span className="text-[10px] font-mono text-stone-500">{Math.round(currentScale * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="1.8"
-                    step="0.05"
-                    value={currentScale}
-                    onPointerDownCapture={stopProp}
-                    onChange={(e) => updateBlock(block.id, { scale: parseFloat(e.target.value) })}
-                    className="w-full accent-stone-900 h-1 bg-stone-200 rounded-lg appearance-none cursor-pointer"
-                  />
-                </div>
-              </div>
-
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1">Caption</label>
-              <input
-                type="text"
-                value={block.content.caption || ''}
-                onChange={(e) => updateBlock(block.id, { caption: e.target.value })}
-                className="w-full p-2 border-b border-stone-200 bg-white text-stone-900 focus:border-stone-800 focus:outline-none text-sm placeholder:text-stone-400"
-                placeholder="Image caption..."
-              />
-            </div>
+            ))}
+            <button
+              onClick={() => updateBlock(block.id, { sidebarItems: [...(block.content.sidebarItems || []), { heading: 'New Section', items: [] }] })}
+              className="text-xs text-blue-600 hover:underline"
+            >
+              + Add Section
+            </button>
           </div>
         );
 
       case 'divider':
         return (
-          <div className="space-y-4" onPointerDownCapture={stopProp}>
-            <div>
-              <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-2">Style</label>
-              <div className="flex gap-2">
-                {['thin', 'bold', 'dashed'].map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); updateBlock(block.id, { dividerStyle: s as any }); }}
-                    className={`px-3 py-1.5 rounded text-xs border transition-colors ${(block.content.dividerStyle || 'thin') === s
-                      ? 'bg-stone-800 text-white border-stone-800'
-                      : 'bg-white text-stone-500 border-stone-200 hover:border-stone-300'
-                      }`}
-                  >
-                    {s.charAt(0).toUpperCase() + s.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-2">Width</label>
-              <div className="flex gap-2">
-                {['content', 'full'].map((w) => (
-                  <button
-                    key={w}
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); updateBlock(block.id, { dividerWidth: w as any }); }}
-                    className={`px-3 py-1.5 rounded text-xs border transition-colors ${(block.content.dividerWidth || 'content') === w
-                      ? 'bg-stone-800 text-white border-stone-800'
-                      : 'bg-white text-stone-500 border-stone-200 hover:border-stone-300'
-                      }`}
-                  >
-                    {w.charAt(0).toUpperCase() + w.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Visual Preview in Editor */}
-            <div className="mt-4 p-4 bg-stone-50 rounded border border-stone-100 flex justify-center">
-              <div className={`
-                             w-full 
-                             ${(block.content.dividerStyle || 'thin') === 'thin' ? 'h-px bg-stone-300' : ''}
-                             ${block.content.dividerStyle === 'bold' ? 'h-[2px] bg-stone-800' : ''}
-                             ${block.content.dividerStyle === 'dashed' ? 'border-t border-dashed border-stone-300' : ''}
-                             ${(block.content.dividerWidth || 'content') === 'content' ? 'max-w-[50%]' : 'w-full'}
-                           `}></div>
-            </div>
+          <div className="py-4 flex items-center justify-center" onPointerDownCapture={stopProp}>
+            <div className="w-full h-px bg-stone-200"></div>
+            <span className="absolute bg-white px-2 text-stone-300 text-xs uppercase">Divider</span>
           </div>
         );
-
-      default:
-        return null;
     }
+    return null;
   };
 
   return (
@@ -1429,11 +1226,14 @@ export const AdminBuilder: React.FC<AdminBuilderProps> = ({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [insertAfterId, setInsertAfterId] = useState<string | null>(null);
   const [uploadingIds, setUploadingIds] = useState<Set<string>>(new Set());
+  const [localPreviews, setLocalPreviews] = useState<Record<string, string>>({});
 
   // Notify parent of busy state
   useEffect(() => {
-    onBusy?.(uploadingIds.size > 0);
-  }, [uploadingIds, onBusy]);
+    // Busy if uploading OR if there are local previews (meaning upload pending/failed)
+    const hasLocalPreviews = Object.keys(localPreviews).length > 0;
+    onBusy?.(uploadingIds.size > 0 || hasLocalPreviews);
+  }, [uploadingIds, localPreviews, onBusy]);
 
   const handleUploadStart = (id: string) => {
     setUploadingIds(prev => {
@@ -1653,6 +1453,46 @@ export const AdminBuilder: React.FC<AdminBuilderProps> = ({
                   isUploading={uploadingIds.has(block.id)}
                   onUploadStart={() => handleUploadStart(block.id)}
                   onUploadEnd={() => handleUploadEnd(block.id)}
+                  localPreviewUrl={localPreviews[block.id]}
+                  onImageSelect={async (file) => {
+                    // 1. Set Local Preview
+                    const blobUrl = URL.createObjectURL(file);
+                    setLocalPreviews(prev => ({ ...prev, [block.id]: blobUrl }));
+
+                    // 2. Start Upload
+                    handleUploadStart(block.id);
+                    try {
+                      const token = getAdminToken();
+                      const publicPath = await uploadImage(file, 'draft', token || undefined);
+
+                      // 3. Update Block with PERMANENT URL
+                      onUpdateBlock?.(block.id, { imageUrl: publicPath, imageFileName: file.name }) ??
+                        setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, content: { ...b.content, imageUrl: publicPath, imageFileName: file.name } } : b));
+
+                      // 4. Clear Local Preview
+                      setLocalPreviews(prev => {
+                        const next = { ...prev };
+                        delete next[block.id];
+                        return next;
+                      });
+                      URL.revokeObjectURL(blobUrl);
+
+                    } catch (err) {
+                      console.error("Upload failed", err);
+                      alert("Upload failed. Please try again.");
+                      // Keep local preview? Or clear?
+                      // If we keep it, the user sees the image but can't save.
+                      // Let's clear it so they know it failed and must retry.
+                      setLocalPreviews(prev => {
+                        const next = { ...prev };
+                        delete next[block.id];
+                        return next;
+                      });
+                      URL.revokeObjectURL(blobUrl);
+                    } finally {
+                      handleUploadEnd(block.id);
+                    }
+                  }}
                 />
 
                 {/* Insert After Each Block Control */}
