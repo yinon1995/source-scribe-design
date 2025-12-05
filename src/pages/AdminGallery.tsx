@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,7 +9,11 @@ import { ArrowUp, ArrowDown, Trash2, Upload, AlertCircle, RefreshCw } from "luci
 import HomePhotoStripGallery from "@/components/HomePhotoStripGallery";
 import Footer from "@/components/Footer";
 import { getAdminToken } from "@/lib/adminSession";
+<<<<<<< HEAD
 import { uploadImageToBlob } from "../magazine_editor/lib/imageUtils";
+=======
+import { uploadImage } from "../magazine_editor/lib/imageUtils";
+>>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
 import defaultHeroImage from "@/assets/hero-portrait.jpeg";
 import {
     AlertDialog,
@@ -48,6 +52,32 @@ const AdminGallery = () => {
     const [config, setConfig] = useState<GalleryConfig>({ title: "Galerie", items: [] });
     const [isLocalMode, setIsLocalMode] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [localPreviews, setLocalPreviews] = useState<Record<string, string>>({});
+
+    // Helper to manage local previews
+    const addLocalPreview = (id: string, file: File) => {
+        const url = URL.createObjectURL(file);
+        setLocalPreviews(prev => ({ ...prev, [id]: url }));
+        return url;
+    };
+
+    const removeLocalPreview = (id: string) => {
+        setLocalPreviews(prev => {
+            const next = { ...prev };
+            if (next[id]) {
+                URL.revokeObjectURL(next[id]);
+                delete next[id];
+            }
+            return next;
+        });
+    };
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            Object.values(localPreviews).forEach(url => URL.revokeObjectURL(url));
+        };
+    }, []);
 
     // Load gallery
     useEffect(() => {
@@ -110,6 +140,7 @@ const AdminGallery = () => {
         }
 
         const filesToAdd = Array.from(files).slice(0, remaining);
+<<<<<<< HEAD
 
         setUploading(true);
         try {
@@ -137,6 +168,60 @@ const AdminGallery = () => {
                 setConfig({ ...config, items: [...config.items, ...newItems] });
                 toast.success(`${newItems.length} image(s) ajoutée(s)`);
             }
+=======
+
+        setUploading(true);
+        const token = getAdminToken();
+
+        const newItems: GalleryItem[] = [];
+        const uploads: Promise<void>[] = [];
+
+        filesToAdd.forEach(file => {
+            if (!file.type.startsWith("image/")) return;
+
+            const tempId = `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            addLocalPreview(tempId, file);
+
+            const newItem: GalleryItem = {
+                id: tempId,
+                src: "", // Empty means "loading" / use local preview
+                alt: file.name.replace(/\.[^/.]+$/, ""),
+                description: "",
+            };
+            newItems.push(newItem);
+
+            // Trigger upload
+            const uploadTask = async () => {
+                try {
+                    const path = await uploadImage(file, 'home', token || undefined);
+                    // Update item with real path
+                    setConfig(prev => ({
+                        ...prev,
+                        items: prev.items.map(i => i.id === tempId ? { ...i, src: path } : i)
+                    }));
+                    removeLocalPreview(tempId);
+                } catch (error: any) {
+                    console.error("Failed to upload file:", error);
+                    toast.error(`Erreur upload: ${file.name} - ${error?.message || ''}`);
+                    // Remove failed item
+                    setConfig(prev => ({
+                        ...prev,
+                        items: prev.items.filter(i => i.id !== tempId)
+                    }));
+                    removeLocalPreview(tempId);
+                }
+            };
+            uploads.push(uploadTask());
+        });
+
+        if (newItems.length > 0) {
+            setConfig(prev => ({ ...prev, items: [...prev.items, ...newItems] }));
+            toast.success(`${newItems.length} image(s) ajoutée(s)`);
+        }
+
+        try {
+            await Promise.all(uploads);
+>>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
         } finally {
             setUploading(false);
             // Reset input
@@ -145,6 +230,11 @@ const AdminGallery = () => {
             }
         }
     };
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
 
     const updateItem = (index: number, field: keyof GalleryItem, value: string) => {
         const updated = [...config.items];
@@ -168,23 +258,53 @@ const AdminGallery = () => {
 
     // --- Hero Image Logic ---
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
     async function handleHeroUpload(e: React.ChangeEvent<HTMLInputElement>) {
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
+        const file = files[0];
+        const tempId = `hero-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const placeholder = `pending:${tempId}`;
+
+        addLocalPreview(tempId, file);
+
+        // Add placeholder
+        setConfig((prev) => ({
+            ...prev,
+            homeHeroImages: [...(prev.homeHeroImages || []), placeholder],
+        }));
+
+        setUploading(true);
         try {
+<<<<<<< HEAD
             setUploading(true);
             const token = getAdminToken();
             const path = await uploadImageToBlob(files[0], { folder: 'gallery/hero', token: token || undefined });
+=======
+            const token = getAdminToken();
+            const path = await uploadImage(file, 'home', token || undefined);
+
+>>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
             setConfig((prev) => ({
                 ...prev,
-                homeHeroImages: [...(prev.homeHeroImages || []), path],
+                homeHeroImages: (prev.homeHeroImages || []).map(src => src === placeholder ? path : src),
             }));
             toast.success("Image d'ouverture ajoutée !");
         } catch (err: any) {
             console.error(err);
             toast.error(err.message || "Impossible d'uploader l'image.");
+            // Remove placeholder
+            setConfig((prev) => ({
+                ...prev,
+                homeHeroImages: (prev.homeHeroImages || []).filter(src => src !== placeholder),
+            }));
         } finally {
+            removeLocalPreview(tempId);
             setUploading(false);
             e.target.value = "";
         }
@@ -194,20 +314,55 @@ const AdminGallery = () => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
+        const file = files[0];
+        const tempId = `hero-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const placeholder = `pending:${tempId}`;
+
+        addLocalPreview(tempId, file);
+
+        setUploading(true);
+
+        // Optimistic update
+        setConfig((prev) => {
+            const next = [...(prev.homeHeroImages || [])];
+            next[index] = placeholder;
+            return { ...prev, homeHeroImages: next };
+        });
+
         try {
+<<<<<<< HEAD
             setUploading(true);
             const token = getAdminToken();
             const path = await uploadImageToBlob(files[0], { folder: 'gallery/hero', token: token || undefined });
+=======
+            const token = getAdminToken();
+            const path = await uploadImage(file, 'home', token || undefined);
+
+>>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
             setConfig((prev) => {
                 const next = [...(prev.homeHeroImages || [])];
-                next[index] = path;
+                // Only replace if it's still the placeholder (user might have deleted/moved, though we block that)
+                if (next[index] === placeholder) {
+                    next[index] = path;
+                } else {
+                    // Fallback search if moved? For now assume index is stable as we block interactions
+                    const foundIdx = next.indexOf(placeholder);
+                    if (foundIdx !== -1) next[foundIdx] = path;
+                }
                 return { ...prev, homeHeroImages: next };
             });
             toast.success("Image remplacée !");
         } catch (err: any) {
             console.error(err);
             toast.error(err.message || "Impossible de remplacer l'image.");
+            // Revert? Hard to revert to previous image without storing it. 
+            // We'll just remove the placeholder, effectively deleting the image.
+            setConfig((prev) => ({
+                ...prev,
+                homeHeroImages: (prev.homeHeroImages || []).filter(src => src !== placeholder),
+            }));
         } finally {
+            removeLocalPreview(tempId);
             setUploading(false);
             e.target.value = "";
         }
@@ -239,12 +394,21 @@ const AdminGallery = () => {
     };
 
     const confirmSave = async () => {
+<<<<<<< HEAD
         // Guard: Check for ephemeral URLs
         const hasEphemeral = config.items.some(i => i.src.startsWith('data:') || i.src.startsWith('blob:')) ||
             (config.homeHeroImages || []).some(src => src.startsWith('data:') || src.startsWith('blob:'));
 
         if (hasEphemeral) {
             toast.error("Sauvegarde bloquée : images temporaires détectées. Veuillez ré-uploader.");
+=======
+        // Guard: Check for blob URLs or pending uploads
+        const hasBlobItems = config.items.some(i => i.src.startsWith('blob:'));
+        const hasBlobHeroes = (config.homeHeroImages || []).some(src => src.startsWith('blob:') || src.startsWith('pending:'));
+
+        if (hasBlobItems || hasBlobHeroes || Object.keys(localPreviews).length > 0) {
+            toast.error("Veuillez attendre la fin des téléchargements d'images.");
+>>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
             setShowConfirmModal(false);
             return;
         }
@@ -347,56 +511,67 @@ const AdminGallery = () => {
                             <Card className="p-4">
                                 <h2 className="font-medium mb-4">Image d'ouverture (Accueil)</h2>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                                    {(config.homeHeroImages || []).map((src, index) => (
-                                        <div key={index} className="relative group aspect-[4/5] bg-muted rounded-lg overflow-hidden border border-border">
-                                            <img src={src} alt="" className="w-full h-full object-cover" />
-                                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                                <label className="cursor-pointer">
-                                                    <div className="h-8 w-8 bg-secondary text-secondary-foreground hover:bg-secondary/80 inline-flex items-center justify-center rounded-md transition-colors" title="Remplacer">
-                                                        <RefreshCw className="h-4 w-4" />
-                                                    </div>
-                                                    <input
-                                                        type="file"
-                                                        accept="image/*"
-                                                        className="hidden"
-                                                        onChange={(e) => handleReplaceHero(index, e)}
-                                                    />
-                                                </label>
-                                                <Button
-                                                    type="button"
-                                                    variant="secondary"
-                                                    size="icon"
-                                                    className="h-8 w-8"
-                                                    onClick={() => moveHero(index, "up")}
-                                                    disabled={index === 0}
-                                                    title="Monter"
-                                                >
-                                                    <ArrowUp className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="secondary"
-                                                    size="icon"
-                                                    className="h-8 w-8"
-                                                    onClick={() => moveHero(index, "down")}
-                                                    disabled={index === (config.homeHeroImages?.length || 0) - 1}
-                                                    title="Descendre"
-                                                >
-                                                    <ArrowDown className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="destructive"
-                                                    size="icon"
-                                                    className="h-8 w-8"
-                                                    onClick={() => removeHero(index)}
-                                                    title="Supprimer"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
+                                    {(config.homeHeroImages || []).map((src, index) => {
+                                        const isPending = src.startsWith('pending:');
+                                        const tempId = isPending ? src.split(':')[1] : null;
+                                        const displaySrc = (tempId && localPreviews[tempId]) ? localPreviews[tempId] : src;
+
+                                        return (
+                                            <div key={index} className="relative group aspect-[4/5] bg-muted rounded-lg overflow-hidden border border-border">
+                                                <img src={displaySrc} alt="" className={`w-full h-full object-cover ${isPending ? 'opacity-50' : ''}`} />
+                                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                                    {!isPending && (
+                                                        <>
+                                                            <label className="cursor-pointer">
+                                                                <div className="h-8 w-8 bg-secondary text-secondary-foreground hover:bg-secondary/80 inline-flex items-center justify-center rounded-md transition-colors" title="Remplacer">
+                                                                    <RefreshCw className="h-4 w-4" />
+                                                                </div>
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*"
+                                                                    className="hidden"
+                                                                    onChange={(e) => handleReplaceHero(index, e)}
+                                                                />
+                                                            </label>
+                                                            <Button
+                                                                type="button"
+                                                                variant="secondary"
+                                                                size="icon"
+                                                                className="h-8 w-8"
+                                                                onClick={() => moveHero(index, "up")}
+                                                                disabled={index === 0}
+                                                                title="Monter"
+                                                            >
+                                                                <ArrowUp className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="secondary"
+                                                                size="icon"
+                                                                className="h-8 w-8"
+                                                                onClick={() => moveHero(index, "down")}
+                                                                disabled={index === (config.homeHeroImages?.length || 0) - 1}
+                                                                title="Descendre"
+                                                            >
+                                                                <ArrowDown className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="destructive"
+                                                                size="icon"
+                                                                className="h-8 w-8"
+                                                                onClick={() => removeHero(index)}
+                                                                title="Supprimer"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                    {isPending && <span className="text-white text-xs font-medium">Upload...</span>}
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                     <label className="flex flex-col items-center justify-center aspect-[4/5] border-2 border-dashed border-muted-foreground/25 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
                                         <Upload className="h-8 w-8 text-muted-foreground mb-2" />
                                         <span className="text-sm text-muted-foreground font-medium">Ajouter</span>
@@ -449,9 +624,9 @@ const AdminGallery = () => {
                                                 <div className="space-y-2">
                                                     {/* Thumbnail */}
                                                     <img
-                                                        src={item.src}
+                                                        src={localPreviews[item.id] || item.src}
                                                         alt={item.alt || "Preview"}
-                                                        className="w-full h-24 object-cover rounded"
+                                                        className={`w-full h-24 object-cover rounded ${!item.src && localPreviews[item.id] ? 'opacity-70' : ''}`}
                                                     />
                                                     <div className="grid gap-2">
                                                         <div className="flex gap-2">
@@ -503,6 +678,18 @@ const AdminGallery = () => {
                                     )}
                                 </div>
                             </Card>
+<<<<<<< HEAD
+=======
+
+                            <Button
+                                onClick={handleSaveClick}
+                                disabled={saving || uploading || Object.keys(localPreviews).length > 0}
+                                className="w-full"
+                                size="lg"
+                            >
+                                {uploading ? "Upload en cours..." : saving ? "Sauvegarde..." : "Enregistrer"}
+                            </Button>
+>>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
                         </div>
 
                         {/* Right: Preview */}

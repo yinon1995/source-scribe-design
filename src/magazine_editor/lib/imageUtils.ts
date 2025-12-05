@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 import { upload } from "@vercel/blob/client";
 import { getAdminToken } from "@/lib/adminSession";
+=======
+
+import { upload } from '@vercel/blob/client';
+>>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
 
 export const fileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -109,3 +114,82 @@ export const fileToCompressedDataURL = async (
             });
     });
 };
+<<<<<<< HEAD
+=======
+
+/**
+ * Compute SHA-256 hash of a file for deduplication and stable filenames.
+ */
+export const fileToSha256 = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
+/**
+ * Upload an image to the server via /api/upload-image.
+ * Returns the public URL path.
+ */
+export const uploadImage = async (file: File, slug: string, token?: string): Promise<string> => {
+    // 1. Generate hash-based filename
+    const hash = await fileToSha256(file);
+    const ext = file.name.split('.').pop() || 'jpg';
+    const fileName = `img_${hash.slice(0, 12)}.${ext}`;
+
+    // 2. Try Vercel Blob Upload (Client-side direct upload)
+    try {
+        const newBlob = await upload(`uploads/${slug}/${fileName}`, file, {
+            access: 'public',
+            handleUploadUrl: '/api/blob-upload',
+            clientPayload: JSON.stringify({ token }),
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        return newBlob.url;
+    } catch (blobError: any) {
+        console.warn("Blob upload failed, falling back to GitHub.", blobError);
+        // If it's a 413 from Blob (unlikely for client upload) or auth error, we might want to stop.
+        // But for now, fallback to GitHub is safer for backward compat if Blob isn't set up.
+    }
+
+    // 3. Fallback: GitHub Upload via /api/upload-image
+    // Only attempt fallback if file is small enough for Vercel Function payload (approx < 4.5MB)
+    if (file.size > 4 * 1024 * 1024) {
+        throw new Error("Upload failed: File too large for fallback (limit 4MB). Please check Vercel Blob configuration.");
+    }
+
+    // Get raw base64 (no compression)
+    const dataUrl = await fileToDataUrl(file);
+    const content = dataUrl.split(',')[1];
+
+    const res = await fetch('/api/upload-image', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+            slug,
+            fileName,
+            content,
+            encoding: 'base64'
+        })
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        // Provide actionable error messages
+        if (res.status === 413) {
+            throw new Error(`Upload failed (413): Image too large for GitHub fallback. Please configure Vercel Blob.`);
+        }
+        throw new Error(err.error || `Upload failed: ${res.status}`);
+    }
+
+    const data = await res.json();
+    if (!data.ok || !data.path) {
+        throw new Error(data.error || 'Invalid response from upload API');
+    }
+
+    return data.path;
+};
+>>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f

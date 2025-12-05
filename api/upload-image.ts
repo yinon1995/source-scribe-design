@@ -108,6 +108,13 @@ export default async function handler(req: any, res: any) {
     res.status(422).json({ ok: false, error: "Nom de fichier invalide." });
     return;
   }
+
+  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg', '.avif'];
+  const ext = fileName.toLowerCase().slice(fileName.lastIndexOf('.'));
+  if (!allowedExtensions.includes(ext)) {
+    res.status(422).json({ ok: false, error: "Type de fichier non supporté." });
+    return;
+  }
   if (!content) {
     res.status(422).json({ ok: false, error: "Contenu manquant (base64)." });
     return;

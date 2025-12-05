@@ -1,12 +1,23 @@
 [
   {
     "category": "newsletter",
+    "source": "footer-newsletter",
+    "email": "treser29470@gmail.com",
+    "meta": {
+      "path": "/articles"
+    },
+    "id": "fedbdc29-19de-4624-a99f-41f1b35a5509",
+    "createdAt": "2025-12-01T16:33:25.276Z"
+  },
+  {
+    "category": "newsletter",
     "source": "home-newsletter",
     "email": "nolwennrobet@gmail.com",
     "meta": {
       "path": "/"
     },
     "id": "35548863-0714-43e1-93e0-3d0a5d63293a",
-    "createdAt": "2025-11-20T16:50:18.936Z"
+    "createdAt": "2025-11-20T16:50:18.936Z",
+    "handled": false
   }
 ]

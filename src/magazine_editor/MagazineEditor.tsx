@@ -50,6 +50,7 @@ export default function MagazineEditor({ initialData, onPublish, onSaveDraft, on
     const [showPublishModal, setShowPublishModal] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
     const [isSavingDraft, setIsSavingDraft] = useState(false);
+    const [isChildBusy, setIsChildBusy] = useState(false);
 
     // Hydration Effect (Runs ONCE)
     useEffect(() => {
@@ -61,7 +62,19 @@ export default function MagazineEditor({ initialData, onPublish, onSaveDraft, on
         setBlocks(prev => prev.map(b => b.id === id ? { ...b, content: { ...b.content, ...updates } } : b));
     };
 
+    const hasBlobUrls = (blocks: ArticleBlock[]) => {
+        return blocks.some(b => b.type === 'image' && b.content.imageUrl?.startsWith('blob:'));
+    };
+
     const handleRequestPublish = () => {
+        if (isChildBusy) {
+            alert("Veuillez attendre la fin des téléchargements d'images.");
+            return;
+        }
+        if (hasBlobUrls(blocks)) {
+            alert("Erreur: Une image est en cours de traitement ou invalide (blob URL détectée). Veuillez réuploader l'image.");
+            return;
+        }
         setShowPublishModal(true);
     };
 
@@ -81,6 +94,14 @@ export default function MagazineEditor({ initialData, onPublish, onSaveDraft, on
 
     const handleSaveDraftClick = async () => {
         if (!onSaveDraft) return;
+        if (isChildBusy) {
+            alert("Veuillez attendre la fin des téléchargements d'images.");
+            return;
+        }
+        if (hasBlobUrls(blocks)) {
+            alert("Erreur: Une image est en cours de traitement ou invalide (blob URL détectée). Veuillez réuploader l'image.");
+            return;
+        }
         setIsSavingDraft(true);
         try {
             await onSaveDraft({ blocks, tags, references, settings });
@@ -145,8 +166,10 @@ export default function MagazineEditor({ initialData, onPublish, onSaveDraft, on
                     {onPublish && (
                         <button
                             onClick={handleRequestPublish}
-                            className="flex items-center gap-2 px-4 py-2 bg-stone-900 text-white rounded text-xs font-bold uppercase tracking-wide hover:bg-stone-800 transition-colors"
+                            disabled={isChildBusy}
+                            className={`flex items-center gap-2 px-4 py-2 rounded text-xs font-bold uppercase tracking-wide transition-colors ${isChildBusy ? 'bg-stone-400 cursor-not-allowed text-stone-200' : 'bg-stone-900 text-white hover:bg-stone-800'}`}
                         >
+                            {isChildBusy ? <Loader2 size={12} className="animate-spin" /> : null}
                             Publish
                         </button>
                     )}
@@ -169,6 +192,7 @@ export default function MagazineEditor({ initialData, onPublish, onSaveDraft, on
                             settings={settings}
                             setSettings={setSettings}
                             onRequestPublish={handleRequestPublish}
+                            onBusy={setIsChildBusy}
                         />
 
                         {/* Draft Button at the bottom */}
@@ -176,7 +200,7 @@ export default function MagazineEditor({ initialData, onPublish, onSaveDraft, on
                             <div className="max-w-[1000px] mx-auto mt-12 mb-20 flex justify-center">
                                 <button
                                     onClick={handleSaveDraftClick}
-                                    disabled={isSavingDraft}
+                                    disabled={isSavingDraft || isChildBusy}
                                     className="flex items-center gap-2 px-6 py-3 bg-white border border-stone-300 text-stone-600 rounded-full shadow-sm hover:bg-stone-50 hover:text-stone-900 hover:border-stone-400 transition-all disabled:opacity-50"
                                 >
                                     {isSavingDraft ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
