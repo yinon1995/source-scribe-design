@@ -31,7 +31,7 @@ export interface ArticleSettings {
     featured?: boolean;
     date?: string; // YYYY-MM-DD
     readingMinutes?: number | null;
-    category?: "Beauté & cosmétique" | "Commerces & lieux" | "Événementiel";
+    category?: "Beauté & cosmétique" | "Commerces & lieux" | "Événementiel" | "Découvertes du monde";
     seo?: SeoFields;
 }
 

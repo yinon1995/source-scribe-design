@@ -1,4 +1,4 @@
-export const CATEGORY_OPTIONS = ["Beauté & cosmétique", "Commerces & lieux", "Événementiel"] as const;
+export const CATEGORY_OPTIONS = ["Beauté & cosmétique", "Commerces & lieux", "Événementiel", "Découvertes du monde"] as const;
 
 export type NormalizedCategory = (typeof CATEGORY_OPTIONS)[number];
 type LegacyCategory = "Beauté" | "Commerces & places" | "Commerces & lieux" | "Expérience";

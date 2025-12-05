@@ -22,6 +22,7 @@ export const site = {
     commercesEtLieux: "Commerces & lieux",
     experience: "Événementiel",
     beaute: "Beauté & cosmétique",
+    decouvertes: "Découvertes du monde",
   },
   footer: {
     social: {
@@ -43,6 +44,7 @@ export const NAV_CATEGORIES = [
   { href: categoryHref(site.categories.commercesEtLieux), label: site.categories.commercesEtLieux },
   { href: categoryHref(site.categories.experience), label: site.categories.experience },
   { href: categoryHref(site.categories.beaute), label: site.categories.beaute },
+  { href: categoryHref(site.categories.decouvertes), label: site.categories.decouvertes },
 ] as const;
 
 export const HIDDEN_CATEGORY_LABELS = [
