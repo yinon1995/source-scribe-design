@@ -6,7 +6,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Placement } from '../preview/types';
-import { uploadImage } from '../lib/imageUtils';
+import { uploadImage, fileToCompressedDataURL } from '../lib/imageUtils';
 import { getAdminToken } from '../../lib/adminSession';
 
 const TagsEditor: React.FC<{ tags: string[], onChange: (tags: string[]) => void }> = ({ tags, onChange }) => {
@@ -1037,16 +1037,13 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                         const file = e.target.files?.[0];
                         if (!file) return;
 
-                        // Revoke old blob if exists
-                        if (block.content.imageUrl?.startsWith('blob:')) {
-                          URL.revokeObjectURL(block.content.imageUrl);
-                        }
-
-                        // 1. Immediate Preview
-                        const blobUrl = URL.createObjectURL(file);
-                        updateBlock(block.id, {
-                          imageUrl: blobUrl,
-                          imageFileName: file.name
+                        // 1. Immediate Preview (Compressed Base64 for durability)
+                        // We use base64 so it can be saved as draft and handled by api/publish if client upload fails
+                        fileToCompressedDataURL(file).then((dataUrl) => {
+                          updateBlock(block.id, {
+                            imageUrl: dataUrl,
+                            imageFileName: file.name
+                          });
                         });
 
                         // 2. Upload
