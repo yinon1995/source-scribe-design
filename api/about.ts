@@ -238,9 +238,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (req.method === "GET") {
       const check = ensureGithubConfig();
-      const missingEnv = !check.ok ? check.missing : [];
       if (!check.ok) {
-        respond(res, 200, { success: true, content: DEFAULT_ABOUT_CONTENT, missingEnv });
+        respond(res, 200, { success: true, content: DEFAULT_ABOUT_CONTENT, missingEnv: check.missing });
         return;
       }
       const content = await readAboutFromGithub(check.config);
@@ -255,12 +254,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const check = ensureGithubConfig();
-      const missingEnv = !check.ok ? check.missing : [];
       if (!check.ok) {
         respond(res, 503, {
           success: false,
           error: "Configuration GitHub manquante.",
-          missingEnv,
+          missingEnv: check.missing,
         });
         return;
       }
@@ -275,8 +273,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const normalized = normalizeAboutPayload(payload);
       if (!normalized.ok) {
-        const err = normalized.error;
-        respond(res, 422, { success: false, error: err });
+        respond(res, 422, { success: false, error: normalized.error });
         return;
       }
 
