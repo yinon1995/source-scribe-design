@@ -1,7 +1,7 @@
-export const CATEGORY_OPTIONS = ["Beauté & cosmétique", "Commerces & lieux", "Événementiel", "Découvertes du monde"] as const;
+export const CATEGORY_OPTIONS = ["Beauté & cosmétique", "Commerces & lieux", "Événementiel", "Échapées Belles"] as const;
 
 export type NormalizedCategory = (typeof CATEGORY_OPTIONS)[number];
-type LegacyCategory = "Beauté" | "Commerces & places" | "Commerces & lieux" | "Expérience";
+type LegacyCategory = "Beauté" | "Commerces & places" | "Commerces & lieux" | "Expérience" | "Découvertes du monde";
 export type JsonArticleCategory = NormalizedCategory | LegacyCategory;
 
 export const DEFAULT_CATEGORY: NormalizedCategory = CATEGORY_OPTIONS[0];
@@ -19,6 +19,8 @@ export function normalizeCategory(input?: JsonArticleCategory | string | null): 
       return "Commerces & lieux";
     case "Expérience":
       return "Événementiel";
+    case "Découvertes du monde":
+      return "Échapées Belles";
     default:
       return DEFAULT_CATEGORY;
   }

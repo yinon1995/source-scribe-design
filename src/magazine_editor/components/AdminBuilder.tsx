@@ -131,7 +131,7 @@ const MetadataEditor: React.FC<{ settings: ArticleSettings, onChange: (s: Articl
             <option value="Beauté & cosmétique">Beauté & cosmétique</option>
             <option value="Commerces & lieux">Commerces & lieux</option>
             <option value="Événementiel">Événementiel</option>
-            <option value="Découvertes du monde">Découvertes du monde</option>
+            <option value="Échapées Belles">Échapées Belles</option>
           </select>
         </div>
 

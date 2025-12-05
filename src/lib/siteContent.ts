@@ -22,7 +22,7 @@ export const site = {
     commercesEtLieux: "Commerces & lieux",
     experience: "Événementiel",
     beaute: "Beauté & cosmétique",
-    decouvertes: "Découvertes du monde",
+    decouvertes: "Échapées Belles",
   },
   footer: {
     social: {
