@@ -6,13 +6,8 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Placement } from '../preview/types';
-<<<<<<< HEAD
 import { fileToCompressedDataURL, uploadImageToBlob } from '../lib/imageUtils';
 import { getAdminToken } from '@/lib/adminSession';
-=======
-import { uploadImage } from '../lib/imageUtils';
-import { getAdminToken } from '../../lib/adminSession';
->>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
 
 const TagsEditor: React.FC<{ tags: string[], onChange: (tags: string[]) => void }> = ({ tags, onChange }) => {
   const [inputVal, setInputVal] = useState(tags.join(', '));
@@ -970,7 +965,6 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                   rows={3}
                   placeholder="Items (one per line)"
                 />
-<<<<<<< HEAD
 
                 {/* Local Upload */}
                 <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 mt-3">Or Upload File</label>
@@ -1016,8 +1010,6 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                   </label>
                   {block.content.imageFileName && <span className="text-[10px] text-stone-500 truncate max-w-[150px]">{block.content.imageFileName}</span>}
                 </div>
-=======
->>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
               </div>
             ))}
             <button
@@ -1318,7 +1310,7 @@ export const AdminBuilder: React.FC<AdminBuilderProps> = ({
             const blob = await res.blob();
             const file = new File([blob], block.content.imageFileName || 'image.jpg', { type: blob.type });
 
-            const path = await uploadImage(file, 'draft', token || undefined);
+            const path = await uploadImageToBlob(file, { folder: 'draft', token: token || undefined });
 
             // Use local updateBlock wrapper if possible, but we are inside useEffect
             // We can access the updateBlock function if we define it before or use setBlocks directly
@@ -1516,7 +1508,7 @@ export const AdminBuilder: React.FC<AdminBuilderProps> = ({
                     handleUploadStart(block.id);
                     try {
                       const token = getAdminToken();
-                      const publicPath = await uploadImage(file, 'draft', token || undefined);
+                      const publicPath = await uploadImageToBlob(file, { folder: 'draft', token: token || undefined });
 
                       // 3. Update Block with PERMANENT URL
                       onUpdateBlock?.(block.id, { imageUrl: publicPath, imageFileName: file.name }) ??

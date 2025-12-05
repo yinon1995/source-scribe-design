@@ -9,11 +9,7 @@ import { ArrowUp, ArrowDown, Trash2, Upload, AlertCircle, RefreshCw } from "luci
 import HomePhotoStripGallery from "@/components/HomePhotoStripGallery";
 import Footer from "@/components/Footer";
 import { getAdminToken } from "@/lib/adminSession";
-<<<<<<< HEAD
 import { uploadImageToBlob } from "../magazine_editor/lib/imageUtils";
-=======
-import { uploadImage } from "../magazine_editor/lib/imageUtils";
->>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
 import defaultHeroImage from "@/assets/hero-portrait.jpeg";
 import {
     AlertDialog,
@@ -132,7 +128,7 @@ const AdminGallery = () => {
         const files = e.target.files;
         if (!files) return;
 
-        const MAX_ITEMS = 15; // Define MAX_ITEMS here or as a constant outside the component
+        const MAX_ITEMS = 15;
         const remaining = MAX_ITEMS - config.items.length;
         if (remaining <= 0) {
             toast.error("Maximum 15 images atteint");
@@ -140,7 +136,6 @@ const AdminGallery = () => {
         }
 
         const filesToAdd = Array.from(files).slice(0, remaining);
-<<<<<<< HEAD
 
         setUploading(true);
         try {
@@ -168,60 +163,6 @@ const AdminGallery = () => {
                 setConfig({ ...config, items: [...config.items, ...newItems] });
                 toast.success(`${newItems.length} image(s) ajoutée(s)`);
             }
-=======
-
-        setUploading(true);
-        const token = getAdminToken();
-
-        const newItems: GalleryItem[] = [];
-        const uploads: Promise<void>[] = [];
-
-        filesToAdd.forEach(file => {
-            if (!file.type.startsWith("image/")) return;
-
-            const tempId = `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            addLocalPreview(tempId, file);
-
-            const newItem: GalleryItem = {
-                id: tempId,
-                src: "", // Empty means "loading" / use local preview
-                alt: file.name.replace(/\.[^/.]+$/, ""),
-                description: "",
-            };
-            newItems.push(newItem);
-
-            // Trigger upload
-            const uploadTask = async () => {
-                try {
-                    const path = await uploadImage(file, 'home', token || undefined);
-                    // Update item with real path
-                    setConfig(prev => ({
-                        ...prev,
-                        items: prev.items.map(i => i.id === tempId ? { ...i, src: path } : i)
-                    }));
-                    removeLocalPreview(tempId);
-                } catch (error: any) {
-                    console.error("Failed to upload file:", error);
-                    toast.error(`Erreur upload: ${file.name} - ${error?.message || ''}`);
-                    // Remove failed item
-                    setConfig(prev => ({
-                        ...prev,
-                        items: prev.items.filter(i => i.id !== tempId)
-                    }));
-                    removeLocalPreview(tempId);
-                }
-            };
-            uploads.push(uploadTask());
-        });
-
-        if (newItems.length > 0) {
-            setConfig(prev => ({ ...prev, items: [...prev.items, ...newItems] }));
-            toast.success(`${newItems.length} image(s) ajoutée(s)`);
-        }
-
-        try {
-            await Promise.all(uploads);
->>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
         } finally {
             setUploading(false);
             // Reset input
@@ -230,11 +171,6 @@ const AdminGallery = () => {
             }
         }
     };
-<<<<<<< HEAD
-=======
-
-
->>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
 
     const updateItem = (index: number, field: keyof GalleryItem, value: string) => {
         const updated = [...config.items];
@@ -258,11 +194,6 @@ const AdminGallery = () => {
 
     // --- Hero Image Logic ---
 
-<<<<<<< HEAD
-=======
-
-
->>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
     async function handleHeroUpload(e: React.ChangeEvent<HTMLInputElement>) {
         const files = e.target.files;
         if (!files || files.length === 0) return;
@@ -281,15 +212,9 @@ const AdminGallery = () => {
 
         setUploading(true);
         try {
-<<<<<<< HEAD
             setUploading(true);
             const token = getAdminToken();
             const path = await uploadImageToBlob(files[0], { folder: 'gallery/hero', token: token || undefined });
-=======
-            const token = getAdminToken();
-            const path = await uploadImage(file, 'home', token || undefined);
-
->>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
             setConfig((prev) => ({
                 ...prev,
                 homeHeroImages: (prev.homeHeroImages || []).map(src => src === placeholder ? path : src),
@@ -330,22 +255,15 @@ const AdminGallery = () => {
         });
 
         try {
-<<<<<<< HEAD
             setUploading(true);
             const token = getAdminToken();
             const path = await uploadImageToBlob(files[0], { folder: 'gallery/hero', token: token || undefined });
-=======
-            const token = getAdminToken();
-            const path = await uploadImage(file, 'home', token || undefined);
-
->>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
             setConfig((prev) => {
                 const next = [...(prev.homeHeroImages || [])];
-                // Only replace if it's still the placeholder (user might have deleted/moved, though we block that)
+                // Only replace if it's still the placeholder
                 if (next[index] === placeholder) {
                     next[index] = path;
                 } else {
-                    // Fallback search if moved? For now assume index is stable as we block interactions
                     const foundIdx = next.indexOf(placeholder);
                     if (foundIdx !== -1) next[foundIdx] = path;
                 }
@@ -355,8 +273,7 @@ const AdminGallery = () => {
         } catch (err: any) {
             console.error(err);
             toast.error(err.message || "Impossible de remplacer l'image.");
-            // Revert? Hard to revert to previous image without storing it. 
-            // We'll just remove the placeholder, effectively deleting the image.
+            // Revert
             setConfig((prev) => ({
                 ...prev,
                 homeHeroImages: (prev.homeHeroImages || []).filter(src => src !== placeholder),
@@ -394,21 +311,12 @@ const AdminGallery = () => {
     };
 
     const confirmSave = async () => {
-<<<<<<< HEAD
         // Guard: Check for ephemeral URLs
         const hasEphemeral = config.items.some(i => i.src.startsWith('data:') || i.src.startsWith('blob:')) ||
             (config.homeHeroImages || []).some(src => src.startsWith('data:') || src.startsWith('blob:'));
 
         if (hasEphemeral) {
             toast.error("Sauvegarde bloquée : images temporaires détectées. Veuillez ré-uploader.");
-=======
-        // Guard: Check for blob URLs or pending uploads
-        const hasBlobItems = config.items.some(i => i.src.startsWith('blob:'));
-        const hasBlobHeroes = (config.homeHeroImages || []).some(src => src.startsWith('blob:') || src.startsWith('pending:'));
-
-        if (hasBlobItems || hasBlobHeroes || Object.keys(localPreviews).length > 0) {
-            toast.error("Veuillez attendre la fin des téléchargements d'images.");
->>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
             setShowConfirmModal(false);
             return;
         }
@@ -678,18 +586,6 @@ const AdminGallery = () => {
                                     )}
                                 </div>
                             </Card>
-<<<<<<< HEAD
-=======
-
-                            <Button
-                                onClick={handleSaveClick}
-                                disabled={saving || uploading || Object.keys(localPreviews).length > 0}
-                                className="w-full"
-                                size="lg"
-                            >
-                                {uploading ? "Upload en cours..." : saving ? "Sauvegarde..." : "Enregistrer"}
-                            </Button>
->>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
                         </div>
 
                         {/* Right: Preview */}
@@ -699,8 +595,7 @@ const AdminGallery = () => {
                                 <div className="border rounded-lg overflow-hidden bg-background shadow-sm">
                                     <div className="pointer-events-none select-none origin-top scale-[0.85] -mb-[15%]">
                                         <HomePhotoStripGallery
-                                            items={config.items}
-                                            heroImages={config.homeHeroImages}
+                                            itemsOverride={config.items}
                                         />
                                     </div>
                                 </div>

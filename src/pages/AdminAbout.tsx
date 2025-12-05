@@ -10,11 +10,8 @@ import { toast } from "sonner";
 import { getAdminToken } from "@/lib/adminSession";
 import type { AboutContent } from "../../shared/aboutContent";
 import { DEFAULT_ABOUT_CONTENT } from "../../shared/aboutContent";
-<<<<<<< HEAD
 import { uploadImageToBlob } from "../magazine_editor/lib/imageUtils";
-=======
-import { uploadImage } from "../magazine_editor/lib/imageUtils";
->>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
+
 import heroImage from "@/assets/hero-portrait.jpeg";
 
 type FormState = {
@@ -141,11 +138,7 @@ const AdminAbout = () => {
 
   const [uploading, setUploading] = useState(false);
 
-<<<<<<< HEAD
-=======
 
-
->>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -153,11 +146,8 @@ const AdminAbout = () => {
     try {
       setUploading(true);
       const token = getAdminToken();
-<<<<<<< HEAD
       const path = await uploadImageToBlob(files[0], { folder: 'about', token: token || undefined });
-=======
-      const path = await uploadImage(files[0], 'about', token || undefined);
->>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
+
       setForm((prev) => ({
         ...prev,
         aboutImages: [...prev.aboutImages, path],
@@ -179,11 +169,8 @@ const AdminAbout = () => {
     try {
       setUploading(true);
       const token = getAdminToken();
-<<<<<<< HEAD
       const path = await uploadImageToBlob(files[0], { folder: 'about', token: token || undefined });
-=======
-      const path = await uploadImage(files[0], 'about', token || undefined);
->>>>>>> 8cded01f7c3d9db8bbf12a4c70b904e769904c7f
+
       setForm((prev) => {
         const next = [...prev.aboutImages];
         next[index] = path;
