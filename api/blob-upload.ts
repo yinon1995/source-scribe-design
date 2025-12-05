@@ -8,30 +8,17 @@ export default async function handler(request: Request) {
     const body = (await request.json()) as HandleUploadBody;
 
     try {
-        // User confirmed env var is BLOB_READ_WRITE_TOKEN
-        const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
-
-        if (!blobToken) {
-            throw new Error("Blob token missing. Configure BLOB_READ_WRITE_TOKEN in Vercel.");
-        }
-
         const jsonResponse = await handleUpload({
             body,
             request,
-            token: blobToken,
             onBeforeGenerateToken: async (pathname: string, clientPayload: string | null) => {
                 // Auth check
                 const configuredToken = process.env.PUBLISH_TOKEN;
                 if (configuredToken) {
-                    const authHeader = request.headers.get('authorization');
-                    const provided = authHeader && authHeader.startsWith("Bearer ")
-                        ? authHeader.slice(7).trim()
-                        : "";
+                    const payload = clientPayload ? JSON.parse(clientPayload) : {};
+                    const providedToken = payload.token;
 
-                    // Also check clientPayload if header is missing (fallback)
-                    const payloadToken = clientPayload ? JSON.parse(clientPayload).token : null;
-
-                    if (provided !== configuredToken && payloadToken !== configuredToken) {
+                    if (providedToken !== configuredToken) {
                         throw new Error('Unauthorized');
                     }
                 }
@@ -49,14 +36,11 @@ export default async function handler(request: Request) {
             },
         });
 
-        return new Response(JSON.stringify(jsonResponse), {
-            status: 200,
-            headers: { 'content-type': 'application/json' },
-        });
+        return Response.json(jsonResponse);
     } catch (error) {
-        return new Response(JSON.stringify({ error: (error as Error).message }), {
-            status: 400,
-            headers: { 'content-type': 'application/json' },
-        });
+        return Response.json(
+            { error: (error as Error).message },
+            { status: 400 }
+        );
     }
 }
