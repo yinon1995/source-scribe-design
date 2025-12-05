@@ -113,6 +113,7 @@ export interface AdminBuilderProps {
     settings: ArticleSettings;
     setSettings: React.Dispatch<React.SetStateAction<ArticleSettings>>;
     onRequestPublish?: () => void;
+    onBusy?: (isBusy: boolean) => void;
 }
 
 export interface EditorDocument {

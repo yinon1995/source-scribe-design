@@ -9,7 +9,7 @@ import { ArrowUp, ArrowDown, Trash2, Upload, AlertCircle, RefreshCw } from "luci
 import HomePhotoStripGallery from "@/components/HomePhotoStripGallery";
 import Footer from "@/components/Footer";
 import { getAdminToken } from "@/lib/adminSession";
-import { fileToCompressedDataURL } from "../magazine_editor/lib/imageUtils";
+import { uploadImage } from "../magazine_editor/lib/imageUtils";
 import defaultHeroImage from "@/assets/hero-portrait.jpeg";
 import {
     AlertDialog,
@@ -108,28 +108,38 @@ const AdminGallery = () => {
         }
 
         const filesToAdd = Array.from(files).slice(0, remaining);
+
+        setUploading(true);
+        const token = getAdminToken();
         const newItems: GalleryItem[] = [];
+        let successCount = 0;
 
         for (const file of filesToAdd) {
             if (!file.type.startsWith("image/")) continue;
 
             try {
-                const dataUrl = await fileToDataUrl(file);
+                // Upload immediately
+                const path = await uploadImage(file, 'home', token || undefined);
+
                 newItems.push({
                     id: `img-${Date.now()}-${Math.random()}`,
-                    src: dataUrl,
+                    src: path,
                     alt: file.name.replace(/\.[^/.]+$/, ""),
                     description: "",
                 });
+                successCount++;
             } catch (error) {
-                console.error("Failed to convert file:", error);
+                console.error("Failed to upload file:", error);
+                toast.error(`Erreur upload: ${file.name}`);
             }
         }
 
         if (newItems.length > 0) {
-            setConfig({ ...config, items: [...config.items, ...newItems] });
-            toast.success(`${newItems.length} image(s) ajoutée(s)`);
+            setConfig(prev => ({ ...prev, items: [...prev.items, ...newItems] }));
+            toast.success(`${successCount} image(s) ajoutée(s)`);
         }
+
+        setUploading(false);
 
         // Reset input
         if (fileInputRef.current) {
@@ -137,14 +147,7 @@ const AdminGallery = () => {
         }
     };
 
-    const fileToDataUrl = (file: File): Promise<string> => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-        });
-    };
+
 
     const updateItem = (index: number, field: keyof GalleryItem, value: string) => {
         const updated = [...config.items];
@@ -168,55 +171,7 @@ const AdminGallery = () => {
 
     // --- Hero Image Logic ---
 
-    async function uploadFile(file: File): Promise<string> {
-        if (!file.type.startsWith("image/")) {
-            throw new Error("Veuillez sélectionner une image.");
-        }
 
-        const token = getAdminToken();
-        if (!token) {
-            throw new Error("Session expirée.");
-        }
-
-        // 1. Convert to base64 for upload
-        const base64 = await fileToCompressedDataURL(file);
-        const content = base64.split(",")[1];
-
-        // 2. Generate filename
-        const ext = file.name.split(".").pop() || "jpg";
-        const fileName = `hero-${Date.now()}.${ext}`;
-
-        // 3. Upload via API
-        const res = await fetch("/api/upload-image", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-                slug: "home",
-                fileName,
-                content,
-                encoding: "base64",
-            }),
-        });
-
-        if (!res.ok) {
-            throw new Error("Erreur lors de l'upload.");
-        }
-
-        const data = await res.json();
-        if (!data.ok || !data.path) {
-            throw new Error(data.error || "Erreur lors de l'upload.");
-        }
-
-        const path = data.path;
-        if (!path.startsWith("/") && !path.startsWith("http")) {
-            throw new Error("Chemin d'image invalide retourné par le serveur.");
-        }
-
-        return path;
-    }
 
     async function handleHeroUpload(e: React.ChangeEvent<HTMLInputElement>) {
         const files = e.target.files;
@@ -224,7 +179,9 @@ const AdminGallery = () => {
 
         try {
             setUploading(true);
-            const path = await uploadFile(files[0]);
+            const token = getAdminToken();
+            const path = await uploadImage(files[0], 'home', token || undefined);
+
             setConfig((prev) => ({
                 ...prev,
                 homeHeroImages: [...(prev.homeHeroImages || []), path],
@@ -245,7 +202,9 @@ const AdminGallery = () => {
 
         try {
             setUploading(true);
-            const path = await uploadFile(files[0]);
+            const token = getAdminToken();
+            const path = await uploadImage(files[0], 'home', token || undefined);
+
             setConfig((prev) => {
                 const next = [...(prev.homeHeroImages || [])];
                 next[index] = path;

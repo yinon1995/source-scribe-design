@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { getAdminToken } from "@/lib/adminSession";
 import type { AboutContent } from "../../shared/aboutContent";
 import { DEFAULT_ABOUT_CONTENT } from "../../shared/aboutContent";
-import { fileToCompressedDataURL } from "../magazine_editor/lib/imageUtils";
+import { uploadImage } from "../magazine_editor/lib/imageUtils";
 import heroImage from "@/assets/hero-portrait.jpeg";
 
 type FormState = {
@@ -137,56 +137,7 @@ const AdminAbout = () => {
 
   const [uploading, setUploading] = useState(false);
 
-  async function uploadFile(file: File): Promise<string> {
-    if (!file.type.startsWith("image/")) {
-      throw new Error("Veuillez sélectionner une image.");
-    }
 
-    const token = getAdminToken();
-    if (!token) {
-      throw new Error("Session expirée.");
-    }
-
-    // 1. Convert to base64 for upload
-    const base64 = await fileToCompressedDataURL(file);
-    const content = base64.split(",")[1]; // Remove data:image/...;base64, prefix
-
-    // 2. Generate filename
-    const ext = file.name.split(".").pop() || "jpg";
-    const fileName = `about-${Date.now()}.${ext}`;
-
-    // 3. Upload via API
-    const res = await fetch("/api/upload-image", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        slug: "about",
-        fileName,
-        content,
-        encoding: "base64",
-      }),
-    });
-
-    if (!res.ok) {
-      throw new Error("Erreur lors de l'upload.");
-    }
-
-    const data = await res.json();
-    if (!data.ok || !data.path) {
-      throw new Error(data.error || "Erreur lors de l'upload.");
-    }
-
-    // Validate returned path
-    const path = data.path;
-    if (!path.startsWith("/") && !path.startsWith("http")) {
-      throw new Error("Chemin d'image invalide retourné par le serveur.");
-    }
-
-    return path;
-  }
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
@@ -194,7 +145,8 @@ const AdminAbout = () => {
 
     try {
       setUploading(true);
-      const path = await uploadFile(files[0]);
+      const token = getAdminToken();
+      const path = await uploadImage(files[0], 'about', token || undefined);
       setForm((prev) => ({
         ...prev,
         aboutImages: [...prev.aboutImages, path],
@@ -215,7 +167,8 @@ const AdminAbout = () => {
 
     try {
       setUploading(true);
-      const path = await uploadFile(files[0]);
+      const token = getAdminToken();
+      const path = await uploadImage(files[0], 'about', token || undefined);
       setForm((prev) => {
         const next = [...prev.aboutImages];
         next[index] = path;
@@ -234,7 +187,7 @@ const AdminAbout = () => {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const normalized = normalizeForm(form);
-    if (!normalized.ok) {
+    if (normalized.ok === false) {
       toast.error(normalized.error);
       return;
     }

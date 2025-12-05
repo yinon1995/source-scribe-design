@@ -6,7 +6,8 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Placement } from '../preview/types';
-import { fileToCompressedDataURL } from '../lib/imageUtils';
+import { uploadImage } from '../lib/imageUtils';
+import { getAdminToken } from '../../lib/adminSession';
 
 const TagsEditor: React.FC<{ tags: string[], onChange: (tags: string[]) => void }> = ({ tags, onChange }) => {
   const [inputVal, setInputVal] = useState(tags.join(', '));
@@ -465,13 +466,18 @@ interface BlockEditorProps {
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
   isSelected: boolean;
   onSelect: (id: string) => void;
+
   references: Reference[];
   onAddReference: (ref: Reference) => void;
+  isUploading?: boolean;
+  onUploadStart?: () => void;
+  onUploadEnd?: () => void;
 }
 
 const BlockEditor: React.FC<BlockEditorProps> = ({
   block, updateBlock, removeBlock, moveBlock, isFirst, isLast,
-  dragHandleProps, isSelected, onSelect, references, onAddReference
+  dragHandleProps, isSelected, onSelect, references, onAddReference,
+  isUploading, onUploadStart, onUploadEnd
 }) => {
 
   const stopProp = (e: React.SyntheticEvent) => e.stopPropagation();
@@ -1027,7 +1033,7 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                       type="file"
                       accept="image/*"
                       className="hidden"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
 
@@ -1036,12 +1042,28 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                           URL.revokeObjectURL(block.content.imageUrl);
                         }
 
-                        fileToCompressedDataURL(file).then((dataUrl) => {
-                          updateBlock(block.id, {
-                            imageUrl: dataUrl,
-                            imageFileName: file.name
-                          });
+                        // 1. Immediate Preview
+                        const blobUrl = URL.createObjectURL(file);
+                        updateBlock(block.id, {
+                          imageUrl: blobUrl,
+                          imageFileName: file.name
                         });
+
+                        // 2. Upload
+                        if (onUploadStart) onUploadStart();
+                        try {
+                          const token = getAdminToken();
+                          const publicPath = await uploadImage(file, 'draft', token || undefined);
+
+                          updateBlock(block.id, {
+                            imageUrl: publicPath
+                          });
+                        } catch (err) {
+                          console.error("Upload failed", err);
+                          alert("Upload failed. Please try again.");
+                        } finally {
+                          if (onUploadEnd) onUploadEnd();
+                        }
                       }}
                     />
                   </label>
@@ -1405,10 +1427,70 @@ const SortableBlockItem: React.FC<any> = (props) => {
 
 export const AdminBuilder: React.FC<AdminBuilderProps> = ({
   blocks, setBlocks, tags, setTags, references, setReferences, settings, setSettings, onRequestPublish,
-  onReorderBlocks, onUpdateBlock
+  onReorderBlocks, onUpdateBlock, onBusy
 }) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [insertAfterId, setInsertAfterId] = useState<string | null>(null);
+  const [uploadingIds, setUploadingIds] = useState<Set<string>>(new Set());
+
+  // Notify parent of busy state
+  useEffect(() => {
+    onBusy?.(uploadingIds.size > 0);
+  }, [uploadingIds, onBusy]);
+
+  const handleUploadStart = (id: string) => {
+    setUploadingIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  };
+
+  const handleUploadEnd = (id: string) => {
+    setUploadingIds(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+
+  // Lazy Migration
+  useEffect(() => {
+    const migrate = async () => {
+      const token = getAdminToken();
+      for (const block of blocks) {
+        if (block.type === 'image' && block.content.imageUrl?.startsWith('data:image/')) {
+          if (uploadingIds.has(block.id)) continue;
+
+          handleUploadStart(block.id);
+          try {
+            const res = await fetch(block.content.imageUrl);
+            const blob = await res.blob();
+            const file = new File([blob], block.content.imageFileName || 'image.jpg', { type: blob.type });
+
+            const path = await uploadImage(file, 'draft', token || undefined);
+
+            // Use local updateBlock wrapper if possible, but we are inside useEffect
+            // We can access the updateBlock function if we define it before or use setBlocks directly
+            // Actually, `updateBlock` is defined below. We can't use it here easily if it's not hoisted.
+            // But we can use `onUpdateBlock` or `setBlocks`.
+            if (onUpdateBlock) {
+              onUpdateBlock(block.id, { imageUrl: path });
+            } else {
+              setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, content: { ...b.content, imageUrl: path } } : b));
+            }
+          } catch (e) {
+            console.error("Migration failed", e);
+          } finally {
+            handleUploadEnd(block.id);
+          }
+        }
+      }
+    };
+    // Small delay to ensure mount
+    const timer = setTimeout(migrate, 1000);
+    return () => clearTimeout(timer);
+  }, []); // Run once on mount
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -1571,6 +1653,9 @@ export const AdminBuilder: React.FC<AdminBuilderProps> = ({
                   onSelect={setSelectedId}
                   references={references}
                   onAddReference={handleAddReference}
+                  isUploading={uploadingIds.has(block.id)}
+                  onUploadStart={() => handleUploadStart(block.id)}
+                  onUploadEnd={() => handleUploadEnd(block.id)}
                 />
 
                 {/* Insert After Each Block Control */}
@@ -1636,9 +1721,10 @@ export const AdminBuilder: React.FC<AdminBuilderProps> = ({
         {onRequestPublish && (
           <button
             onClick={onRequestPublish}
-            className="bg-stone-900 text-white px-6 py-2.5 rounded-sm font-bold text-xs uppercase tracking-widest hover:bg-stone-700 transition-colors shadow-sm"
+            disabled={uploadingIds.size > 0}
+            className={`px-6 py-2.5 rounded-sm font-bold text-xs uppercase tracking-widest transition-colors shadow-sm ${uploadingIds.size > 0 ? 'bg-stone-400 text-stone-200 cursor-not-allowed' : 'bg-stone-900 text-white hover:bg-stone-700'}`}
           >
-            Publier
+            {uploadingIds.size > 0 ? 'Téléchargement...' : 'Publier'}
           </button>
         )}
       </div>
