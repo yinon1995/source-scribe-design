@@ -121,6 +121,11 @@ export const uploadImage = async (file: File, slug: string, token?: string): Pro
     }
 
     // 3. Fallback: GitHub Upload via /api/upload-image
+    // Only attempt fallback if file is small enough for Vercel Function payload (approx < 4.5MB)
+    if (file.size > 4 * 1024 * 1024) {
+        throw new Error("Upload failed: File too large for fallback (limit 4MB). Please check Vercel Blob configuration.");
+    }
+
     // Get raw base64 (no compression)
     const dataUrl = await fileToDataUrl(file);
     const content = dataUrl.split(',')[1];

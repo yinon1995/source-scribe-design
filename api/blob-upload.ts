@@ -23,6 +23,11 @@ export default async function handler(request: Request) {
                     }
                 }
 
+                // Check for Blob token existence
+                if (!process.env.BLOB_READ_WRITE_TOKEN) {
+                    throw new Error('Blob token missing: configure BLOB_READ_WRITE_TOKEN');
+                }
+
                 return {
                     allowedContentTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/avif'],
                     tokenPayload: JSON.stringify({
@@ -38,8 +43,15 @@ export default async function handler(request: Request) {
 
         return Response.json(jsonResponse);
     } catch (error) {
+        const msg = (error as Error).message;
+        if (msg === 'Unauthorized') {
+            return Response.json({ error: "Unauthorized" }, { status: 401 });
+        }
+        if (msg.includes('Blob token missing')) {
+            return Response.json({ error: msg }, { status: 500 });
+        }
         return Response.json(
-            { error: (error as Error).message },
+            { error: msg },
             { status: 400 }
         );
     }
