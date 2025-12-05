@@ -1477,9 +1477,11 @@ export const AdminBuilder: React.FC<AdminBuilderProps> = ({
                       });
                       URL.revokeObjectURL(blobUrl);
 
-                    } catch (err) {
+                    } catch (err: any) {
                       console.error("Upload failed", err);
-                      alert("Upload failed. Please try again.");
+                      // Show specific error message
+                      const msg = err?.message || "Upload failed. Please try again.";
+                      alert(msg);
                       // Keep local preview? Or clear?
                       // If we keep it, the user sees the image but can't save.
                       // Let's clear it so they know it failed and must retry.

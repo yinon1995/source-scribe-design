@@ -165,9 +165,9 @@ const AdminGallery = () => {
                         items: prev.items.map(i => i.id === tempId ? { ...i, src: path } : i)
                     }));
                     removeLocalPreview(tempId);
-                } catch (error) {
+                } catch (error: any) {
                     console.error("Failed to upload file:", error);
-                    toast.error(`Erreur upload: ${file.name}`);
+                    toast.error(`Erreur upload: ${file.name} - ${error?.message || ''}`);
                     // Remove failed item
                     setConfig(prev => ({
                         ...prev,
