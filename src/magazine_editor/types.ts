@@ -78,6 +78,9 @@ export interface BlockContent {
     // Divider Block
     dividerStyle?: 'thin' | 'bold' | 'dashed';
     dividerWidth?: 'full' | 'content';
+
+    // Editor State
+    isUploading?: boolean;
 }
 
 export interface ArticleBlock {

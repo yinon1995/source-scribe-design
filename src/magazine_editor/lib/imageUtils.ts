@@ -1,3 +1,6 @@
+import { upload } from "@vercel/blob/client";
+import { getAdminToken } from "@/lib/adminSession";
+
 export const fileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -6,6 +9,31 @@ export const fileToDataUrl = (file: File): Promise<string> => {
         reader.readAsDataURL(file);
     });
 };
+
+export async function uploadImageToBlob(
+    file: File,
+    options: { folder: string; token?: string }
+): Promise<string> {
+    const token = options.token || getAdminToken();
+    if (!token) {
+        throw new Error("Session expirée. Veuillez vous reconnecter.");
+    }
+
+    // Construct a path: images/{folder}/{Date.now()}-{filename}
+    // Sanitize filename to be safe
+    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "");
+    const filename = `${Date.now()}-${safeName}`;
+    const pathname = `images/${options.folder}/${filename}`;
+
+    const newBlob = await upload(pathname, file, {
+        access: "public",
+        handleUploadUrl: "/api/blob-upload",
+        multipart: true,
+        clientPayload: JSON.stringify({ token }), // Send token for auth check
+    });
+
+    return newBlob.url;
+}
 
 /**
  * Convert a File to a compressed data URL (resized + quality-reduced).
@@ -81,4 +109,3 @@ export const fileToCompressedDataURL = async (
             });
     });
 };
-

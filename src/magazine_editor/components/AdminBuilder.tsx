@@ -6,7 +6,8 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Placement } from '../preview/types';
-import { fileToCompressedDataURL } from '../lib/imageUtils';
+import { fileToCompressedDataURL, uploadImageToBlob } from '../lib/imageUtils';
+import { getAdminToken } from '@/lib/adminSession';
 
 const TagsEditor: React.FC<{ tags: string[], onChange: (tags: string[]) => void }> = ({ tags, onChange }) => {
   const [inputVal, setInputVal] = useState(tags.join(', '));
@@ -1020,13 +1021,14 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                 {/* Local Upload */}
                 <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1 mt-3">Or Upload File</label>
                 <div className="flex items-center gap-2">
-                  <label className="cursor-pointer bg-stone-100 hover:bg-stone-200 text-stone-600 px-3 py-2 rounded-sm text-xs font-medium transition-colors flex items-center gap-2">
+                  <label className={`cursor-pointer bg-stone-100 hover:bg-stone-200 text-stone-600 px-3 py-2 rounded-sm text-xs font-medium transition-colors flex items-center gap-2 ${block.content.isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
                     <Upload size={14} />
-                    <span>Choose File</span>
+                    <span>{block.content.isUploading ? 'Uploading...' : 'Choose File'}</span>
                     <input
                       type="file"
                       accept="image/*"
                       className="hidden"
+                      disabled={block.content.isUploading}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
@@ -1036,12 +1038,25 @@ const BlockEditor: React.FC<BlockEditorProps> = ({
                           URL.revokeObjectURL(block.content.imageUrl);
                         }
 
-                        fileToCompressedDataURL(file).then((dataUrl) => {
-                          updateBlock(block.id, {
-                            imageUrl: dataUrl,
-                            imageFileName: file.name
+                        // Set uploading state
+                        updateBlock(block.id, { isUploading: true } as any);
+
+                        const token = getAdminToken();
+
+                        // Upload to Vercel Blob
+                        uploadImageToBlob(file, { folder: 'articles', token: token || undefined })
+                          .then((blobUrl) => {
+                            updateBlock(block.id, {
+                              imageUrl: blobUrl,
+                              imageFileName: file.name,
+                              isUploading: false
+                            } as any);
+                          })
+                          .catch((err) => {
+                            console.error("Upload failed", err);
+                            alert("Upload failed: " + err.message);
+                            updateBlock(block.id, { isUploading: false } as any);
                           });
-                        });
                       }}
                     />
                   </label>

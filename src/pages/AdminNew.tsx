@@ -140,6 +140,19 @@ const AdminNew = () => {
     references: Reference[];
     settings: ArticleSettings;
   }) => {
+    // Guard: Check for ephemeral URLs to prevent broken images
+    const hasEphemeralUrls = payload.blocks.some(b => {
+      if (b.type === 'image') {
+        const url = b.content.imageUrl || '';
+        return url.startsWith('data:') || url.startsWith('blob:');
+      }
+      return false;
+    });
+
+    if (hasEphemeralUrls) {
+      throw new Error("Sauvegarde bloquée : certaines images sont encore en format temporaire (data/blob). Veuillez ré-uploader l'image.");
+    }
+
     // Convert magazine editor format to site's JsonArticle format
     // Extract title from first title block
     const titleBlock = payload.blocks.find(b => b.type === 'title');

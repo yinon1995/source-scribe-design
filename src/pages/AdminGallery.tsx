@@ -9,7 +9,7 @@ import { ArrowUp, ArrowDown, Trash2, Upload, AlertCircle, RefreshCw } from "luci
 import HomePhotoStripGallery from "@/components/HomePhotoStripGallery";
 import Footer from "@/components/Footer";
 import { getAdminToken } from "@/lib/adminSession";
-import { fileToCompressedDataURL } from "../magazine_editor/lib/imageUtils";
+import { uploadImageToBlob } from "../magazine_editor/lib/imageUtils";
 import defaultHeroImage from "@/assets/hero-portrait.jpeg";
 import {
     AlertDialog,
@@ -21,6 +21,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
 
 // Fallback import if API fails completely
 import galleryConfigLocal from "../../content/home/gallery.json";
@@ -101,6 +102,7 @@ const AdminGallery = () => {
         const files = e.target.files;
         if (!files) return;
 
+        const MAX_ITEMS = 15; // Define MAX_ITEMS here or as a constant outside the component
         const remaining = MAX_ITEMS - config.items.length;
         if (remaining <= 0) {
             toast.error("Maximum 15 images atteint");
@@ -108,42 +110,40 @@ const AdminGallery = () => {
         }
 
         const filesToAdd = Array.from(files).slice(0, remaining);
-        const newItems: GalleryItem[] = [];
 
-        for (const file of filesToAdd) {
-            if (!file.type.startsWith("image/")) continue;
+        setUploading(true);
+        try {
+            const newItems: GalleryItem[] = [];
 
-            try {
-                const dataUrl = await fileToDataUrl(file);
-                newItems.push({
-                    id: `img-${Date.now()}-${Math.random()}`,
-                    src: dataUrl,
-                    alt: file.name.replace(/\.[^/.]+$/, ""),
-                    description: "",
-                });
-            } catch (error) {
-                console.error("Failed to convert file:", error);
+            for (const file of filesToAdd) {
+                if (!file.type.startsWith("image/")) continue;
+
+                try {
+                    const token = getAdminToken();
+                    const blobUrl = await uploadImageToBlob(file, { folder: 'gallery', token: token || undefined });
+                    newItems.push({
+                        id: `img-${Date.now()}-${Math.random()}`,
+                        src: blobUrl,
+                        alt: file.name.replace(/\.[^/.]+$/, ""),
+                        description: "",
+                    });
+                } catch (error) {
+                    console.error("Failed to upload file:", error);
+                    toast.error(`Erreur upload: ${file.name}`);
+                }
+            }
+
+            if (newItems.length > 0) {
+                setConfig({ ...config, items: [...config.items, ...newItems] });
+                toast.success(`${newItems.length} image(s) ajoutée(s)`);
+            }
+        } finally {
+            setUploading(false);
+            // Reset input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
             }
         }
-
-        if (newItems.length > 0) {
-            setConfig({ ...config, items: [...config.items, ...newItems] });
-            toast.success(`${newItems.length} image(s) ajoutée(s)`);
-        }
-
-        // Reset input
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
-    };
-
-    const fileToDataUrl = (file: File): Promise<string> => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-        });
     };
 
     const updateItem = (index: number, field: keyof GalleryItem, value: string) => {
@@ -168,63 +168,14 @@ const AdminGallery = () => {
 
     // --- Hero Image Logic ---
 
-    async function uploadFile(file: File): Promise<string> {
-        if (!file.type.startsWith("image/")) {
-            throw new Error("Veuillez sélectionner une image.");
-        }
-
-        const token = getAdminToken();
-        if (!token) {
-            throw new Error("Session expirée.");
-        }
-
-        // 1. Convert to base64 for upload
-        const base64 = await fileToCompressedDataURL(file);
-        const content = base64.split(",")[1];
-
-        // 2. Generate filename
-        const ext = file.name.split(".").pop() || "jpg";
-        const fileName = `hero-${Date.now()}.${ext}`;
-
-        // 3. Upload via API
-        const res = await fetch("/api/upload-image", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-                slug: "home",
-                fileName,
-                content,
-                encoding: "base64",
-            }),
-        });
-
-        if (!res.ok) {
-            throw new Error("Erreur lors de l'upload.");
-        }
-
-        const data = await res.json();
-        if (!data.ok || !data.path) {
-            throw new Error(data.error || "Erreur lors de l'upload.");
-        }
-
-        const path = data.path;
-        if (!path.startsWith("/") && !path.startsWith("http")) {
-            throw new Error("Chemin d'image invalide retourné par le serveur.");
-        }
-
-        return path;
-    }
-
     async function handleHeroUpload(e: React.ChangeEvent<HTMLInputElement>) {
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
         try {
             setUploading(true);
-            const path = await uploadFile(files[0]);
+            const token = getAdminToken();
+            const path = await uploadImageToBlob(files[0], { folder: 'gallery/hero', token: token || undefined });
             setConfig((prev) => ({
                 ...prev,
                 homeHeroImages: [...(prev.homeHeroImages || []), path],
@@ -245,7 +196,8 @@ const AdminGallery = () => {
 
         try {
             setUploading(true);
-            const path = await uploadFile(files[0]);
+            const token = getAdminToken();
+            const path = await uploadImageToBlob(files[0], { folder: 'gallery/hero', token: token || undefined });
             setConfig((prev) => {
                 const next = [...(prev.homeHeroImages || [])];
                 next[index] = path;
@@ -287,6 +239,16 @@ const AdminGallery = () => {
     };
 
     const confirmSave = async () => {
+        // Guard: Check for ephemeral URLs
+        const hasEphemeral = config.items.some(i => i.src.startsWith('data:') || i.src.startsWith('blob:')) ||
+            (config.homeHeroImages || []).some(src => src.startsWith('data:') || src.startsWith('blob:'));
+
+        if (hasEphemeral) {
+            toast.error("Sauvegarde bloquée : images temporaires détectées. Veuillez ré-uploader.");
+            setShowConfirmModal(false);
+            return;
+        }
+
         setShowConfirmModal(false);
         setSaving(true);
         try {
@@ -491,42 +453,49 @@ const AdminGallery = () => {
                                                         alt={item.alt || "Preview"}
                                                         className="w-full h-24 object-cover rounded"
                                                     />
-
-                                                    {/* Description */}
-                                                    <Textarea
-                                                        value={item.description}
-                                                        onChange={(e) => updateItem(index, "description", e.target.value)}
-                                                        placeholder="Description (lightbox)"
-                                                        rows={2}
-                                                        className="text-sm"
-                                                    />
-
-                                                    {/* Actions */}
-                                                    <div className="flex items-center gap-1">
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => moveItem(index, "up")}
-                                                            disabled={index === 0}
-                                                        >
-                                                            <ArrowUp className="w-3 h-3" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => moveItem(index, "down")}
-                                                            disabled={index === config.items.length - 1}
-                                                        >
-                                                            <ArrowDown className="w-3 h-3" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="destructive"
-                                                            size="sm"
-                                                            onClick={() => deleteItem(index)}
-                                                            className="ml-auto"
-                                                        >
-                                                            <Trash2 className="w-3 h-3" />
-                                                        </Button>
+                                                    <div className="grid gap-2">
+                                                        <div className="flex gap-2">
+                                                            <Input
+                                                                value={item.alt}
+                                                                onChange={(e) => updateItem(index, "alt", e.target.value)}
+                                                                placeholder="Texte alternatif (SEO)"
+                                                                className="flex-1"
+                                                            />
+                                                            <div className="flex gap-1">
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="icon"
+                                                                    onClick={() => moveItem(index, "up")}
+                                                                    disabled={index === 0}
+                                                                    title="Monter"
+                                                                >
+                                                                    <ArrowUp className="h-4 w-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="icon"
+                                                                    onClick={() => moveItem(index, "down")}
+                                                                    disabled={index === config.items.length - 1}
+                                                                    title="Descendre"
+                                                                >
+                                                                    <ArrowDown className="h-4 w-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="destructive"
+                                                                    size="icon"
+                                                                    onClick={() => deleteItem(index)}
+                                                                    title="Supprimer"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                        <Textarea
+                                                            value={item.description}
+                                                            onChange={(e) => updateItem(index, "description", e.target.value)}
+                                                            placeholder="Description (optionnel)"
+                                                            rows={2}
+                                                        />
                                                     </div>
                                                 </div>
                                             </Card>
@@ -534,38 +503,43 @@ const AdminGallery = () => {
                                     )}
                                 </div>
                             </Card>
-
-                            {/* Save Button */}
-                            <Button
-                                onClick={handleSaveClick}
-                                disabled={saving || uploading}
-                                className="w-full"
-                                size="lg"
-                            >
-                                {uploading ? "Upload en cours..." : saving ? "Sauvegarde..." : "Enregistrer"}
-                            </Button>
                         </div>
 
                         {/* Right: Preview */}
-                        <div>
-                            <Card className="p-4 sticky top-24">
-                                <h2 className="font-medium mb-3">Aperçu Galerie</h2>
-                                <div className="border border-border rounded overflow-hidden">
-                                    <HomePhotoStripGallery itemsOverride={config.items} />
+                        <div className="space-y-6">
+                            <Card className="p-4 bg-muted/30 sticky top-6">
+                                <h2 className="font-medium mb-4 text-muted-foreground uppercase text-xs tracking-wider">Aperçu Live</h2>
+                                <div className="border rounded-lg overflow-hidden bg-background shadow-sm">
+                                    <div className="pointer-events-none select-none origin-top scale-[0.85] -mb-[15%]">
+                                        <HomePhotoStripGallery
+                                            items={config.items}
+                                            heroImages={config.homeHeroImages}
+                                        />
+                                    </div>
                                 </div>
                             </Card>
+
+                            <div className="flex justify-end gap-4 sticky bottom-6 bg-background/80 backdrop-blur p-4 border-t border-border rounded-lg shadow-lg">
+                                <Button variant="outline" onClick={() => navigate("/admin")}>
+                                    Annuler
+                                </Button>
+                                <Button onClick={handleSaveClick} disabled={saving}>
+                                    {saving ? "Enregistrement..." : "Enregistrer les modifications"}
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>
             </main>
+
             <Footer />
 
             <AlertDialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Enregistrer la galerie ?</AlertDialogTitle>
+                        <AlertDialogTitle>Enregistrer les modifications ?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Cette action mettra à jour la galerie et l'image d'ouverture de la page d’accueil.
+                            Cette action mettra à jour la galerie sur le site public.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

@@ -6,6 +6,7 @@
 // - respond() enforces JSON-only responses so Vercel never falls back to HTML 500s.
 // - All env/network work stays in try/catch blocks inside the handler to keep module load safe.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { put } from "@vercel/blob";
 import { CATEGORY_OPTIONS, normalizeCategory, type JsonArticleCategory } from "../shared/articleCategories.js";
 import { ARTICLE_BODY_FONT_VALUES, type ArticleBodyFont } from "../shared/articleBodyFonts.js";
 // Vercel function to publish JSON articles to GitHub (contents API)
@@ -80,6 +81,7 @@ const RAW_PUBLISH_BRANCH = process.env.PUBLISH_BRANCH;
 const PUBLISH_BRANCH = RAW_PUBLISH_BRANCH?.trim() || "main";
 const PUBLISH_TOKEN = process.env.PUBLISH_TOKEN;
 const VERCEL_DEPLOY_HOOK_URL = process.env.VERCEL_DEPLOY_HOOK_URL;
+const BLOB_READ_WRITE_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
 const SITE_URL = "https://a-la-brestoise.vercel.app";
 const INCLUDE_ERROR_DETAILS = process.env.NODE_ENV !== "production";
 
@@ -538,39 +540,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                   const publicPath = `images/articles/${slug}/img_${filename}.${extension}`;
                   const fullPublicUrl = `/${publicPath}`;
 
-                  // Upload to GitHub
+                  // Upload to Vercel Blob
                   try {
-                    // Check if exists first to avoid re-uploading same image
-                    const existing = await githubGet(`public/${publicPath}`);
-                    if (!existing) {
-                      const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${encodeGitHubPath(`public/${publicPath}`)}`;
-                      await fetch(url, {
-                        method: "PUT",
-                        headers: {
-                          Accept: "application/vnd.github+json",
-                          Authorization: `token ${GITHUB_TOKEN}`,
-                          "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({
-                          message: `feat(assets): upload image for ${slug}`,
-                          content: base64Data, // Already base64
-                          branch: PUBLISH_BRANCH,
-                          committer: { name: "A la Brestoise bot", email: "bot@alabrestoise.local" },
-                        }),
-                      });
-                      console.log(`[publish] Uploaded image: ${publicPath}`);
-                    } else {
-                      console.log(`[publish] Image already exists: ${publicPath}`);
+                    if (!BLOB_READ_WRITE_TOKEN) {
+                      throw new Error("Missing BLOB_READ_WRITE_TOKEN");
                     }
 
+                    const buffer = Buffer.from(base64Data, 'base64');
+                    const blob = await put(publicPath, buffer, {
+                      access: 'public',
+                      token: BLOB_READ_WRITE_TOKEN,
+                      addRandomSuffix: false // Keep the deterministic hash-based filename
+                    });
+
+                    console.log(`[publish] Uploaded image to Blob: ${blob.url}`);
+
                     // Update Block
-                    block.content.imageUrl = fullPublicUrl;
+                    block.content.imageUrl = blob.url;
                     stateChanged = true;
-                    replacements.push({ old: dataUrl, new: fullPublicUrl });
+                    replacements.push({ old: dataUrl, new: blob.url });
 
                     // If this was the cover/hero, update it too
                     if (coverImage === dataUrl) {
-                      coverImage = fullPublicUrl;
+                      coverImage = blob.url;
                     }
 
                   } catch (err) {
