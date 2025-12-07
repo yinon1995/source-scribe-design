@@ -1,6 +1,16 @@
 [
   {
     "category": "newsletter",
+    "source": "home-newsletter",
+    "email": "torriinvest03@gmail.com",
+    "meta": {
+      "path": "/"
+    },
+    "id": "ea4e58ae-3a81-4379-bcca-c854a59a319e",
+    "createdAt": "2025-12-07T12:11:00.879Z"
+  },
+  {
+    "category": "newsletter",
     "source": "footer-newsletter",
     "email": "treser29470@gmail.com",
     "meta": {
