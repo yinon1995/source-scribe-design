@@ -2,34 +2,34 @@
   "title": "Galerie",
   "items": [
     {
-      "id": "g1",
-      "src": "/images/gallery/1.jpg",
-      "alt": "Beauté tendance",
-      "description": "Dernières tendances beauté à Brest"
-    },
-    {
-      "id": "g2",
-      "src": "/images/gallery/2.jpg",
-      "alt": "Événement local",
-      "description": "Événements et culture locale"
-    },
-    {
-      "id": "g3",
-      "src": "/images/gallery/3.jpg",
-      "alt": "Lieux à découvrir",
-      "description": "Les plus beaux lieux de Brest"
-    },
-    {
-      "id": "g4",
-      "src": "/images/gallery/4.jpg",
-      "alt": "Tendances mode",
-      "description": "Mode et style brestois"
-    },
-    {
       "id": "g5",
       "src": "/images/gallery/5.jpg",
       "alt": "Bien-être",
       "description": "Bien-être et cosmétiques"
+    },
+    {
+      "id": "img-1765110703411-0.27731998622650433",
+      "src": "https://pucmcdzvwoq7phvp.public.blob.vercel-storage.com/images/gallery/1765110698719-IMG1525-BbSgDTDAEOwf6BnUxiGETgxrbPfjn8.jpeg",
+      "alt": "IMG_1525",
+      "description": ""
+    },
+    {
+      "id": "img-1765110706854-0.34222932956453556",
+      "src": "https://pucmcdzvwoq7phvp.public.blob.vercel-storage.com/images/gallery/1765110703411-IMG1580-IABr8vGoJyIFGKrgoJHnq4PJCEVBIF.jpeg",
+      "alt": "IMG_1580",
+      "description": ""
+    },
+    {
+      "id": "img-1765110710178-0.8854116826613686",
+      "src": "https://pucmcdzvwoq7phvp.public.blob.vercel-storage.com/images/gallery/1765110706854-IMG1582-ZNCwdWPmNI9OP9dFIas7Yq65ooKlwB.jpeg",
+      "alt": "IMG_1582",
+      "description": ""
+    },
+    {
+      "id": "img-1765110713860-0.019665895133860967",
+      "src": "https://pucmcdzvwoq7phvp.public.blob.vercel-storage.com/images/gallery/1765110710178-IMG1600-PzrgRoAPKIgwwy2JahieXDbs8TCj79.jpeg",
+      "alt": "IMG_1600",
+      "description": ""
     }
   ],
   "homeHeroImages": [
