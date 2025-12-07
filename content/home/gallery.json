@@ -2,12 +2,6 @@
   "title": "Galerie",
   "items": [
     {
-      "id": "g5",
-      "src": "/images/gallery/5.jpg",
-      "alt": "Bien-être",
-      "description": "Bien-être et cosmétiques"
-    },
-    {
       "id": "img-1765110703411-0.27731998622650433",
       "src": "https://pucmcdzvwoq7phvp.public.blob.vercel-storage.com/images/gallery/1765110698719-IMG1525-BbSgDTDAEOwf6BnUxiGETgxrbPfjn8.jpeg",
       "alt": "IMG_1525",
