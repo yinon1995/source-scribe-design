@@ -63,7 +63,7 @@ const Footer = () => {
           <p className="text-sm text-muted-foreground">
             © 2025 {site.name}. Tous droits réservés.
           </p>
-          
+
           <div className="flex items-center gap-4">
             <a href={site.footer.social.linkedin} target="_blank" rel="noopener noreferrer" className="rounded-full hover:bg-accent p-2 transition duration-200">
               <Linkedin className="h-5 w-5" />
@@ -77,7 +77,7 @@ const Footer = () => {
               rel="noopener noreferrer"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              WhatsApp +33 6 58 29 72 20
+              nolwennalabrestoise@gmail.com
             </a>
           </div>
         </div>

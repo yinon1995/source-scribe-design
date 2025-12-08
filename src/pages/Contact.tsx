@@ -110,7 +110,7 @@ const Contact = () => {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                WhatsApp
+                nolwennalabrestoise@gmail.com
               </a>.
             </p>
           </div>
