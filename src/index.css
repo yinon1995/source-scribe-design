@@ -212,15 +212,16 @@ All colors MUST be HSL.
 
 /* === Magazine / Journal layout === */
 .article-journal {
-  column-count: 1;
-  column-gap: 2.4rem;
-  column-fill: balance;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  width: 100%;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .article-journal {
-    column-count: 2;
-    column-rule: 1px solid rgba(0, 0, 0, 0.06);
+    grid-template-columns: repeat(2, 1fr);
+    align-items: start;
   }
 }
 

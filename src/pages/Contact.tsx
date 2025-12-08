@@ -107,8 +107,6 @@ const Contact = () => {
               <a
                 className="underline"
                 href={CONTACT_WHATSAPP_URL}
-                target="_blank"
-                rel="noopener noreferrer"
               >
                 nolwennalabrestoise@gmail.com
               </a>.
