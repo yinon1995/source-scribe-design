@@ -1,0 +1,1135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 32 29% 97%;
+    --foreground: 25 14% 12%;
+
+    --card: 33 33% 94%;
+    --card-foreground: 25 14% 12%;
+
+    --popover: 32 29% 97%;
+    --popover-foreground: 25 14% 12%;
+
+    --primary: 27 15% 39%;
+    --primary-foreground: 32 29% 97%;
+
+    --secondary: 36 22% 85%;
+    --secondary-foreground: 25 14% 12%;
+
+    --muted: 45 20% 80%;
+    --muted-foreground: 27 10% 50%;
+
+    --accent: 54 16% 77%;
+    --accent-foreground: 25 14% 12%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 32 29% 97%;
+
+    --border: 36 22% 88%;
+    --input: 36 22% 88%;
+    --ring: 27 15% 39%;
+
+    --radius: 1rem;
+
+    --cream: 32 29% 97%;
+    --beige: 33 33% 94%;
+    --sand: 36 22% 85%;
+    --sage: 54 16% 77%;
+    --brown: 27 15% 39%;
+    --soft-black: 25 14% 12%;
+    --rose: 0 33% 85%;
+
+    --shadow-soft: 0 2px 12px -2px rgba(107, 99, 88, 0.08);
+    --transition-elegant: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 25 14% 12%;
+    --foreground: 32 29% 97%;
+
+    --card: 27 15% 18%;
+    --card-foreground: 32 29% 97%;
+
+    --popover: 25 14% 12%;
+    --popover-foreground: 32 29% 97%;
+
+    --primary: 32 29% 97%;
+    --primary-foreground: 25 14% 12%;
+
+    --secondary: 27 15% 25%;
+    --secondary-foreground: 32 29% 97%;
+
+    --muted: 27 15% 25%;
+    --muted-foreground: 36 10% 65%;
+
+    --accent: 54 16% 35%;
+    --accent-foreground: 32 29% 97%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 32 29% 97%;
+
+    --border: 27 15% 25%;
+    --input: 27 15% 25%;
+    --ring: 32 29% 85%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display;
+  }
+}
+
+.prose figure.img-left,
+.prose figure.img-right {
+  display: flow-root;
+}
+
+.prose figure.img-left img {
+  float: left;
+  margin: 0.5rem 1rem 0.5rem 0;
+  max-width: 48%;
+}
+
+.prose figure.img-right img {
+  float: right;
+  margin: 0.5rem 0 0.5rem 1rem;
+  max-width: 48%;
+}
+
+.prose figure.img-full img {
+  width: 100%;
+}
+
+.prose img.img-left {
+  float: left;
+  margin: 0.5rem 1rem 0.5rem 0;
+  max-width: 48%;
+}
+
+.prose img.img-right {
+  float: right;
+  margin: 0.5rem 0 0.5rem 1rem;
+  max-width: 48%;
+}
+
+.prose img.img-full {
+  width: 100%;
+  display: block;
+  margin: 1.5rem 0;
+}
+
+.prose figure figcaption {
+  font-size: .9rem;
+  color: rgb(115 115 115);
+  margin-top: .25rem;
+}
+
+.arch-decoration {
+  position: relative;
+}
+
+.arch-decoration::before {
+  content: '';
+  position: absolute;
+  top: -2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 50px;
+  border: 1px solid hsl(var(--border));
+  border-bottom: none;
+  border-radius: 100px 100px 0 0;
+}
+
+.font-article-josefin-sans {
+  font-family: "Josefin Sans", "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.font-article-raleway {
+  font-family: "Raleway", "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.font-article-montserrat {
+  font-family: "Montserrat", "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.font-article-merriweather {
+  font-family: "Merriweather", Georgia, "Times New Roman", serif;
+}
+
+.font-article-libre-baskerville {
+  font-family: "Libre Baskerville", Georgia, "Times New Roman", serif;
+}
+
+.font-article-alice {
+  font-family: "Alice", Georgia, "Times New Roman", serif;
+}
+
+/* === Magazine / Journal layout === */
+.article-journal {
+  column-count: 1;
+  column-gap: 2.4rem;
+  column-fill: balance;
+}
+
+@media (min-width: 1024px) {
+  .article-journal {
+    column-count: 2;
+    column-rule: 1px solid rgba(0, 0, 0, 0.06);
+  }
+}
+
+/* prevent ugly splits */
+.article-journal h2,
+.article-journal h3,
+.article-journal figure,
+.article-journal blockquote,
+.article-journal ul,
+.article-journal ol {
+  break-inside: avoid;
+}
+
+/* desktop magazine text */
+.article-journal p {
+  line-height: 1.9;
+  margin: 0 0 1.05rem 0;
+}
+
+@media (min-width: 1024px) {
+  .article-journal p {
+    text-align: justify;
+    hyphens: auto;
+  }
+}
+
+@media (max-width: 1023px) {
+  .article-journal p {
+    text-align: left;
+  }
+}
+
+/* Drop cap: best effort */
+@supports (initial-letter: 3) {
+  .article-journal p:first-of-type::first-letter {
+    initial-letter: 3;
+    font-weight: 600;
+    margin-right: 0.35rem;
+  }
+}
+
+@supports not (initial-letter: 3) {
+  .article-journal p:first-of-type::first-letter {
+    float: left;
+    font-size: 3.2em;
+    line-height: 0.9;
+    padding-right: 0.14em;
+    padding-top: 0.06em;
+    font-weight: 600;
+  }
+}
+
+/* Interleaved images */
+.journal-figure {
+  margin: 0.3rem 0 1.2rem 0;
+  break-inside: avoid;
+}
+
+.journal-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 16px;
+}
+
+.journal-caption {
+  margin-top: 0.55rem;
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+/* Wide images spanning both columns (desktop) */
+@media (min-width: 1024px) {
+  .journal-figure--wide {
+    column-span: all;
+    margin: 0.6rem 0 1.6rem 0;
+  }
+}
+
+/* Signature block styling */
+.signature-block {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.signature-logo {
+  width: min(320px, 70vw);
+  max-width: 320px;
+  height: auto;
+  max-height: 120px;
+  object-fit: contain;
+  display: block;
+}
+
+/* Contact QR Code Block */
+.contact-qrcode {
+  margin-top: 2rem;
+  padding: 1.25rem 1.25rem;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  border-radius: 18px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.contact-qrcode-title {
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.qrcode-img {
+  width: min(220px, 70vw);
+  height: auto;
+  display: block;
+  border-radius: 14px;
+}
+
+.contact-qrcode-hint {
+  margin-top: 0.75rem;
+  font-size: 0.95rem;
+  opacity: 0.75;
+}
+
+/* QR Code Overlay */
+.qr-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.qr-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+}
+
+.qr-overlay-content {
+  position: relative;
+  z-index: 1;
+  width: min(520px, 92vw);
+  max-height: 92vh;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  padding: 18px 18px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.qr-overlay-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+
+.qr-overlay-img {
+  width: min(420px, 80vw);
+  height: auto;
+  border-radius: 16px;
+  display: block;
+  margin-top: 14px;
+}
+
+.qr-overlay-title {
+  margin-top: 12px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+/* Contact QR Code - Updated sizing */
+.qrcode-img {
+  width: min(260px, 70vw);
+  height: auto;
+  display: block;
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+/* QR Overlay Image - Updated for larger fullscreen view */
+.qr-overlay-img {
+  width: min(620px, 92vw);
+  max-height: 88vh;
+  height: auto;
+  object-fit: contain;
+  border-radius: 18px;
+  display: block;
+  margin-top: 14px;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media (min-width: 1024px) {
+  .article-journal p {
+    text-align: justify;
+    hyphens: auto;
+  }
+}
+
+@media (max-width: 1023px) {
+  .article-journal p {
+    text-align: left;
+  }
+}
+
+/* Drop cap: best effort */
+@supports (initial-letter: 3) {
+  .article-journal p:first-of-type::first-letter {
+    initial-letter: 3;
+    font-weight: 600;
+    margin-right: 0.35rem;
+  }
+}
+
+@supports not (initial-letter: 3) {
+  .article-journal p:first-of-type::first-letter {
+    float: left;
+    font-size: 3.2em;
+    line-height: 0.9;
+    padding-right: 0.14em;
+    padding-top: 0.06em;
+    font-weight: 600;
+  }
+}
+
+/* Interleaved images */
+.journal-figure {
+  margin: 0.3rem 0 1.2rem 0;
+  break-inside: avoid;
+}
+
+.journal-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 16px;
+}
+
+.journal-caption {
+  margin-top: 0.55rem;
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+/* Wide images spanning both columns (desktop) */
+@media (min-width: 1024px) {
+  .journal-figure--wide {
+    column-span: all;
+    margin: 0.6rem 0 1.6rem 0;
+  }
+}
+
+/* Signature block styling */
+.signature-block {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.signature-logo {
+  width: min(320px, 70vw);
+  max-width: 320px;
+  height: auto;
+  max-height: 120px;
+  object-fit: contain;
+  display: block;
+}
+
+/* Contact QR Code Block */
+.contact-qrcode {
+  margin-top: 2rem;
+  padding: 1.25rem 1.25rem;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  border-radius: 18px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.contact-qrcode-title {
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.qrcode-img {
+  width: min(220px, 70vw);
+  height: auto;
+  display: block;
+  border-radius: 14px;
+}
+
+.contact-qrcode-hint {
+  margin-top: 0.75rem;
+  font-size: 0.95rem;
+  opacity: 0.75;
+}
+
+/* QR Code Overlay */
+.qr-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.qr-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+}
+
+.qr-overlay-content {
+  position: relative;
+  z-index: 1;
+  width: min(520px, 92vw);
+  max-height: 92vh;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  padding: 18px 18px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.qr-overlay-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+
+.qr-overlay-img {
+  width: min(420px, 80vw);
+  height: auto;
+  border-radius: 16px;
+  display: block;
+  margin-top: 14px;
+}
+
+.qr-overlay-title {
+  margin-top: 12px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+/* Contact QR Code - Updated sizing */
+.qrcode-img {
+  width: min(260px, 70vw);
+  height: auto;
+  display: block;
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+/* QR Overlay Image - Updated for larger fullscreen view */
+.qr-overlay-img {
+  width: min(620px, 92vw);
+  max-height: 88vh;
+  height: auto;
+  object-fit: contain;
+  border-radius: 18px;
+  display: block;
+  margin-top: 14px;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media (min-width: 1024px) {
+  .article-journal p {
+    text-align: justify;
+    hyphens: auto;
+  }
+}
+
+@media (max-width: 1023px) {
+  .article-journal p {
+    text-align: left;
+  }
+}
+
+/* Drop cap: best effort */
+@supports (initial-letter: 3) {
+  .article-journal p:first-of-type::first-letter {
+    initial-letter: 3;
+    font-weight: 600;
+    margin-right: 0.35rem;
+  }
+}
+
+@supports not (initial-letter: 3) {
+  .article-journal p:first-of-type::first-letter {
+    float: left;
+    font-size: 3.2em;
+    line-height: 0.9;
+    padding-right: 0.14em;
+    padding-top: 0.06em;
+    font-weight: 600;
+  }
+}
+
+/* Interleaved images */
+.journal-figure {
+  margin: 0.3rem 0 1.2rem 0;
+  break-inside: avoid;
+}
+
+.journal-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 16px;
+}
+
+.journal-caption {
+  margin-top: 0.55rem;
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+/* Wide images spanning both columns (desktop) */
+@media (min-width: 1024px) {
+  .journal-figure--wide {
+    column-span: all;
+    margin: 0.6rem 0 1.6rem 0;
+  }
+}
+
+/* Signature block styling */
+.signature-block {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.signature-logo {
+  width: min(320px, 70vw);
+  max-width: 320px;
+  height: auto;
+  max-height: 120px;
+  object-fit: contain;
+  display: block;
+}
+
+/* Contact QR Code Block */
+.contact-qrcode {
+  margin-top: 2rem;
+  padding: 1.25rem 1.25rem;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  border-radius: 18px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.contact-qrcode-title {
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.qrcode-img {
+  width: min(220px, 70vw);
+  height: auto;
+  display: block;
+  border-radius: 14px;
+}
+
+.contact-qrcode-hint {
+  margin-top: 0.75rem;
+  font-size: 0.95rem;
+  opacity: 0.75;
+}
+
+/* QR Code Overlay */
+.qr-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.qr-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+}
+
+.qr-overlay-content {
+  position: relative;
+  z-index: 1;
+  width: min(520px, 92vw);
+  max-height: 92vh;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  padding: 18px 18px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.qr-overlay-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+
+.qr-overlay-img {
+  width: min(420px, 80vw);
+  height: auto;
+  border-radius: 16px;
+  display: block;
+  margin-top: 14px;
+}
+
+.qr-overlay-title {
+  margin-top: 12px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+/* Contact QR Code - Updated sizing */
+.qrcode-img {
+  width: min(260px, 70vw);
+  height: auto;
+  display: block;
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+/* QR Overlay Image - Updated for larger fullscreen view */
+.qr-overlay-img {
+  width: min(620px, 92vw);
+  max-height: 88vh;
+  height: auto;
+  object-fit: contain;
+  border-radius: 18px;
+  display: block;
+  margin-top: 14px;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media (min-width: 1024px) {
+  .article-journal p {
+    text-align: justify;
+    hyphens: auto;
+  }
+}
+
+@media (max-width: 1023px) {
+  .article-journal p {
+    text-align: left;
+  }
+}
+
+/* Drop cap: best effort */
+@supports (initial-letter: 3) {
+  .article-journal p:first-of-type::first-letter {
+    initial-letter: 3;
+    font-weight: 600;
+    margin-right: 0.35rem;
+  }
+}
+
+@supports not (initial-letter: 3) {
+  .article-journal p:first-of-type::first-letter {
+    float: left;
+    font-size: 3.2em;
+    line-height: 0.9;
+    padding-right: 0.14em;
+    padding-top: 0.06em;
+    font-weight: 600;
+  }
+}
+
+/* Interleaved images */
+.journal-figure {
+  margin: 0.3rem 0 1.2rem 0;
+  break-inside: avoid;
+}
+
+.journal-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 16px;
+}
+
+.journal-caption {
+  margin-top: 0.55rem;
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+/* Wide images spanning both columns (desktop) */
+@media (min-width: 1024px) {
+  .journal-figure--wide {
+    column-span: all;
+    margin: 0.6rem 0 1.6rem 0;
+  }
+}
+
+/* Signature block styling */
+.signature-block {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.signature-logo {
+  width: min(320px, 70vw);
+  max-width: 320px;
+  height: auto;
+  max-height: 120px;
+  object-fit: contain;
+  display: block;
+}
+
+/* Contact QR Code Block */
+.contact-qrcode {
+  margin-top: 2rem;
+  padding: 1.25rem 1.25rem;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  border-radius: 18px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.contact-qrcode-title {
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.qrcode-img {
+  width: min(220px, 70vw);
+  height: auto;
+  display: block;
+  border-radius: 14px;
+}
+
+.contact-qrcode-hint {
+  margin-top: 0.75rem;
+  font-size: 0.95rem;
+  opacity: 0.75;
+}
+
+/* QR Code Overlay */
+.qr-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.qr-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+}
+
+.qr-overlay-content {
+  position: relative;
+  z-index: 1;
+  width: min(520px, 92vw);
+  max-height: 92vh;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  padding: 18px 18px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.qr-overlay-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+
+.qr-overlay-img {
+  width: min(420px, 80vw);
+  height: auto;
+  border-radius: 16px;
+  display: block;
+  margin-top: 14px;
+}
+
+.qr-overlay-title {
+  margin-top: 12px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+/* Contact QR Code - Updated sizing */
+.qrcode-img {
+  width: min(260px, 70vw);
+  height: auto;
+  display: block;
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+/* QR Overlay Image - Updated for larger fullscreen view */
+.qr-overlay-img {
+  width: min(620px, 92vw);
+  max-height: 88vh;
+  height: auto;
+  object-fit: contain;
+  border-radius: 18px;
+  display: block;
+  margin-top: 14px;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* About Page - Magazine Style Text Block */
+.about-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.about-block {
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 20px;
+  box-sizing: border-box;
+}
+
+.about-block .about-text {
+  text-align: justify;
+  text-justify: inter-word;
+  text-align-last: left;
+  line-height: 1.9;
+  hyphens: none;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.about-block h1,
+.about-block h2,
+.about-block h3 {
+  text-align: center;
+}
+
+/* Responsive adjustments */
+@media (min-width: 768px) {
+  .about-block {
+    padding: 0 32px;
+  }
+}
+
+@media (max-width: 640px) {
+  .about-block {
+    max-width: 100%;
+    padding: 0 20px;
+  }
+
+  .about-block .about-text {
+    line-height: 1.9;
+  }
+}
+
+/* Gallery Marquee Animations */
+@keyframes gallery-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes gallery-soft-pulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(100%);
+  }
+
+  50% {
+    transform: scale(1.018);
+    filter: brightness(105%);
+  }
+}
+
+.gallery-marquee-track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  animation: gallery-marquee var(--duration) linear infinite;
+}
+
+.gallery-pulse {
+  animation: gallery-soft-pulse 4.5s ease-in-out infinite;
+}
+
+[data-paused="true"] .gallery-marquee-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gallery-marquee-track {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  .gallery-pulse {
+    animation: none !important;
+  }
+}
+
+/* Justified text block utility */
+.prose-justify {
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+}
+
+@media (max-width: 640px) {
+  .prose-justify {
+    text-align: left;
+    hyphens: none;
+  }
+}
