@@ -138,174 +138,172 @@ const Contact = () => {
                   className="rounded-lg"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+            </div>
 
-                  div>
-            div>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="company">Société</Label>
+                <Input
+                  id="company"
+                  className="rounded-lg"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                />
+              </div>
 
-            iv className="grid md:grid-cols-2 gap-6">
-              iv className="space-y-2">
-                abel htmlFor="company">Société</Label>
-                nput
-                ="company"
-                assName="rounded-lg"
-                lue={company}
-                Change={(e) => setCompany(e.target.value)}
-                
-              div>
+              <div className="space-y-2">
+                <Label htmlFor="city">Ville</Label>
+                <Input
+                  id="city"
+                  className="rounded-lg"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                />
+              </div>
+            </div>
 
-              iv className="space-y-2">
-                abel htmlFor="city">Ville</Label>
-              nput
-              ="city"
-              assName="rounded-lg"
-              lue={city}
-              Change={(e) => setCity(e.target.value)}
-                
-              div>
-            div>
+            <div className="space-y-2">
+              <Label htmlFor="project-type">Type de projet *</Label>
+              <Select value={projectType} onValueChange={setProjectType}>
+                <SelectTrigger id="project-type" className="rounded-lg">
+                  <SelectValue placeholder="Sélectionnez un type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="article-beaute">Article beauté</SelectItem>
+                  <SelectItem value="ouverture">Ouverture de commerce</SelectItem>
+                  <SelectItem value="evenement">Couverture d'événement</SelectItem>
+                  <SelectItem value="interview">Interview / Portrait</SelectItem>
+                  <SelectItem value="newsletter">Newsletter / E-mailing</SelectItem>
+                  <SelectItem value="autre">Autre</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-            iv className="space-y-2">
-              abel htmlFor="project-type">Type de projet *</Label>
-            elect value={projectType} onValueChange={setProjectType}>
-                electTrigger id="project-type" className="rounded-lg">
-                  electValue placeholder="Sélectionnez un type" />
-                SelectTrigger>
-                electContent>
-                  electItem value="article-beaute">Article beauté</SelectItem>
-                  electItem value="ouverture">Ouverture de commerce</SelectItem>
-                  electItem value="evenement">Couverture d'événement</SelectItem>
-                  electItem value="interview">Interview / Portrait</SelectItem>
-                  electItem value = "newsletter" > Newsletter / E - mailing</SelectItem >
-    electItem value = "autre" > Autre</SelectItem >
-      SelectContent >
-      Select >
-      div >
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="budget">Budget indicatif</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="budget"
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step="1"
+                    placeholder="Ex : 500"
+                    className="rounded-lg"
+                    value={budget}
+                    onChange={(e) => setBudget(e.target.value)}
+                  />
+                  <span className="text-sm text-muted-foreground">€</span>
+                </div>
+              </div>
 
-      iv className = "grid md:grid-cols-2 gap-6" >
-        iv className = "space-y-2" >
-          abel htmlFor = "budget" > Budget indicatif</Label >
-            iv className = "flex items-center gap-2" >
-              nput
-                    ="budget"
-pe = "number"
-putMode = "decimal"
-n = { 0}
-ep = "1"
-aceholder = "Ex : 500"
-assName = "rounded-lg"
-lue = { budget }
-Change = {(e) => setBudget(e.target.value)}
-                  
-                  pan className = "text-sm text-muted-foreground" >€</span >
-  div >
-  div >
+              <div className="space-y-2">
+                <Label htmlFor="deadline">Délai souhaité</Label>
+                <Input
+                  id="deadline"
+                  placeholder="Ex: Dans 2 semaines"
+                  className="rounded-lg"
+                  value={deadline}
+                  onChange={(e) => setDeadline(e.target.value)}
+                />
+              </div>
+            </div>
 
-  iv className = "space-y-2" >
-    abel htmlFor = "deadline" > Délai souhaité</Label >
-      nput
-                  ="deadline"
-aceholder = "Ex: Dans 2 semaines"
-assName = "rounded-lg"
-lue = { deadline }
-Change = {(e) => setDeadline(e.target.value)}
+            <div className="space-y-2">
+              <Label htmlFor="message">Message *</Label>
+              <Textarea
+                id="message"
+                required
+                rows={6}
+                placeholder="Décrivez votre projet, vos besoins et vos attentes..."
+                className="rounded-lg resize-none"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+              />
+            </div>
 
-div >
-  div >
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="consent"
+                required
+                className="mt-1"
+                checked={consent}
+                onCheckedChange={(checked) => setConsent(Boolean(checked))}
+              />
+              <Label htmlFor="consent" className="text-sm text-muted-foreground leading-relaxed cursor-pointer">
+                J'accepte que mes données soient collectées et traitées dans le cadre de ma demande.
+                Conformément au RGPD, vous pouvez exercer vos droits en me contactant.
+              </Label>
+            </div>
 
-  iv className = "space-y-2" >
-    abel htmlFor = "message" > Message *</Label >
-      extarea
-                ="message"
-quired
-ws = { 6}
-aceholder = "Décrivez votre projet, vos besoins et vos attentes..."
-assName = "rounded-lg resize-none"
-lue = { message }
-Change = {(e) => setMessage(e.target.value)}
+            <Button type="submit" size="lg" disabled={loading} className="w-full rounded-full bg-primary hover:bg-primary/90">
+              {loading ? "Envoi..." : "Envoyer ma demande"}
+            </Button>
+          </form>
 
-div >
+          {/* Info */}
+          <div className="mt-12 text-center space-y-4">
+            <p className="text-muted-foreground">
+              Délai de réponse : 48h ouvrées maximum
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Pour toute question urgente, vous pouvez également me contacter sur les réseaux sociaux.
+            </p>
+          </div>
 
-  iv className = "flex items-start gap-3" >
-    heckbox
-                ="consent"
-quired
-assName = "mt-1"
-ecked = { consent }
-CheckedChange = {(checked) => setConsent(Boolean(checked))}
-              
-              abel htmlFor = "consent" className = "text-sm text-muted-foreground leading-relaxed cursor-pointer" >
-  accepte que mes données soient collectées et traitées dans le cadre de ma demande.
-                nformément au RGPD, vous pouvez exercer vos droits en me contactant.
-  Label >
-  div >
+          {/* QR Code Section */}
+          <div className="mt-16 flex flex-col items-center space-y-4">
+            <h3 className="text-lg font-semibold text-foreground">Scanner le QR Code</h3>
+            <p className="text-sm text-muted-foreground">Cliquez pour l’agrandir</p>
+            <button
+              onClick={() => setIsQrOpen(true)}
+              className="relative group transition-transform hover:scale-105 focus:outline-none"
+            >
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-stone-100">
+                <img
+                  src="/contact/qr-alabrestoise.png"
+                  alt="QR code À la Brestoise"
+                  className="w-32 h-32 md:w-40 md:h-40 object-contain"
+                />
+              </div>
+            </button>
+          </div>
+        </div>
+      </section>
 
-  utton type = "submit" size = "lg" disabled = { loading } className = "w-full rounded-full bg-primary hover:bg-primary/90" >
-    oading ? "Envoi..." : "Envoyer ma demande"}
-Button >
-  form >
+      <Footer />
 
-          * Info */}
-          iv className = "mt-12 text-center space-y-4" >
-  className="text-muted-foreground" >
-    lai de réponse: 48h ouvrées maximum
-p >
-  className="text-sm text-muted-foreground" >
-    ur toute question urgente, vous pouvez également me contacter sur les réseaux sociaux.
-      p >
-      div >
-
-          * QR Code Section */}
-          iv className = "mt-16 flex flex-col items-center space-y-4" >
-  3 className = "text-lg font-semibold text-foreground" > Scanner le QR Code</h3 >
-    className="text-sm text-muted-foreground" > Cliquez pour l’agrandir</p >
-      utton
-Click = {() => setIsQrOpen(true)}
-assName = "relative group transition-transform hover:scale-105 focus:outline-none"
-            
-              iv className = "bg-white p-4 rounded-xl shadow-sm border border-stone-100" >
-  mg
-c = "/contact/qr-alabrestoise.png"
-t = "QR code À la Brestoise"
-assName = "w-32 h-32 md:w-40 md:h-40 object-contain"
-
-div >
-  button >
-  div >
-  div >
-      </section >
-
-  <Footer />
-
-{/* QR Modal */ }
-{
-  isQrOpen && (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-      onClick={() => setIsQrOpen(false)}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div
-        className="relative max-w-[92vw] max-h-[90vh] bg-white p-4 rounded-2xl shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
+      {/* QR Modal */}
+      {isQrOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
           onClick={() => setIsQrOpen(false)}
-          className="absolute -top-4 -right-4 bg-white text-stone-900 rounded-full p-2 shadow-lg hover:bg-stone-100 transition-colors"
-          aria-label="Fermer"
+          role="dialog"
+          aria-modal="true"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
-        <img
-          src="/contact/qr-alabrestoise.png"
-          alt="QR code À la Brestoise"
-          className="w-full h-full object-contain max-h-[80vh] max-w-[80vw] md:max-w-md"
-        />
-      </div>
+          <div
+            className="relative max-w-[92vw] max-h-[90vh] bg-white p-4 rounded-2xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setIsQrOpen(false)}
+              className="absolute -top-4 -right-4 bg-white text-stone-900 rounded-full p-2 shadow-lg hover:bg-stone-100 transition-colors"
+              aria-label="Fermer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+            <img
+              src="/contact/qr-alabrestoise.png"
+              alt="QR code À la Brestoise"
+              className="w-full h-full object-contain max-h-[80vh] max-w-[80vw] md:max-w-md"
+            />
+          </div>
+        </div>
+      )}
     </div>
-  )
-}
-    </div >
   );
 };
 
