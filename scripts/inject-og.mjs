@@ -12,8 +12,8 @@ const GALLERY_CONFIG_PATH = path.join(ROOT_DIR, 'content', 'home', 'gallery.json
 
 const DEFAULT_OG = {
     url: "https://a-la-brestoise.vercel.app/",
-    title: "A la Brestoise — Articles élégants et fiables",
-    description: "Des articles à la Brestoise : Événements, Lieux et commerces, Bien-être, Échappées Belles. Explorez ce blog éditorial au cœur de Brest. Lire les articles",
+    title: "Des articles à la Brestoise",
+    description: "Événements, Lieux et commerces, Bien-être, Échappées Belles. Explorez ce blog éditorial au cœur de Brest. Lire les articles.",
     image: "/favicon.png" // Minimal fallback
 };
 

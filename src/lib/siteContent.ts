@@ -27,7 +27,7 @@ export const site = {
   footer: {
     social: {
       linkedin: "https://www.linkedin.com/in/nolwennrobet",
-      whatsapp: "mailto:nolwennalabrestoise@gmail.com",
+      whatsapp: "https://mail.google.com/mail/?view=cm&fs=1&to=nolwennalabrestoise@gmail.com",
       tiktok: "https://www.tiktok.com/@nollaframboise?_r=1&_t=ZN-917nFjtOgH0",
     },
     legal: {

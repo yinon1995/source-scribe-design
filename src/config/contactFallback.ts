@@ -5,5 +5,5 @@ export type ContactMode = "placeholder" | "live";
 export const CONTACT_MODE: ContactMode = "placeholder";
 
 export { CONTACT_EMAIL } from "@/config/contact";
-export const CONTACT_WHATSAPP_URL = "mailto:nolwennalabrestoise@gmail.com";
+export const CONTACT_WHATSAPP_URL = "https://mail.google.com/mail/?view=cm&fs=1&to=nolwennalabrestoise@gmail.com";
 
