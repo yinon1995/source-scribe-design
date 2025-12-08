@@ -7,7 +7,6 @@ import rehypeRaw from "rehype-raw";
 import type { Post, ArticleBodyFont } from "@/lib/content";
 import { FALLBACK_ARTICLE_IMAGE } from "@/lib/images";
 import { cn } from "@/lib/utils";
-import "@/styles/article-mobile.css";
 
 
 const fontClassByKey: Record<ArticleBodyFont, string> = {
