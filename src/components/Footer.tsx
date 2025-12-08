@@ -77,7 +77,7 @@ const Footer = () => {
               rel="noopener noreferrer"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              WhatsApp +33 6 58 29 72 20
+              nolwennalabrestoise@gmail.com
             </a>
           </div>
         </div>

@@ -445,6 +445,9 @@ All colors MUST be HSL.
 @media (max-width: 1023px) {
   .article-journal p {
     text-align: left;
+    text-justify: auto;
+    word-spacing: normal;
+    letter-spacing: normal;
   }
 }
 

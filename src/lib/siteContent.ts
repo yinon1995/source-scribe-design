@@ -1,11 +1,11 @@
 export const site = {
   name: "À la Brestoise",
-  tagline: "Des articles à la Brestoise : Événements, Lieux et Bien-être",
+  tagline: "Des articles à la Brestoise : Événements, Lieux et commerces, Bien-être, Échappées Belles",
   url: "https://source-scribe-design.vercel.app",
   hero: {
-    title: "Des articles à la Brestoise : Événements, Lieux et Bien-être",
+    title: "Des articles à la Brestoise : Événements, Lieux et commerces, Bien-être, Échappées Belles",
     subtitle:
-      "Explorez des contenus clairs, vivants, rédigés et sourcés.",
+      "Explorez ce blog éditorial au cœur de Brest.",
     ctaLabel: "Lire les articles",
     ctaHref: "/articles",
   },
@@ -27,7 +27,7 @@ export const site = {
   footer: {
     social: {
       linkedin: "https://www.linkedin.com/in/nolwennrobet",
-      whatsapp: "https://wa.me/33658297220",
+      whatsapp: "mailto:nolwennalabrestoise@gmail.com",
       tiktok: "https://www.tiktok.com/@nollaframboise?_r=1&_t=ZN-917nFjtOgH0",
     },
     legal: {
