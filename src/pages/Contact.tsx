@@ -103,10 +103,12 @@ const Contact = () => {
               Un projet de collaboration ? Remplissez ce formulaire et je reviendrai vers vous rapidement.
             </p>
             <p className="text-sm text-muted-foreground">
-              Besoin d’une réponse rapide ? Écrivez-moi aussi sur{" "}
+              Besoin d'une réponse rapide ? Écrivez-moi aussi sur{" "}
               <a
                 className="underline"
                 href={CONTACT_WHATSAPP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 nolwennalabrestoise@gmail.com
               </a>.
