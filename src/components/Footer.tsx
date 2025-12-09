@@ -68,13 +68,14 @@ const Footer = () => {
               .footer-social-link {
                 display: inline-flex;
                 align-items: center;
-                gap: 0.5rem;
-                transition: color 180ms ease-out;
+                gap: 0.75rem;
+                transition: color 180ms ease-out, transform 160ms ease-out;
                 text-decoration: none;
                 color: hsl(var(--muted-foreground));
               }
               .footer-social-link:hover {
-                color: #a38366;
+                color: #9a7a62;
+                transform: translateY(-1px);
               }
 
               .footer-social-icon {
@@ -86,29 +87,30 @@ const Footer = () => {
                 height: 1.25rem;
               }
 
-              /* Base glass stroke */
+              /* Color layer: hidden by default */
               .footer-social-glass-stroke {
-                stroke-dasharray: 100;
-                stroke-dashoffset: 100;
+                stroke-dasharray: 90;
+                stroke-dashoffset: 90;
                 opacity: 0;
+                filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.4));
               }
 
-              /* Hover: a glass wave runs along the stroke */
+              /* Hover: run a colorful glass wave over the glyph */
               .footer-social-link:hover .footer-social-glass-stroke {
-                animation: footerSocialGlass 750ms ease-out forwards;
+                animation: footerSocialGlass 600ms ease-out forwards;
               }
 
               @keyframes footerSocialGlass {
                 0% {
-                  stroke-dashoffset: 100;
+                  stroke-dashoffset: 90;
                   opacity: 0;
                 }
                 10% {
-                  opacity: 0.9;
+                  opacity: 1;
                 }
-                80% {
+                70% {
                   stroke-dashoffset: 0;
-                  opacity: 0.8;
+                  opacity: 0.9;
                 }
                 100% {
                   stroke-dashoffset: 0;
@@ -217,10 +219,11 @@ function FooterLinkedInIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <defs>
-        <linearGradient id="footer-social-glass" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="rgba(255,255,255,0.0)" />
-          <stop offset="35%" stopColor="rgba(255,255,255,0.7)" />
-          <stop offset="70%" stopColor="rgba(255,255,255,0.0)" />
+        <linearGradient id="footer-social-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#ff6b6b" />
+          <stop offset="30%" stopColor="#f7c948" />
+          <stop offset="60%" stopColor="#51cf66" />
+          <stop offset="100%" stopColor="#339af0" />
         </linearGradient>
       </defs>
 
@@ -230,7 +233,7 @@ function FooterLinkedInIcon(props: React.SVGProps<SVGSVGElement>) {
       <circle cx="4" cy="4" r="2" strokeWidth="1.7" />
 
       {/* Highlight */}
-      <g className="footer-social-glass-stroke" stroke="url(#footer-social-glass)" strokeWidth="2.1">
+      <g className="footer-social-glass-stroke" stroke="url(#footer-social-gradient)" strokeWidth="2.1">
         <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
         <rect x="2" y="9" width="4" height="12" />
         <circle cx="4" cy="4" r="2" />
@@ -248,7 +251,7 @@ function FooterInstagramIcon(props: React.SVGProps<SVGSVGElement>) {
       <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" strokeWidth="1.7" />
 
       {/* Highlight */}
-      <g className="footer-social-glass-stroke" stroke="url(#footer-social-glass)" strokeWidth="2.1">
+      <g className="footer-social-glass-stroke" stroke="url(#footer-social-gradient)" strokeWidth="2.1">
         <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
         <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
         <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
@@ -267,7 +270,7 @@ function FooterTikTokIcon(props: React.SVGProps<SVGSVGElement>) {
       <path
         className="footer-social-glass-stroke"
         d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"
-        stroke="url(#footer-social-glass)"
+        stroke="url(#footer-social-gradient)"
         strokeWidth="2.1"
       />
     </svg>
