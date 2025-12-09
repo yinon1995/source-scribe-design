@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Linkedin, Mail, Instagram, Music } from "lucide-react";
+import { Linkedin, Mail, Instagram } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { site, NAV_LINKS } from "@/lib/siteContent";
@@ -83,19 +83,26 @@ const Footer = () => {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
+                width: 1.25rem;
+                height: 1.25rem;
                 overflow: hidden;
               }
 
-              /* Rainbow band */
+              .footer-social-icon svg {
+                position: relative;
+                z-index: 10;
+              }
+
+              /* Rainbow band with wave animation */
               .footer-social-icon::before {
                 content: "";
                 position: absolute;
-                left: -10%;
-                top: -20%;
-                width: 40%;
-                height: 140%;
+                width: 160%;
+                height: 160%;
+                top: -30%;
+                left: -80%;
                 background: linear-gradient(
-                  180deg,
+                  120deg,
                   #ff6b6b,
                   #f7c948,
                   #51cf66,
@@ -103,35 +110,58 @@ const Footer = () => {
                   #845ef7
                 );
                 opacity: 0;
-                transform: translateY(-20%);
-                border-radius: 999px;
+                transform: translateX(-100%) rotate(20deg);
                 pointer-events: none;
-                transition: opacity 200ms ease-out, transform 250ms ease-out;
+                z-index: 1;
+              }
+
+              @keyframes footer-social-wave {
+                0% {
+                  opacity: 0;
+                  transform: translateX(-120%) rotate(20deg);
+                }
+                15% {
+                  opacity: 1;
+                }
+                85% {
+                  opacity: 1;
+                  transform: translateX(120%) rotate(20deg);
+                }
+                100% {
+                  opacity: 0;
+                  transform: translateX(140%) rotate(20deg);
+                }
               }
 
               .footer-social-link:hover .footer-social-icon::before {
-                opacity: 0.9;
-                transform: translateY(20%);
+                animation: footer-social-wave 600ms ease-out forwards;
               }
             `}</style>
 
             <a href={site.footer.social.linkedin} target="_blank" rel="noopener noreferrer" className="footer-social-link">
               <span className="footer-social-icon">
-                <Linkedin className="h-5 w-5 relative z-10" />
+                <Linkedin className="h-full w-full relative z-10" />
               </span>
               <span className="sr-only">LinkedIn</span>
             </a>
 
             <a href={site.footer.social.instagram} target="_blank" rel="noopener noreferrer" className="footer-social-link">
               <span className="footer-social-icon">
-                <Instagram className="h-5 w-5 relative z-10" />
+                <Instagram className="h-full w-full relative z-10" />
               </span>
               <span className="sr-only">Instagram</span>
             </a>
 
             <a href={site.footer.social.tiktok} target="_blank" rel="noopener noreferrer" className="footer-social-link">
               <span className="footer-social-icon">
-                <Music className="h-5 w-5 relative z-10" />
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  className="h-5 w-5 relative z-10"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+                </svg>
               </span>
               <span className="sr-only">TikTok</span>
             </a>
@@ -147,7 +177,7 @@ const Footer = () => {
           </div>
         </div>
       </div>
-    </footer>
+    </footer >
   );
 };
 
