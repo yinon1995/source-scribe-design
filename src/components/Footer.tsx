@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Linkedin, Mail, Instagram } from "lucide-react";
+import { Linkedin, Mail, Instagram, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { site, NAV_LINKS } from "@/lib/siteContent";
@@ -65,24 +65,84 @@ const Footer = () => {
           </p>
 
           <div className="flex flex-wrap items-center gap-6">
-            <a href={site.footer.social.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors duration-200">
-              <Linkedin className="h-5 w-5" />
+            <style>{`
+              .footer-social-link {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.5rem;
+                color: hsl(var(--muted-foreground));
+                transition: color 200ms ease-out;
+                text-decoration: none;
+              }
+              .footer-social-link:hover {
+                color: hsl(var(--foreground));
+              }
+
+              .footer-social-icon {
+                position: relative;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+              }
+
+              /* Rainbow band */
+              .footer-social-icon::before {
+                content: "";
+                position: absolute;
+                left: -10%;
+                top: -20%;
+                width: 40%;
+                height: 140%;
+                background: linear-gradient(
+                  180deg,
+                  #ff6b6b,
+                  #f7c948,
+                  #51cf66,
+                  #339af0,
+                  #845ef7
+                );
+                opacity: 0;
+                transform: translateY(-20%);
+                border-radius: 999px;
+                pointer-events: none;
+                transition: opacity 200ms ease-out, transform 250ms ease-out;
+              }
+
+              .footer-social-link:hover .footer-social-icon::before {
+                opacity: 0.9;
+                transform: translateY(20%);
+              }
+            `}</style>
+
+            <a href={site.footer.social.linkedin} target="_blank" rel="noopener noreferrer" className="footer-social-link">
+              <span className="footer-social-icon">
+                <Linkedin className="h-5 w-5 relative z-10" />
+              </span>
               <span className="sr-only">LinkedIn</span>
             </a>
-            <a href={site.footer.social.instagram} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors duration-200">
-              <Instagram className="h-5 w-5" />
+
+            <a href={site.footer.social.instagram} target="_blank" rel="noopener noreferrer" className="footer-social-link">
+              <span className="footer-social-icon">
+                <Instagram className="h-5 w-5 relative z-10" />
+              </span>
               <span className="sr-only">Instagram</span>
             </a>
-            <a href={site.footer.social.tiktok} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors duration-200">
-              TikTok
+
+            <a href={site.footer.social.tiktok} target="_blank" rel="noopener noreferrer" className="footer-social-link">
+              <span className="footer-social-icon">
+                <Music className="h-5 w-5 relative z-10" />
+              </span>
+              <span className="sr-only">TikTok</span>
             </a>
+
             <a
               href={site.footer.social.whatsapp}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
+              className="footer-social-link"
             >
-              nolwennalabrestoise@gmail.com
+              <span className="text-sm">nolwennalabrestoise@gmail.com</span>
             </a>
           </div>
         </div>
