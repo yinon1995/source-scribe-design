@@ -92,7 +92,7 @@ const About = () => {
               Domaines d&apos;expertise
             </h2>
 
-            <div className="grid md:grid-cols-3 gap-8">
+            <div className="grid md:grid-cols-4 gap-8">
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold text-foreground">
                   Beauté & cosmétique
@@ -121,6 +121,15 @@ const About = () => {
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Salons professionnels, lieux de réception, événements
                   culturels, sportifs et musicaux.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-foreground">
+                  Échappées belles
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Petits guides vacances, adresses inspirantes et expériences choisies hors de Brest : une sélection d’escapades en France ou à l’étranger pour voyager avec intention.
                 </p>
               </div>
             </div>
