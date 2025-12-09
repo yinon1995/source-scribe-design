@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
-import { Linkedin, Mail } from "lucide-react";
+import { Linkedin, Mail, Instagram } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { site } from "@/lib/siteContent";
+import { site, NAV_LINKS } from "@/lib/siteContent";
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { createLead } from "@/lib/inboxClient";
@@ -26,15 +26,15 @@ const Footer = () => {
           <div className="space-y-4">
             <h4 className="font-semibold text-foreground">Navigation</h4>
             <nav className="flex flex-col gap-2">
-              <Link to="/articles" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Articles
-              </Link>
-              <Link to="/a-propos" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                À propos
-              </Link>
-              <Link to="/services" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Services
-              </Link>
+              {NAV_LINKS.map((link) => (
+                <Link
+                  key={link.href}
+                  to={link.href}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {link.label}
+                </Link>
+              ))}
             </nav>
           </div>
 
@@ -64,18 +64,23 @@ const Footer = () => {
             © 2025 {site.name}. Tous droits réservés.
           </p>
 
-          <div className="flex items-center gap-4">
-            <a href={site.footer.social.linkedin} target="_blank" rel="noopener noreferrer" className="rounded-full hover:bg-accent p-2 transition duration-200">
+          <div className="flex flex-wrap items-center gap-6">
+            <a href={site.footer.social.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors duration-200">
               <Linkedin className="h-5 w-5" />
+              <span className="sr-only">LinkedIn</span>
             </a>
-            <a href={site.footer.social.tiktok} target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <a href={site.footer.social.instagram} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors duration-200">
+              <Instagram className="h-5 w-5" />
+              <span className="sr-only">Instagram</span>
+            </a>
+            <a href={site.footer.social.tiktok} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors duration-200">
               TikTok
             </a>
             <a
               href={site.footer.social.whatsapp}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
             >
               nolwennalabrestoise@gmail.com
             </a>
