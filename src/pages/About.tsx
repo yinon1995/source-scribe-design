@@ -87,13 +87,17 @@ const About = () => {
           </div>
 
           {/* Expertise */}
-          <div className="bg-card rounded-2xl p-8 md:p-12 space-y-8">
+        </div>
+
+        {/* Expertise - Wider Layout */}
+        <div className="container mx-auto px-4 max-w-6xl mt-16">
+          <div className="bg-card rounded-2xl p-8 md:px-12 md:py-16 space-y-10 shadow-sm">
             <h2 className="text-3xl font-display font-semibold text-foreground text-center">
               Domaines d&apos;expertise
             </h2>
 
-            <div className="grid md:grid-cols-4 gap-8">
-              <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-10">
+              <div className="space-y-4 max-w-xs mx-auto md:max-w-none">
                 <h3 className="text-lg font-semibold text-foreground">
                   Beauté & cosmétique
                 </h3>
@@ -104,7 +108,7 @@ const About = () => {
                 </p>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-4 max-w-xs mx-auto md:max-w-none">
                 <h3 className="text-lg font-semibold text-foreground">
                   Commerces & lieux
                 </h3>
@@ -114,7 +118,7 @@ const About = () => {
                 </p>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-4 max-w-xs mx-auto md:max-w-none">
                 <h3 className="text-lg font-semibold text-foreground">
                   Événementiel
                 </h3>
@@ -124,7 +128,7 @@ const About = () => {
                 </p>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-4 max-w-xs mx-auto md:max-w-none">
                 <h3 className="text-lg font-semibold text-foreground">
                   Échappées belles
                 </h3>
